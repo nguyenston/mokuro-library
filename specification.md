@@ -1,0 +1,190 @@
+# Project Specification: Mokuro NAS Library
+
+## Overview
+
+### Project Goal
+
+To create a self-hosted, multi-user Mokuro reader application that runs on a NAS. This application will solve the primary limitation of existing client-side readers by storing all library files and user data on the server's filesystem, bypassing browser storage quotas.
+
+### Target Use Case
+
+A casual NAS owner who wants to host a manga library for a small, trusted group of users (family, friends) over a private network (LAN or VPN).
+
+### Core Architecture
+
+The system will be a decoupled client-server application.
+
+* Backend: A Node.js server (Fastify) handles all logic, database interactions, and file storage.
+* Frontend: A SvelteKit application (refactored from zxy101/mokuro-reader) provides the web UI.
+* Database: A server-side SQLite file will store all metadata.
+* Deployment: The frontend and backend will be packaged to run together, ideally in a single Docker container.
+
+## Feature Set
+
+### Must-Haves (Minimum Viable Product)
+
+1.  **Multi-User Authentication:**
+    * Users must be able to create an account and log in.
+    * The backend will use a simple, non-HTTPS-only cookie for session management, suitable for a trusted LAN/VPN environment.
+
+2.  **Server-Side Library (Directory Upload-Style):**
+    * Authenticated users can upload content via the web UI. The upload modal will support two methods:
+        1.  Single File Upload: .zip or .cbz files containing a single volume, \<series\_title\> will be pulled from inside the .mokuro file.
+        2.  Directory Upload: Users can select a "root" folder from their computer that contains pre-processed Mokuro output.
+    * The backend will be able to parse the uploaded directory structure to find series and volumes based on the standard Mokuro output format:
+        **Mokuro Output Structure:**
+        * Image Files: root/\<series\_title\>/\<volume\_title\>/\<image\>.\<ext\>
+        * Mokuro File: root/\<series\_title\>/\<volume\_title\>.mokuro
+    * The backend will iterate through the uploaded file list, identify each series and volume, and populate the SQLite database, linking the new Series to the logged-in user's ID.
+    * Collision Handling: If an uploaded volume already exists in that user's library (based on series\_title and volume\_title), the server will ignore the uploaded volume and keep the existing data.
+
+3.  **Per-User Progress & Settings:**
+    * All reading progress (current page, stats) will be saved to the database, linked to the specific user ID.
+    * All user-configurable settings (theme, reader behavior, etc.) will be saved to the database, linked to the user ID.
+
+4.  **Manga Reader UI:**
+    * The reader UI from zxy101/mokuro-reader will be adapted.
+    * The reader will fetch page images and OCR data from the backend API, which will validate that the user has permission to read them.
+
+5.  **OCR Editing (Write-Back):**
+    * Users can edit the text within an OCR text box.
+    * Users can edit the textbox location (i.e. the four corners) of an OCR text box
+    * A "Save" button will send the modified text data to the backend.
+    * The backend will verify the user owns the volume, read the corresponding .mokuro file from the disk, update its JSON content, and save the changes.
+
+### Nice-to-Haves (Post-MVP)
+
+* Reading Statistics: Implement the UI to display reading stats (time, characters read), which will be tracked in the database.
+* AnkiConnect Integration: Re-implement the AnkiConnect feature, linking settings to the server-side user account.
+
+## Technology Stack
+
+* Repository: Monorepo (contains frontend and backend packages).
+* Frontend: SvelteKit + TypeScript + Tailwind CSS.
+* Backend: Node.js + Fastify + TypeScript.
+* Database: SQLite (managed via Prisma ORM).
+
+## Draft API "Contract"
+
+All endpoints (except /auth) are protected and require an authenticated session cookie. All library-related endpoints are implicitly scoped to the logged-in user.
+
+### Auth API (Public)
+
+* **POST /api/auth/register**
+    * Creates a new user.
+* **POST /api/auth/login**
+    * Creates a session cookie.
+* **POST /api/auth/logout**
+    * Clears the session cookie.
+* **GET /api/auth/me**
+    * Gets the currently logged-in user's data (username, settings).
+
+### Library API (User-Scoped)
+
+* **GET /api/library**
+    * Gets a list of all Series and Volume metadata owned by the current user.
+* **POST /api/library/upload**
+    * Uploads new manga (zip or directory) and associates it with the current user's ownerId.
+* **GET /api/library/volume/:id**
+    * Gets full data for one volume, including the parsed .mokuro JSON.
+    * Fails (404/403) if the volume does not belong to the current user.
+* **PUT /api/library/volume/:id/ocr**
+    * Saves modified OCR data.
+    * Fails if the volume does not belong to the current user.
+* **DELETE /api/library/volume/:id or DELETE /api/library/series/:id**
+    * Deletes a volume or entire series.
+    * Fails if the resource does not belong to the current user.
+
+### User Data API (User-Scoped)
+
+* **GET /api/settings**
+    * Gets the current user's settings JSON.
+* **PUT /api/settings**
+    * Updates the current user's settings.
+* **GET /api/progress/volume/:id**
+    * Gets the UserProgress for a volume for the current user.
+* **PUT /api/progress/volume/:id**
+    * Saves/updates the UserProgress for a volume for the current user.
+
+### File API (User-Scoped)
+
+* **GET /api/files/volume/:id/image/:imageName**
+    * Securely serves a specific manga page image.
+    * Fails if the volume does not belong to the current user.
+* **GET /api/files/series/:id/cover**
+    * Securely serves the cover image for a series.
+    * Fails if the series does not belong to the current user.
+
+## Draft Database Schema (Prisma)
+
+This schema will be located at backend/prisma/schema.prisma.
+
+```prisma
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./library.db"
+}
+
+// Stores metadata about a manga series
+model Series {
+  id        String    @id @default(cuid())
+  title     String // e.g., "Yotsuba&!"
+  coverPath String? // Path to the cover image
+
+  volumes Volume[]
+  owner   User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  ownerId String // Which user uploaded this
+
+  @@unique([title, ownerId]) // A user can't have two series with the same title
+}
+
+// Stores metadata about a single volume
+model Volume {
+  id        String @id @default(cuid())
+  title     String // e.g., "Volume 1"
+  pageCount Int
+
+  // File paths on the NAS
+  filePath   String @unique // Path to the folder containing the images
+  mokuroPath String @unique // Path to the .mokuro file
+
+  series   Series @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+  seriesId String
+
+  progress UserProgress[]
+
+  @@unique([seriesId, title]) // Prevent duplicate volumes within a series
+}
+
+// Stores user accounts and their settings
+model User {
+  id       String @id @default(cuid())
+  username String @unique
+  password String // Will store a hash
+
+  settings Json // All reader settings
+
+  uploads  Series[]
+  progress UserProgress[]
+}
+
+// Tracks the progress for a specific user and a specific volume
+model UserProgress {
+  id        String  @id @default(cuid())
+  page      Int     @default(1)
+  timeRead  Int     @default(0) // in minutes
+  charsRead Int     @default(0)
+  completed Boolean @default(false)
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+  volume Volume @relation(fields: [volumeId], references: [id], onDelete: Cascade)
+  volumeId String
+
+  @@unique([userId, volumeId]) // A user can only have one progress entry per volume
+}
+```

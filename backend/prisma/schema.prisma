@@ -1,0 +1,71 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// Stores metadata about a manga series
+model Series {
+  id        String    @id @default(cuid())
+  title     String    // e.g., "Yotsuba&!"
+  coverPath String?   // Path to the cover image
+
+  volumes   Volume[]
+  owner     User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  ownerId   String    // Which user uploaded this
+
+  @@unique([title, ownerId]) // A user can't have two series with the same title
+}
+
+// Stores metadata about a single volume
+model Volume {
+  id          String   @id @default(cuid())
+  title       String   // e.g., "Volume 1"
+  pageCount   Int
+
+  // File paths on the NAS
+  filePath    String   @unique // Path to the folder containing the images
+  mokuroPath  String   @unique // Path to the .mokuro file
+
+  series      Series   @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+  seriesId    String
+
+  progress    UserProgress[]
+
+  @@unique([seriesId, title]) // Prevent duplicate volumes within a series
+}
+
+// Stores user accounts and their settings
+model User {
+  id        String   @id @default(cuid())
+  username  String   @unique
+  password  String   // Will store a hash
+
+  settings  Json     // All reader settings
+
+  uploads   Series[]
+  progress  UserProgress[]
+}
+
+// Tracks the progress for a specific user and a specific volume
+model UserProgress {
+  id        String  @id @default(cuid())
+  page      Int     @default(1)
+  timeRead  Int     @default(0) // in minutes
+  charsRead Int     @default(0)
+  completed Boolean @default(false)
+
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  volume    Volume  @relation(fields: [volumeId], references: [id], onDelete: Cascade)
+  volumeId  String
+
+  @@unique([userId, volumeId]) // A user can only have one progress entry per volume
+}
