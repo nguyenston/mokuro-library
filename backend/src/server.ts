@@ -2,6 +2,7 @@ import 'dotenv/config'; // important to make environment variables available to 
 import Fastify from 'fastify';
 import { PrismaClient } from './generated/prisma/client'
 import fastifyCookie from '@fastify/cookie';
+import fastifyMultipart from '@fastify/multipart';
 // Import Plugins
 import authPlugin from './plugins/auth';
 
@@ -25,6 +26,7 @@ fastify.register(fastifyCookie, {
   // but for a simple session ID, this is fine for now.
 });
 fastify.register(authPlugin);
+fastify.register(fastifyMultipart);
 
 // Decorate Fastify instance with Prisma Client
 // This makes 'fastify.prisma' available in all routes
