@@ -3,6 +3,9 @@ import Fastify from 'fastify';
 import { PrismaClient } from './generated/prisma/client'
 import fastifyCookie from '@fastify/cookie';
 import fastifyMultipart from '@fastify/multipart';
+import fastifyStatic from '@fastify/static';
+import path from 'path';
+
 // Import Plugins
 import authPlugin from './plugins/auth';
 
@@ -11,6 +14,7 @@ import authRoutes from './routes/auth';
 import settingsRoutes from './routes/settings';
 import progressRoutes from './routes/progress';
 import libraryRoutes from './routes/library';
+import filesRoutes from './routes/files';
 
 // Initialize the Prisma Client
 const prisma = new PrismaClient();
@@ -27,6 +31,13 @@ fastify.register(fastifyCookie, {
 });
 fastify.register(authPlugin);
 fastify.register(fastifyMultipart);
+fastify.register(fastifyStatic, {
+  // Register fastify-static
+  // We set 'serve: false' because we are not serving an entire
+  // public directory. We just want to use the 'reply.sendFile' decorator
+  // for our secure, custom routes.
+  serve: false,
+});
 
 // Decorate Fastify instance with Prisma Client
 // This makes 'fastify.prisma' available in all routes
