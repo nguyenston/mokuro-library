@@ -257,6 +257,195 @@ const libraryRoutes: FastifyPluginAsync = async (
       }
     }
   });
+
+  /**
+   * 2. Add GET /api/library/volume/:id
+   * Gets full data for one volume, including the parsed .mokuro JSON.
+   */
+  fastify.get<{ Params: VolumeParams }>(
+    '/volume/:id',
+    async (request, reply) => {
+      const { id: volumeId } = request.params;
+      const userId = request.user.id;
+
+      try {
+        // First, find the volume and verify ownership
+        const volume = await fastify.prisma.volume.findFirst({
+          where: {
+            id: volumeId,
+            series: {
+              // This nested 'where' is the security check
+              ownerId: userId,
+            },
+          },
+        });
+
+        // Case 1: Volume not found or user does not own it
+        if (!volume) {
+          return reply.status(404).send({
+            statusCode: 404,
+            error: 'Not Found',
+            message: 'Volume not found or you do not have permission to access it.',
+          });
+        }
+
+        // Case 2: Volume found, read the .mokuro file
+        let mokuroContent: string;
+        try {
+          mokuroContent = await fs.promises.readFile(volume.mokuroPath, 'utf-8');
+        } catch (fileError) {
+          // Handle file system errors (e.g., file deleted)
+          fastify.log.error(
+            { err: fileError }, // 1. Pass the error object here
+            `File not found for volume ${volume.id}: ${volume.mokuroPath}` // 2. Pass the message here
+          );
+          return reply.status(500).send({
+            statusCode: 500,
+            error: 'Internal Server Error',
+            message: 'Could not read volume data file.',
+          });
+        }
+
+        // Case 3: Parse the file content as JSON
+        let mokuroJson: unknown;
+        try {
+          mokuroJson = JSON.parse(mokuroContent);
+        } catch (parseError) {
+          // Handle corrupted or malformed JSON
+          fastify.log.error(
+            { err: parseError }, // 1. Pass the error object here
+            `Malformed JSON for volume ${volume.id}: ${volume.mokuroPath}` // 2. Pass the message here
+          );
+          return reply.status(500).send({
+            statusCode: 500,
+            error: 'Internal Server Error',
+            message: 'Failed to parse volume data. The file may be corrupted.',
+          });
+        }
+
+        // Case 4: Success. Send the parsed JSON.
+        return reply.status(200).send(mokuroJson);
+
+      } catch (error) {
+        fastify.log.error(error);
+        return reply.status(500).send({
+          statusCode: 500,
+          error: 'Internal Server Error',
+          message: 'An unexpected error occurred.',
+        });
+      }
+    }
+  );
+
+  /**
+   * Add PUT /api/library/volume/:id/ocr
+   * Saves modified OCR data.
+   */
+  fastify.put<{ Params: VolumeParams }>(
+    '/volume/:id/ocr',
+    async (request, reply) => {
+      const { id: volumeId } = request.params;
+      const userId = request.user.id;
+
+      // The new OCR data from the client
+      const newOcrData = request.body as Prisma.InputJsonValue;
+
+      if (!newOcrData) {
+        return reply.status(400).send({
+          statusCode: 400,
+          error: 'Bad Request',
+          message: 'Request body is empty or invalid.',
+        });
+      }
+
+      try {
+        // 1. Find the volume and verify ownership
+        const volume = await fastify.prisma.volume.findFirst({
+          where: {
+            id: volumeId,
+            series: {
+              ownerId: userId,
+            },
+          },
+        });
+
+        if (!volume) {
+          return reply.status(404).send({
+            statusCode: 404,
+            error: 'Not Found',
+            message: 'Volume not found or access denied.',
+          });
+        }
+
+        // 2. Read the existing .mokuro file
+        let mokuroContent: string;
+        try {
+          mokuroContent = await fs.promises.readFile(volume.mokuroPath, 'utf-8');
+        } catch (readError) {
+          fastify.log.error(
+            { err: readError },
+            `File not found for volume ${volume.id}: ${volume.mokuroPath}`
+          );
+          return reply.status(500).send({
+            statusCode: 500,
+            error: 'Internal Server Error',
+            message: 'Could not read volume data file.',
+          });
+        }
+
+        // 3. Parse the file and update the 'ocr' key
+        let mokuroJson: any; // Use 'any' to allow dynamic key assignment
+        try {
+          mokuroJson = JSON.parse(mokuroContent);
+        } catch (parseError) {
+          fastify.log.error(
+            { err: parseError },
+            `Malformed JSON for volume ${volume.id}: ${volume.mokuroPath}`
+          );
+          return reply.status(500).send({
+            statusCode: 500,
+            error: 'Internal Server Error',
+            message: 'Failed to parse volume data. The file may be corrupted.',
+          });
+        }
+
+        // Replace the 'ocr' key with the new data.
+        // This assumes the .mokuro file has a top-level "ocr" key.
+        mokuroJson.ocr = newOcrData;
+
+        // 4. Stringify and write the updated JSON back to the file
+        const updatedMokuroContent = JSON.stringify(mokuroJson, null, 2); // Pretty-print
+
+        try {
+          await fs.promises.writeFile(volume.mokuroPath, updatedMokuroContent, 'utf-8');
+        } catch (writeError) {
+          fastify.log.error(
+            { err: writeError },
+            `Failed to write updates to ${volume.mokuroPath}`
+          );
+          return reply.status(500).send({
+            statusCode: 500,
+            error: 'Internal Server Error',
+            message: 'Could not save OCR data.',
+          });
+        }
+
+        // 5. Success
+        return reply.status(200).send({ message: 'OCR data updated successfully.' });
+
+      } catch (error) {
+        fastify.log.error(
+          { err: error },
+          'An unexpected error occurred in PUT /api/library/volume/:id/ocr'
+        );
+        return reply.status(500).send({
+          statusCode: 500,
+          error: 'Internal Server Error',
+          message: 'An unexpected error occurred.',
+        });
+      }
+    }
+  );
 };
 
 export default libraryRoutes;
