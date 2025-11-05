@@ -34,6 +34,8 @@ model Volume {
   filePath    String   @unique // Path to the folder containing the images
   mokuroPath  String   @unique // Path to the .mokuro file
 
+  coverImageName String?
+
   series      Series   @relation(fields: [seriesId], references: [id], onDelete: Cascade)
   seriesId    String
 

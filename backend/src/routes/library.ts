@@ -225,6 +225,17 @@ const libraryRoutes: FastifyPluginAsync = async (
           await fs.promises.rename(imageFile.tempPath, imagePath);
         }
 
+        // --- Find the cover image name ---
+        let coverName: string | null = null;
+        if (volume.imageFiles.length > 0) {
+          // Use reduce to find the file with the lexicographically smallest path
+          const firstImage = volume.imageFiles.reduce((min, current) => {
+            return min.originalPath.localeCompare(current.originalPath) < 0 ? min : current;
+          });
+          // Get just the filename (e.g., "001.jpg")
+          coverName = path.basename(firstImage.originalPath);
+        }
+
         // --- Create DB Entry ---
         await fastify.prisma.volume.create({
           data: {
@@ -233,6 +244,7 @@ const libraryRoutes: FastifyPluginAsync = async (
             pageCount: volume.imageFiles.length,
             filePath: volumeDir.replace(/\\/g, '/'),
             mokuroPath: mokuroPath.replace(/\\/g, '/'),
+            coverImageName: coverName,
           },
         });
 
@@ -261,6 +273,55 @@ const libraryRoutes: FastifyPluginAsync = async (
       }
     }
   });
+
+  /**
+   * GET /api/library/series/:id
+   * Gets full data for one series, including its volumes.
+   */
+  fastify.get<{ Params: SeriesParams }>(
+    '/series/:id',
+    async (request, reply) => {
+      const { id: seriesId } = request.params;
+      const userId = request.user.id;
+
+      try {
+        const series = await fastify.prisma.series.findFirst({
+          where: {
+            id: seriesId,
+            ownerId: userId, // Security check
+          },
+          include: {
+            volumes: {
+              orderBy: {
+                title: 'asc', // Or by a 'volumeNumber' if we add one later
+              },
+            },
+          },
+        });
+
+        if (!series) {
+          return reply.status(404).send({
+            statusCode: 404,
+            error: 'Not Found',
+            message: 'Series not found or you do not have permission to access it.',
+          });
+        }
+
+        // Return the single series object
+        return reply.status(200).send(series);
+      } catch (error) {
+        fastify.log.error(
+          { err: error },
+          'Error fetching single series'
+        );
+        return reply.status(500).send({
+          statusCode: 500,
+          error: 'Internal Server Error',
+          message: 'An unexpected error occurred.',
+        });
+      }
+    }
+  );
 
   /**
    * GET /api/library/volume/:id
@@ -441,54 +502,6 @@ const libraryRoutes: FastifyPluginAsync = async (
         fastify.log.error(
           { err: error },
           'An unexpected error occurred in PUT /api/library/volume/:id/ocr'
-        );
-        return reply.status(500).send({
-          statusCode: 500,
-          error: 'Internal Server Error',
-          message: 'An unexpected error occurred.',
-        });
-      }
-    }
-  );
-  /**
-   * GET /api/library/series/:id
-   * Gets full data for one series, including its volumes.
-   */
-  fastify.get<{ Params: SeriesParams }>(
-    '/series/:id',
-    async (request, reply) => {
-      const { id: seriesId } = request.params;
-      const userId = request.user.id;
-
-      try {
-        const series = await fastify.prisma.series.findFirst({
-          where: {
-            id: seriesId,
-            ownerId: userId, // Security check
-          },
-          include: {
-            volumes: {
-              orderBy: {
-                title: 'asc', // Or by a 'volumeNumber' if we add one later
-              },
-            },
-          },
-        });
-
-        if (!series) {
-          return reply.status(404).send({
-            statusCode: 404,
-            error: 'Not Found',
-            message: 'Series not found or you do not have permission to access it.',
-          });
-        }
-
-        // Return the single series object
-        return reply.status(200).send(series);
-      } catch (error) {
-        fastify.log.error(
-          { err: error },
-          'Error fetching single series'
         );
         return reply.status(500).send({
           statusCode: 500,

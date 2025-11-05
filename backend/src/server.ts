@@ -58,6 +58,7 @@ fastify.register(authRoutes, { prefix: '/api/auth' });
 fastify.register(settingsRoutes, { prefix: '/api/settings' });
 fastify.register(progressRoutes, { prefix: '/api/progress' });
 fastify.register(libraryRoutes, { prefix: '/api/library' });
+fastify.register(filesRoutes, { prefix: '/api/files' });
 
 // --- Health Check Route ---
 fastify.get('/api/health', async (request, reply) => {
