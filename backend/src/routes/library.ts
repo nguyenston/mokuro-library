@@ -22,6 +22,10 @@ interface VolumeParams {
   id: string; // This 'id' is the volumeId
 }
 
+interface SeriesParams {
+  id: string; // This 'id' is the seriesId
+}
+
 /**
  * Drains a readable stream completely by resuming it and waiting for the 'end' event.
  * This is used to discard file contents we don't want to save.
@@ -259,7 +263,7 @@ const libraryRoutes: FastifyPluginAsync = async (
   });
 
   /**
-   * 2. Add GET /api/library/volume/:id
+   * GET /api/library/volume/:id
    * Gets full data for one volume, including the parsed .mokuro JSON.
    */
   fastify.get<{ Params: VolumeParams }>(
@@ -338,7 +342,7 @@ const libraryRoutes: FastifyPluginAsync = async (
   );
 
   /**
-   * Add PUT /api/library/volume/:id/ocr
+   * PUT /api/library/volume/:id/ocr
    * Saves modified OCR data.
    */
   fastify.put<{ Params: VolumeParams }>(
@@ -437,6 +441,54 @@ const libraryRoutes: FastifyPluginAsync = async (
         fastify.log.error(
           { err: error },
           'An unexpected error occurred in PUT /api/library/volume/:id/ocr'
+        );
+        return reply.status(500).send({
+          statusCode: 500,
+          error: 'Internal Server Error',
+          message: 'An unexpected error occurred.',
+        });
+      }
+    }
+  );
+  /**
+   * GET /api/library/series/:id
+   * Gets full data for one series, including its volumes.
+   */
+  fastify.get<{ Params: SeriesParams }>(
+    '/series/:id',
+    async (request, reply) => {
+      const { id: seriesId } = request.params;
+      const userId = request.user.id;
+
+      try {
+        const series = await fastify.prisma.series.findFirst({
+          where: {
+            id: seriesId,
+            ownerId: userId, // Security check
+          },
+          include: {
+            volumes: {
+              orderBy: {
+                title: 'asc', // Or by a 'volumeNumber' if we add one later
+              },
+            },
+          },
+        });
+
+        if (!series) {
+          return reply.status(404).send({
+            statusCode: 404,
+            error: 'Not Found',
+            message: 'Series not found or you do not have permission to access it.',
+          });
+        }
+
+        // Return the single series object
+        return reply.status(200).send(series);
+      } catch (error) {
+        fastify.log.error(
+          { err: error },
+          'Error fetching single series'
         );
         return reply.status(500).send({
           statusCode: 500,

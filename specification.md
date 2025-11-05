@@ -83,6 +83,8 @@ All endpoints (except /auth) are protected and require an authenticated session 
 
 * **GET /api/library**
     * Gets a list of all Series and Volume metadata owned by the current user.
+* **GET /api/library/series/:id**
+    * Gets a specific Series and associated Volume metadata owned by the current user.
 * **POST /api/library/upload**
     * Uploads new manga (zip or directory) and associates it with the current user's ownerId.
 * **GET /api/library/volume/:id**
