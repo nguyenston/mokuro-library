@@ -3,6 +3,7 @@ import { pipeline, Readable } from 'stream';
 import util from 'util';
 import fs from 'fs';
 import path from 'path';
+import os from 'os';
 import { Prisma } from '../generated/prisma/client';
 
 // Promisify pipeline for async/await
@@ -12,8 +13,8 @@ const pump = util.promisify(pipeline);
 type UploadedVolume = {
   seriesTitle: string;
   volumeTitle: string;
-  mokuroFile: import('@fastify/multipart').MultipartFile | null;
-  imageFiles: import('@fastify/multipart').MultipartFile[];
+  mokuroFile: { originalPath: string; tempPath: string } | null; // Store paths
+  imageFiles: { originalPath: string; tempPath: string }[]; // Store paths
 };
 
 // an interface for the route parameters
@@ -83,59 +84,67 @@ const libraryRoutes: FastifyPluginAsync = async (
   });
 
   /**
-   * POST /api/library/upload 
+   * POST /api/library/upload
    */
   fastify.post('/upload', async (request, reply) => {
     const userId = request.user.id;
     const parts = request.parts();
     const volumesMap = new Map<string, UploadedVolume>();
 
+    // 3. Create a unique temp directory for this upload
+    let tempUploadDir: string | undefined = undefined;
+
     try {
-      // 1. --- First Pass: Parse and group all files ---
+      tempUploadDir = await fs.promises.mkdtemp(
+        path.join(os.tmpdir(), 'mokuro-upload-')
+      );
+      fastify.log.info(`Created temp dir: ${tempUploadDir}`);
+
+      // 1. --- First Pass: Parse and SAVE all files ---
       for await (const part of parts) {
         if (part.type === 'file') {
-          // --- Normalize the path for cross-platform compatibility ---
-          // The browser sends paths with '/', e.g., "Series/Volume/001.jpg"
-          // We normalize it to use the OS's specific separator, e.g., "Series\Volume\001.jpg"
           const normalizedPath = path.normalize(part.filename);
           const parsedPath = path.parse(normalizedPath);
           const ext = parsedPath.ext.toLowerCase();
 
-          // Rule 1: Skip known cache/legacy files
+          // Rule 1: Skip cache/legacy
           if (normalizedPath.includes('_ocr') || ext === '.html') {
-            fastify.log.info(`Skipping cache/legacy file: ${part.filename}`);
             await drainStream(part.file);
-            continue; // Skip to next file
+            continue;
           }
 
-          // Rule 2: Only allow known file types
+          // Rule 2: Only allow known types
           const isMokuro = ext === '.mokuro';
           const isImage = ['.jpg', '.jpeg', '.png', '.webp'].includes(ext);
 
           if (!isMokuro && !isImage) {
-            fastify.log.info(`Skipping unknown file type: ${part.filename}`);
             await drainStream(part.file);
-            continue; // Skip to next file
+            continue;
           }
 
-          // 'parsedPath.dir' is now "Series\Volume" or "Series"
-          const pathParts = parsedPath.dir.split(path.sep);
-
+          // 4. Parser logic
+          const pathParts = parsedPath.dir.split(path.sep).filter((p) => p);
           let seriesTitle: string, volumeTitle: string;
-          if (isMokuro) {
-            if (pathParts.length < 1) continue; // Invalid path
+
+          if (isMokuro && pathParts.length > 0) {
+            volumeTitle = parsedPath.name;
             seriesTitle = pathParts[pathParts.length - 1];
-            volumeTitle = parsedPath.name; // e.g., "Volume 1"
-          } else {
-            if (pathParts.length < 2) continue; // Invalid path
+          } else if (isImage && pathParts.length > 1) {
             volumeTitle = pathParts[pathParts.length - 1];
             seriesTitle = pathParts[pathParts.length - 2];
+          } else {
+            await drainStream(part.file);
+            continue;
           }
 
-          if (!seriesTitle || !volumeTitle) continue;
+          // 4. Save file to temp dir immediately to consume stream
+          const tempPathDir = path.join(tempUploadDir, seriesTitle, volumeTitle);
+          const tempPath = path.join(tempPathDir, parsedPath.base);
+          await fs.promises.mkdir(tempPathDir, { recursive: true });
+          await pump(part.file, fs.createWriteStream(tempPath));
 
+          // 6. Store paths in the map
           const volumeKey = `${seriesTitle}/${volumeTitle}`;
-
           if (!volumesMap.has(volumeKey)) {
             volumesMap.set(volumeKey, {
               seriesTitle,
@@ -147,22 +156,25 @@ const libraryRoutes: FastifyPluginAsync = async (
           const vol = volumesMap.get(volumeKey)!;
 
           if (isMokuro) {
-            vol.mokuroFile = part;
+            vol.mokuroFile = { originalPath: part.filename, tempPath };
           } else {
-            vol.imageFiles.push(part);
+            vol.imageFiles.push({ originalPath: part.filename, tempPath });
           }
         }
       }
+      fastify.log.info(`File iteration complete. Found ${volumesMap.size} volumes.`);
 
-      // 2. --- Second Pass: Process and save valid volumes ---
+      // 2. --- Second Pass: Process and MOVE files ---
       let processedCount = 0;
       let skippedCount = 0;
 
       for (const [key, volume] of volumesMap.entries()) {
         if (!volume.mokuroFile) {
           fastify.log.warn(`Skipping volume ${key}: Missing .mokuro file.`);
-          // drain stream to avoid memory leaks
-          for (const img of volume.imageFiles) { await drainStream(img.file); }
+          // Delete orphaned temp images
+          for (const img of volume.imageFiles) {
+            await fs.promises.rm(img.tempPath);
+          }
           skippedCount++;
           continue;
         }
@@ -183,34 +195,30 @@ const libraryRoutes: FastifyPluginAsync = async (
 
         if (existingVolume) {
           fastify.log.info(`Skipping volume ${key}: Already exists.`);
-          // drain stream to avoid memory leaks
-          await drainStream(volume.mokuroFile.file);
-          for (const img of volume.imageFiles) { await drainStream(img.file); }
+          // Delete all temp files for this volume
+          await fs.promises.rm(volume.mokuroFile.tempPath);
+          for (const img of volume.imageFiles) {
+            await fs.promises.rm(img.tempPath);
+          }
           skippedCount++;
           continue;
         }
 
-        // --- Save Files ---
-        // Use path.join for cross-platform paths
-        const seriesDir = path.join('backend', 'uploads', userId, series.title);
+        // --- 7. Move Files from Temp to Permanent Storage ---
+        const seriesDir = path.join('uploads', userId, series.title);
         const volumeDir = path.join(seriesDir, volume.volumeTitle);
         const mokuroPath = path.join(seriesDir, `${volume.volumeTitle}.mokuro`);
 
         await fs.promises.mkdir(volumeDir, { recursive: true });
 
-        await pump(
-          volume.mokuroFile.file,
-          fs.createWriteStream(mokuroPath)
-        );
+        // Move .mokuro file
+        await fs.promises.rename(volume.mokuroFile.tempPath, mokuroPath);
 
-        // Save all image files
+        // Move all image files
         for (const imageFile of volume.imageFiles) {
-          // --- FIX 3: Use path.basename to get just the filename ---
-          // 'imageFile.filename' is the full "Series/Volume/001.jpg" path
-          // 'path.basename(imageFile.filename)' gives "001.jpg"
-          const imageName = path.basename(imageFile.filename);
+          const imageName = path.basename(imageFile.originalPath); // Get 001.jpg
           const imagePath = path.join(volumeDir, imageName);
-          await pump(imageFile.file, fs.createWriteStream(imagePath));
+          await fs.promises.rename(imageFile.tempPath, imagePath);
         }
 
         // --- Create DB Entry ---
@@ -219,7 +227,6 @@ const libraryRoutes: FastifyPluginAsync = async (
             title: volume.volumeTitle,
             seriesId: series.id,
             pageCount: volume.imageFiles.length,
-            // Store paths with forward slashes
             filePath: volumeDir.replace(/\\/g, '/'),
             mokuroPath: mokuroPath.replace(/\\/g, '/'),
           },
@@ -228,6 +235,7 @@ const libraryRoutes: FastifyPluginAsync = async (
         processedCount++;
       }
 
+      fastify.log.info('Volume processing complete. Sending response.');
       return reply.status(201).send({
         message: 'Upload processed.',
         processed: processedCount,
@@ -235,203 +243,20 @@ const libraryRoutes: FastifyPluginAsync = async (
       });
 
     } catch (error) {
-      fastify.log.error(error);
+      fastify.log.error({ err: error }, 'Upload failed with an error.');
       return reply.status(500).send({
         statusCode: 500,
         error: 'Internal Server Error',
         message: 'An error occurred during file upload.',
       });
+    } finally {
+      // 8. Always clean up the temp directory
+      if (tempUploadDir) {
+        fastify.log.info(`Cleaning up temp dir: ${tempUploadDir}`);
+        await fs.promises.rm(tempUploadDir, { recursive: true, force: true });
+      }
     }
   });
-  /**
-   * 2. Add GET /api/library/volume/:id
-   * Gets full data for one volume, including the parsed .mokuro JSON.
-   */
-  fastify.get<{ Params: VolumeParams }>(
-    '/volume/:id',
-    async (request, reply) => {
-      const { id: volumeId } = request.params;
-      const userId = request.user.id;
-
-      try {
-        // First, find the volume and verify ownership
-        const volume = await fastify.prisma.volume.findFirst({
-          where: {
-            id: volumeId,
-            series: {
-              // This nested 'where' is the security check
-              ownerId: userId,
-            },
-          },
-        });
-
-        // Case 1: Volume not found or user does not own it
-        if (!volume) {
-          return reply.status(404).send({
-            statusCode: 404,
-            error: 'Not Found',
-            message: 'Volume not found or you do not have permission to access it.',
-          });
-        }
-
-        // Case 2: Volume found, read the .mokuro file
-        let mokuroContent: string;
-        try {
-          mokuroContent = await fs.promises.readFile(volume.mokuroPath, 'utf-8');
-        } catch (fileError) {
-          // Handle file system errors (e.g., file deleted)
-          fastify.log.error(
-            { err: fileError }, // 1. Pass the error object here
-            `File not found for volume ${volume.id}: ${volume.mokuroPath}` // 2. Pass the message here
-          );
-          return reply.status(500).send({
-            statusCode: 500,
-            error: 'Internal Server Error',
-            message: 'Could not read volume data file.',
-          });
-        }
-
-        // Case 3: Parse the file content as JSON
-        let mokuroJson: unknown;
-        try {
-          mokuroJson = JSON.parse(mokuroContent);
-        } catch (parseError) {
-          // Handle corrupted or malformed JSON
-          fastify.log.error(
-            { err: parseError }, // 1. Pass the error object here
-            `Malformed JSON for volume ${volume.id}: ${volume.mokuroPath}` // 2. Pass the message here
-          );
-          return reply.status(500).send({
-            statusCode: 500,
-            error: 'Internal Server Error',
-            message: 'Failed to parse volume data. The file may be corrupted.',
-          });
-        }
-
-        // Case 4: Success. Send the parsed JSON.
-        return reply.status(200).send(mokuroJson);
-
-      } catch (error) {
-        fastify.log.error(error);
-        return reply.status(500).send({
-          statusCode: 500,
-          error: 'Internal Server Error',
-          message: 'An unexpected error occurred.',
-        });
-      }
-    }
-  );
-
-  /**
-   * Add PUT /api/library/volume/:id/ocr
-   * Saves modified OCR data.
-   */
-  fastify.put<{ Params: VolumeParams }>(
-    '/volume/:id/ocr',
-    async (request, reply) => {
-      const { id: volumeId } = request.params;
-      const userId = request.user.id;
-
-      // The new OCR data from the client
-      const newOcrData = request.body as Prisma.InputJsonValue;
-
-      if (!newOcrData) {
-        return reply.status(400).send({
-          statusCode: 400,
-          error: 'Bad Request',
-          message: 'Request body is empty or invalid.',
-        });
-      }
-
-      try {
-        // 1. Find the volume and verify ownership
-        const volume = await fastify.prisma.volume.findFirst({
-          where: {
-            id: volumeId,
-            series: {
-              ownerId: userId,
-            },
-          },
-        });
-
-        if (!volume) {
-          return reply.status(404).send({
-            statusCode: 404,
-            error: 'Not Found',
-            message: 'Volume not found or access denied.',
-          });
-        }
-
-        // 2. Read the existing .mokuro file
-        let mokuroContent: string;
-        try {
-          mokuroContent = await fs.promises.readFile(volume.mokuroPath, 'utf-8');
-        } catch (readError) {
-          fastify.log.error(
-            { err: readError },
-            `File not found for volume ${volume.id}: ${volume.mokuroPath}`
-          );
-          return reply.status(500).send({
-            statusCode: 500,
-            error: 'Internal Server Error',
-            message: 'Could not read volume data file.',
-          });
-        }
-
-        // 3. Parse the file and update the 'ocr' key
-        let mokuroJson: any; // Use 'any' to allow dynamic key assignment
-        try {
-          mokuroJson = JSON.parse(mokuroContent);
-        } catch (parseError) {
-          fastify.log.error(
-            { err: parseError },
-            `Malformed JSON for volume ${volume.id}: ${volume.mokuroPath}`
-          );
-          return reply.status(500).send({
-            statusCode: 500,
-            error: 'Internal Server Error',
-            message: 'Failed to parse volume data. The file may be corrupted.',
-          });
-        }
-
-        // --- This is the core logic ---
-        // We replace the 'ocr' key with the new data.
-        // This assumes the .mokuro file has a top-level "ocr" key.
-        mokuroJson.ocr = newOcrData;
-
-        // 4. Stringify and write the updated JSON back to the file
-        const updatedMokuroContent = JSON.stringify(mokuroJson, null, 2); // Pretty-print
-
-        try {
-          await fs.promises.writeFile(volume.mokuroPath, updatedMokuroContent, 'utf-8');
-        } catch (writeError) {
-          fastify.log.error(
-            { err: writeError },
-            `Failed to write updates to ${volume.mokuroPath}`
-          );
-          return reply.status(500).send({
-            statusCode: 500,
-            error: 'Internal Server Error',
-            message: 'Could not save OCR data.',
-          });
-        }
-
-        // 5. Success
-        return reply.status(200).send({ message: 'OCR data updated successfully.' });
-
-      } catch (error) {
-        fastify.log.error(
-          { err: error },
-          'An unexpected error occurred in PUT /api/library/volume/:id/ocr'
-        );
-        return reply.status(500).send({
-          statusCode: 500,
-          error: 'Internal Server Error',
-          message: 'An unexpected error occurred.',
-        });
-      }
-    }
-  );
 };
 
 export default libraryRoutes;

@@ -30,7 +30,16 @@ fastify.register(fastifyCookie, {
   // but for a simple session ID, this is fine for now.
 });
 fastify.register(authPlugin);
-fastify.register(fastifyMultipart);
+fastify.register(fastifyMultipart, {
+  defCharset: 'utf8',
+  preservePath: true,
+  limits: {
+    // Set the maximum file size in bytes
+    // (100 MB = 100 * 1024 * 1024 bytes)
+    fileSize: 100 * 1024 * 1024,
+    parts: 10000,
+  },
+});
 fastify.register(fastifyStatic, {
   // Register fastify-static
   // We set 'serve: false' because we are not serving an entire
