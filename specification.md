@@ -44,7 +44,19 @@ The system will be a decoupled client-server application.
 
 4.  **Manga Reader UI:**
     * The reader UI from zxy101/mokuro-reader will be adapted.
-    * The reader will fetch page images and OCR data from the backend API, which will validate that the user has permission to read them.
+	* Core reader features (must-haves)
+		* Fetch and display the current page's image.
+		* Layout Mode: A toggle for Single Page vs. Dual-Page Spread (e.g., showing two pages side-by-side).
+		* Dual-Page offset: the ability to choose whether to start dual page from even or odd pages
+		* Dual-Page reading direction: left to right or right to left
+		* Interactivity: Zoom and Pan the image(s).
+	* OCR features (must-haves)
+		* Display editable OCR blocks as overlays.
+		* Ensure these overlays correctly scale and pan with the base image.
+		* A "Save" button to write changes back.
+	* Optional features
+		* Webtoon Mode: A single, long-scrolling vertical layout.
+		* Caching: Pre-loading the next and previous page images.
 
 5.  **OCR Editing (Write-Back):**
     * Users can edit the text within an OCR text box.
