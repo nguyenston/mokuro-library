@@ -49,12 +49,14 @@ The system will be a decoupled client-server application.
 		* Layout Mode: A toggle for Single Page vs. Dual-Page Spread (e.g., showing two pages side-by-side).
 		* Dual-Page offset: the ability to choose whether to start dual page from even or odd pages
 		* Dual-Page reading direction: left to right or right to left
+		* Ability to set the width of the side navigation buttons
 		* Interactivity: Zoom and Pan the image(s).
 	* OCR features (must-haves)
 		* Display editable OCR blocks as overlays.
 		* Ensure these overlays correctly scale and pan with the base image.
 		* A "Save" button to write changes back.
 	* Optional features
+		* Per user persistent reader settings
 		* Webtoon Mode: A single, long-scrolling vertical layout.
 		* Caching: Pre-loading the next and previous page images.
 
