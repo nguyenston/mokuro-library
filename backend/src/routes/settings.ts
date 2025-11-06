@@ -31,27 +31,39 @@ const settingsRoutes: FastifyPluginAsync = async (fastify, opts): Promise<void> 
   /**
    * PUT /api/settings
    * Updates the current user's settings.
+   * Server-side: merges changes sent by the client
    */
   fastify.put('/', async (request, reply) => {
     try {
-      // 'request.body' will contain the new settings JSON
-      const newSettings = request.body as Prisma.InputJsonValue;
+      // 1. Get the current settings from the authenticated user
+      // We cast to Record<string, any> and default to {}
+      const currentSettings = (request.user.settings || {}) as Record<string, any>;
 
+      // 2. Get the new settings patch from the request
+      const settingsPatch = (request.body || {}) as Record<string, any>;
+
+      // 3. Perform the server-side merge
+      const newSettings = {
+        ...currentSettings,
+        ...settingsPatch,
+      };
+
+      // 4. Update the database with the new, merged settings
       const updatedUser = await fastify.prisma.user.update({
         where: {
-          id: request.user.id, // Get the ID from the authenticated user
+          id: request.user.id,
         },
         data: {
-          settings: newSettings, // Store the new JSON
+          settings: newSettings,
         },
         select: {
-          settings: true, // Only select the updated settings to send back
+          settings: true,
         },
       });
 
       return reply.status(200).send(updatedUser.settings);
     } catch (error) {
-      fastify.log.error(error);
+      fastify.log.error({ err: error }, 'Could not update settings.');
       return reply.status(500).send({
         statusCode: 500,
         error: 'Internal Server Error',
