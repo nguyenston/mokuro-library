@@ -53,7 +53,9 @@ The system will be a decoupled client-server application.
 		* Interactivity: Zoom and Pan the image(s).
 	* OCR features (must-haves)
 		* Display editable OCR blocks as overlays.
+		* OCR blocks are only visible when hovered.
 		* Ensure these overlays correctly scale and pan with the base image.
+		* Ability to delete, create, and change existing OCR blocks
 		* A "Save" button to write changes back.
 	* Optional features
 		* Per user persistent reader settings
