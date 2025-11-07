@@ -4,6 +4,7 @@
 
 	import { onMount } from 'svelte';
 	import { checkAuth } from '$lib/authStore';
+	import ContextMenu from '$lib/components/ContextMenu.svelte';
 
 	let { children } = $props();
 
@@ -17,3 +18,4 @@
 </svelte:head>
 
 {@render children()}
+<ContextMenu />

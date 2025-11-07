@@ -1,7 +1,12 @@
 <script lang="ts">
 	import type { MokuroPage, MokuroBlock } from '$lib/types';
-
-	let { page, isEditMode, isBoxEditMode, showTriggerOutline, onOcrChange } = $props<{
+	import { contextMenu, type MenuOption } from '$lib/contextMenuStore';
+	let {
+		page,
+		isEditMode,
+		isBoxEditMode,
+		showTriggerOutline,
+		onOcrChange,
 		page: MokuroPage;
 		isEditMode: boolean;
 		isBoxEditMode: boolean;
@@ -268,9 +273,254 @@
 		window.addEventListener('mousemove', handleDragMove);
 		window.addEventListener('mouseup', handleDragEnd);
 	};
+
+	// Track the currently focused line div
+	let focusedLineElement: HTMLDivElement | null = $state(null);
+	/**
+	 * Executes a document command (cut, copy, paste) on the focused line.
+	 */
+	const execCommandOnLine = (
+		command: 'cut' | 'copy' | 'paste',
+		block: MokuroBlock,
+		lineIndex: number
+	) => {
+		if (!focusedLineElement) return;
+
+		// Focus the element to ensure the command targets it
+		focusedLineElement.focus();
+		document.execCommand(command);
+
+		// For cut/paste, we must immediately sync state
+		if (command === 'cut' || command === 'paste') {
+			// Allow the DOM to update, then read it back
+			setTimeout(() => {
+				if (focusedLineElement) {
+					block.lines[lineIndex] = focusedLineElement.innerText;
+					onOcrChange();
+				}
+			}, 0);
+		}
+	};
+
+	/**
+	 * Toggles the vertical property for the entire block.
+	 */
+	const toggleVertical = (block: MokuroBlock) => {
+		block.vertical = !block.vertical;
+		onOcrChange();
+	};
+
+	/**
+	 * Deletes the entire block from the page.
+	 */
+	const deleteBlock = (block: MokuroBlock) => {
+		if (!page.blocks) return;
+		const index = page.blocks.indexOf(block);
+		if (index > -1) {
+			page.blocks.splice(index, 1);
+			onOcrChange();
+		}
+	};
+
+	/**
+	 * Deletes a line from a block.
+	 */
+	const deleteLine = (block: MokuroBlock, lineIndex: number) => {
+		// Check if it's the last line
+		if (block.lines.length === 1) {
+			deleteBlock(block);
+			return; // Stop execution
+		}
+
+		block.lines.splice(lineIndex, 1);
+		block.lines_coords.splice(lineIndex, 1);
+		onOcrChange();
+	};
+
+	/**
+	 * Creates a new line in a block at the clicked position.
+	 */
+	const createNewLine = (event: MouseEvent, block: MokuroBlock) => {
+		if (!overlayRootElement?.parentElement) return;
+
+		const rect = overlayRootElement.parentElement.getBoundingClientRect();
+		const { scaleRatioX, scaleRatioY } = getScaleRatios();
+
+		const relativeX = event.clientX - rect.left;
+		const relativeY = event.clientY - rect.top;
+
+		const imgX = relativeX * scaleRatioX;
+		const imgY = relativeY * scaleRatioY;
+
+		const DEFAULT_WIDTH = 100;
+		const DEFAULT_HEIGHT = 100;
+
+		// The Mokuro spec defines lines_coords as [top-left, top-right, bottom-right, bottom-left]
+		const newBox: [[number, number], [number, number], [number, number], [number, number]] = [
+			[imgX, imgY], // top-left [0]
+			[imgX + DEFAULT_WIDTH, imgY], // top-right [1]
+			[imgX + DEFAULT_WIDTH, imgY + DEFAULT_HEIGHT], // bottom-right [2]
+			[imgX, imgY + DEFAULT_HEIGHT] // bottom-left [3]
+		];
+
+		// Force new text to be editable if we are in Edit Mode, ensuring it has focus
+		block.lines.push('New Text');
+		block.lines_coords.push(newBox);
+
+		onOcrChange();
+	};
+
+	/**
+	 * Creates a new block on the page.
+	 */
+	const createNewBlock = (event: MouseEvent) => {
+		if (!overlayRootElement?.parentElement || !page.blocks) return;
+
+		// 1. Get rendered container dimensions and scale ratios
+		const rect = overlayRootElement.parentElement.getBoundingClientRect();
+		const { scaleRatioX, scaleRatioY } = getScaleRatios();
+
+		// 2. Get click position in image coordinates
+		const relativeX = event.clientX - rect.left;
+		const relativeY = event.clientY - rect.top;
+		const imgX = relativeX * scaleRatioX;
+		const imgY = relativeY * scaleRatioY;
+
+		// --- 3. Calculate new size based on viewport ---
+		// Get 15% of the *rendered* container size
+		const BOX_WIDTH_VIEWPORT = rect.width * 0.15;
+		const BOX_HEIGHT_VIEWPORT = rect.height * 0.15;
+
+		// Convert the viewport size back to absolute image pixels
+		const BOX_WIDTH_IMAGE = BOX_WIDTH_VIEWPORT * scaleRatioX;
+		const BOX_HEIGHT_IMAGE = BOX_HEIGHT_VIEWPORT * scaleRatioY;
+
+		// --- 4. Define a default line (e.g., 90% of box width) ---
+		const LINE_WIDTH = BOX_WIDTH_IMAGE * 0.9;
+		const LINE_HEIGHT = BOX_HEIGHT_IMAGE * 0.9; // Keep line height fixed for now
+		const newLineCoords: [[number, number], [number, number], [number, number], [number, number]] =
+			[
+				[imgX - LINE_WIDTH / 2, imgY - LINE_HEIGHT / 2], // top-left
+				[imgX + LINE_WIDTH / 2, imgY - LINE_HEIGHT / 2], // top-right
+				[imgX + LINE_WIDTH / 2, imgY + LINE_HEIGHT / 2], // bottom-right
+				[imgX - LINE_WIDTH / 2, imgY + LINE_HEIGHT / 2] // bottom-left
+			];
+
+		// --- 5. Define the block box surrounding the line ---
+		const newBlockBox: [number, number, number, number] = [
+			imgX - BOX_WIDTH_IMAGE / 2, // x_min
+			imgY - BOX_HEIGHT_IMAGE / 2, // y_min
+			imgX + BOX_WIDTH_IMAGE / 2, // x_max
+			imgY + BOX_HEIGHT_IMAGE / 2 // y_max
+		];
+
+		// --- 6. Create the new block object ---
+		const newBlock: MokuroBlock = {
+			box: newBlockBox,
+			lines: ['New Text'],
+			lines_coords: [newLineCoords],
+			vertical: false,
+			font_size: Math.min(page.img_width, page.img_height) / 10 // Default font size
+		};
+
+		page.blocks.push(newBlock);
+		onOcrChange();
+	};
+
+	/**
+	 * Opens the context menu for the empty space in page.
+	 */
+	const openOverlayContextMenu = (event: MouseEvent) => {
+		// This logic handles blurring focused text boxes
+		if (isEditMode && focusedLineElement && event.target === event.currentTarget) {
+			focusedLineElement.blur();
+		}
+
+		// This logic opens the "Add Block" menu
+		if (isBoxEditMode && event.target === event.currentTarget) {
+			event.preventDefault();
+			event.stopPropagation();
+			contextMenu.open(event.clientX, event.clientY, [
+				{
+					label: 'Add Block',
+					action: () => createNewBlock(event)
+				}
+			]);
+		}
+	};
+
+	/**
+	 * Opens the context menu for the *outer block*.
+	 */
+	const openBlockContextMenu = (event: MouseEvent, block: MokuroBlock) => {
+		event.preventDefault(); // suppress native context menu at all times
+		if (!isBoxEditMode) return; // Only available in box edit mode
+		event.stopPropagation();
+
+		contextMenu.open(event.clientX, event.clientY, [
+			{
+				label: 'Add Line',
+				action: () => createNewLine(event, block)
+			}
+		]);
+	};
+
+	/**
+	 * Opens the context menu for an *individual line*.
+	 */
+	const openLineContextMenu = (event: MouseEvent, block: MokuroBlock, lineIndex: number) => {
+		// Stop the browser menu in all modes
+		event.preventDefault();
+		event.stopPropagation(); // Prevents block context menu
+
+		const options: MenuOption[] = [];
+
+		if (isEditMode) {
+			// Text Edit Mode options
+			options.push({
+				label: 'Cut',
+				action: () => execCommandOnLine('cut', block, lineIndex)
+			});
+			options.push({
+				label: 'Copy',
+				action: () => execCommandOnLine('copy', block, lineIndex)
+			});
+			options.push({
+				label: 'Paste',
+				action: () => execCommandOnLine('paste', block, lineIndex)
+			});
+			options.push({ separator: true });
+			options.push({
+				label: block.vertical ? 'Set Horizontal' : 'Set Vertical',
+				action: () => toggleVertical(block)
+			});
+		}
+
+		if (isBoxEditMode) {
+			if (isEditMode) {
+				// Only add a separator if text options are also present
+				options.push({ separator: true });
+			}
+			// Box Edit Mode options
+			options.push({
+				label: 'Delete Line',
+				action: () => deleteLine(block, lineIndex)
+			});
+		}
+
+		// Open the menu only if we have options to show
+		if (options.length > 0) {
+			contextMenu.open(event.clientX, event.clientY, options);
+		}
+	};
+
 </script>
 
-<div class="absolute top-0 left-0 h-full w-full" bind:this={overlayRootElement}>
+<!-- svelte-ignore a11y_no_static_element_interactions, a11y_click_events_have_key_events -->
+<div
+	class="absolute top-0 left-0 h-full w-full ocr-top-layer"
+	bind:this={overlayRootElement}
+	oncontextmenu={openOverlayContextMenu}
 	{#each page.blocks as block, blockIndex}
 		{@const box_x_min = (block.box[0] / page.img_width) * 100}
 		{@const box_y_min = (block.box[1] / page.img_height) * 100}
@@ -284,11 +534,13 @@
         top: ${box_y_min}%;
         width: ${box_width}%;
         height: ${box_height}%;
+        pointer-events: auto;
       `}
 			onmousedown={(e) => handleBlockDragStart(e, block)}
+			oncontextmenu={(e) => openBlockContextMenu(e, block)}
 			role={isBoxEditMode ? 'button' : undefined}
 		>
-			<!-- MODIFIED: Added resize handles -->
+			<!-- Resize handles -->
 			{#if isBoxEditMode}
 				<!-- Top-Left -->
 				<div
@@ -353,11 +605,6 @@
           `}
 					class:vertical-text={block.vertical}
 					bind:this={block.domElement}
-					oncontextmenu={(e) => {
-						if (!isEditMode) {
-							e.preventDefault();
-						}
-					}}
 					role="group"
 				>
 					{#each block.lines as line, lineIndex}
@@ -382,26 +629,17 @@
               `}
 							class:vertical-text={block.vertical}
 							style={`
-              left: ${relative_x_min}%;
-              top: ${relative_y_min}%;
-              width: ${width}%;
-              height: ${height}%;
-              background-color: ${isEditMode || isBoxEditMode ? 'rgba(239, 68, 68, 0.5)' : 'transparent'}; /* Red background only in edit mode */
-              cursor: ${isEditMode ? 'text' : 'pointer'}; 
-              font-size: calc(calc(90vh / ${page.img_height}) * ${block.font_size});
-              font-weight: bold;
-              white-space: nowrap;
-              user-select: text;
-            `}
-							contenteditable={isEditMode}
-							role={isEditMode ? 'textbox' : isBoxEditMode ? 'button' : undefined}
-							onblur={(e) => {
-								block.lines[lineIndex] = (e.currentTarget as HTMLDivElement).innerText;
-								onOcrChange();
-							}}
+                left: ${relative_x_min}%;
+                top: ${relative_y_min}%;
+                width: ${width}%;
+                height: ${height}%;
+                background-color: ${isEditMode ? 'rgba(239, 68, 68, 0.5)' : 'transparent'};
+              `}
+							role={isBoxEditMode ? 'button' : undefined}
 							onmousedown={(e) => handleLineDragStart(e, block, lineIndex)}
+							oncontextmenu={(e) => openLineContextMenu(e, block, lineIndex)}
 						>
-							<!-- ADDED: Inner Line Resize Handles -->
+							<!-- Inner Line Resize Handles -->
 							{#if isBoxEditMode}
 								<div
 									class="absolute -left-0.5 -top-0.5 z-20 h-1.5 w-1.5 cursor-nwse-resize rounded-full bg-yellow-400 opacity-0 group-hover/line:opacity-100"
@@ -444,7 +682,30 @@
 									role={isBoxEditMode ? 'button' : undefined}
 								></div>
 							{/if}
-							{isEditMode ? line : wrapDotSequences(line)}
+							<div
+								contenteditable={isEditMode}
+								role={isEditMode ? 'textbox' : undefined}
+								class="h-full w-full"
+								style={`
+                background-color: ${isEditMode || isBoxEditMode ? 'rgba(239, 68, 68, 0.5)' : 'transparent'};
+                cursor: ${isBoxEditMode ? 'grab' : block.vertical ? 'vertical-text' : 'text'};
+                font-size: calc(calc(90vh / ${page.img_height}) * ${block.font_size});
+                white-space: nowrap;
+                user-select: text;
+              `}
+								onblur={(e) => {
+									let newText = (e.currentTarget as HTMLDivElement).innerText;
+									block.lines[lineIndex] = newText;
+									onOcrChange();
+
+										focusedLineElement = null;
+								}}
+								onfocus={(e) => {
+									focusedLineElement = e.currentTarget;
+								}}
+							>
+								{isEditMode ? line : wrapDotSequences(line)}
+							</div>
 						</div>
 					{/each}
 				</div>
