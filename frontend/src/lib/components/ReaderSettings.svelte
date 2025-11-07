@@ -11,12 +11,19 @@
 		totalPages,
 		currentPages,
 		volumeTitle,
+		showTriggerOutline,
 		navZoneWidth,
 		onToggleLayout,
 		onToggleDirection,
 		onToggleOffset,
 		onToggleZoom,
-		onNavZoneChange
+		onToggleTriggerOutline,
+		onNavZoneChange,
+
+		isEditMode,
+		isBoxEditMode,
+		onToggleEditMode,
+		onToggleBoxEditMode
 	} = $props<{
 		isOpen: boolean;
 		layoutMode: 'single' | 'double';
@@ -27,12 +34,19 @@
 		totalPages: number;
 		currentPages: MokuroPage[];
 		volumeTitle: string;
+		showTriggerOutline: boolean;
 		navZoneWidth: number;
 		onToggleLayout: () => void;
 		onToggleDirection: () => void;
 		onToggleOffset: () => void;
 		onToggleZoom: () => void;
+		onToggleTriggerOutline: () => void;
 		onNavZoneChange: (e: Event) => void;
+
+		isEditMode: boolean;
+		isBoxEditMode: boolean;
+		onToggleEditMode: () => void;
+		onToggleBoxEditMode: () => void;
 	}>();
 </script>
 
@@ -131,6 +145,19 @@
 				</span>
 			</button>
 
+			<button
+				onclick={onToggleTriggerOutline}
+				type="button"
+				class="flex w-full justify-between rounded-md p-3 text-left"
+				class:bg-indigo-600={showTriggerOutline}
+				class:bg-gray-700={!showTriggerOutline}
+			>
+				<span>Trigger Box Outline</span>
+				<span class="font-bold uppercase">
+					{showTriggerOutline ? 'ON' : 'OFF'}
+				</span>
+			</button>
+
 			<div class="space-y-2 rounded-md bg-gray-700 p-3">
 				<label for="navZoneWidth" class="flex justify-between text-sm">
 					<span>Nav Zone Width</span>
@@ -147,6 +174,32 @@
 					class="h-2 w-full cursor-pointer appearance-none rounded-lg bg-gray-600 accent-indigo-600"
 				/>
 			</div>
+
+			<button
+				onclick={onToggleEditMode}
+				type="button"
+				class="flex w-full justify-between rounded-md p-3 text-left"
+				class:bg-indigo-600={isEditMode}
+				class:bg-gray-700={!isEditMode}
+			>
+				<span>OCR Edit Mode</span>
+				<span class="font-bold uppercase">
+					{isEditMode ? 'ON' : 'OFF'}
+				</span>
+			</button>
+
+			<button
+				onclick={onToggleBoxEditMode}
+				type="button"
+				class="flex w-full justify-between rounded-md p-3 text-left"
+				class:bg-indigo-600={isBoxEditMode}
+				class:bg-gray-700={!isBoxEditMode}
+			>
+				<span>OCR Edit Mode (Box)</span>
+				<span class="font-bold uppercase">
+					{isBoxEditMode ? 'ON' : 'OFF'}
+				</span>
+			</button>
 		</div>
 	</div>
 {/if}
