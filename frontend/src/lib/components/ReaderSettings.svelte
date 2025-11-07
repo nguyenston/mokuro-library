@@ -18,12 +18,7 @@
 		onToggleOffset,
 		onToggleZoom,
 		onToggleTriggerOutline,
-		onNavZoneChange,
-
-		isEditMode,
-		isBoxEditMode,
-		onToggleEditMode,
-		onToggleBoxEditMode
+		onNavZoneChange
 	} = $props<{
 		isOpen: boolean;
 		layoutMode: 'single' | 'double';
@@ -42,11 +37,6 @@
 		onToggleZoom: () => void;
 		onToggleTriggerOutline: () => void;
 		onNavZoneChange: (e: Event) => void;
-
-		isEditMode: boolean;
-		isBoxEditMode: boolean;
-		onToggleEditMode: () => void;
-		onToggleBoxEditMode: () => void;
 	}>();
 </script>
 
@@ -166,7 +156,7 @@
 				<input
 					type="range"
 					id="navZoneWidth"
-					min="10"
+					min="1"
 					max="50"
 					step="1"
 					value={navZoneWidth}
@@ -174,32 +164,6 @@
 					class="h-2 w-full cursor-pointer appearance-none rounded-lg bg-gray-600 accent-indigo-600"
 				/>
 			</div>
-
-			<button
-				onclick={onToggleEditMode}
-				type="button"
-				class="flex w-full justify-between rounded-md p-3 text-left"
-				class:bg-indigo-600={isEditMode}
-				class:bg-gray-700={!isEditMode}
-			>
-				<span>OCR Edit Mode</span>
-				<span class="font-bold uppercase">
-					{isEditMode ? 'ON' : 'OFF'}
-				</span>
-			</button>
-
-			<button
-				onclick={onToggleBoxEditMode}
-				type="button"
-				class="flex w-full justify-between rounded-md p-3 text-left"
-				class:bg-indigo-600={isBoxEditMode}
-				class:bg-gray-700={!isBoxEditMode}
-			>
-				<span>OCR Edit Mode (Box)</span>
-				<span class="font-bold uppercase">
-					{isBoxEditMode ? 'ON' : 'OFF'}
-				</span>
-			</button>
 		</div>
 	</div>
 {/if}

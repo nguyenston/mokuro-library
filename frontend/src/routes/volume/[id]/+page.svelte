@@ -448,13 +448,53 @@
 				{/if}
 			</div>
 
-			<div class="flex flex-1 justify-end gap-4">
+			<div class="flex flex-1 justify-end gap-2">
+				<!-- OCR TEXT EDIT MODE TOGGLE -->
+				<button
+					onclick={toggleEditMode}
+					type="button"
+					title="Toggle Text Edit Mode"
+					class="flex justify-center items-center rounded p-1 transition-colors aspect-square w-8 cursor-pointer"
+					class:bg-indigo-600={isEditMode}
+					class:hover:bg-gray-700={!isEditMode}
+					class:text-white={isEditMode}
+					class:text-gray-400={!isEditMode}
+					aria-pressed={isEditMode}
+				>
+					<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+						><path
+							fill="currentColor"
+							d="M2.5 4v3h5v12h3V7h5V4h-13zm19 5h-9v3h3v7h3v-7h3V9z"
+						/></svg
+					>
+				</button>
+
+				<!-- OCR BOX EDIT MODE TOGGLE -->
+				<button
+					onclick={toggleBoxEditMode}
+					type="button"
+					title="Toggle Box Edit Mode"
+					class="flex justify-center items-center rounded p-1 transition-colors aspect-square w-8 cursor-pointer"
+					class:bg-indigo-600={isBoxEditMode}
+					class:hover:bg-gray-700={!isBoxEditMode}
+					class:text-white={isBoxEditMode}
+					class:text-gray-400={!isBoxEditMode}
+					aria-pressed={isBoxEditMode}
+				>
+					<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+						><path
+							fill="currentColor"
+							d="M23 15h-2v2h2v-2zm0-4h-2v2h2v-2zm0 8h-2v2c1 0 2-1 2-2zM15 3h-2v2h2V3zm8 4h-2v2h2V7zm-2-4v2h2c0-1-1-2-2-2zM3 21h8v-6H1v4c0 1.1.9 2 2 2zM3 7H1v2h2V7zm12 12h-2v2h2v-2zm4-16h-2v2h2V3zm0 16h-2v2h2v-2zM3 3C2 3 1 4 1 5h2V3zm0 8H1v2h2v-2zm8-8H9v2h2V3zM7 3H5v2h2V3z"
+						/></svg
+					>
+				</button>
+
 				{#if hasUnsavedChanges}
 					<button
 						onclick={handleSave}
 						disabled={isSaving}
 						type="button"
-						class="text-gray-400 hover:text-white disabled:opacity-50"
+						class="text-gray-400 hover:text-white disabled:opacity-50 cursor-pointer"
 						aria-label="Save OCR Edits"
 					>
 						<svg
@@ -475,7 +515,7 @@
 				<button
 					onclick={() => (settingsOpen = true)}
 					type="button"
-					class="text-gray-400 hover:text-white"
+					class="text-gray-400 hover:text-white cursor-pointer"
 					aria-label="Open settings"
 				>
 					<svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -504,7 +544,7 @@
 				aria-label="Previous Page"
 				style={`width: ${navZoneWidth}%`}
 			></button>
-
+			>
 			<div
 				class="relative flex h-full flex-1 items-center justify-center"
 				bind:this={panzoomElement}
@@ -563,11 +603,7 @@
 		onToggleOffset={toggleEvenOddOffset}
 		onToggleZoom={toggleRetainZoom}
 		onNavZoneChange={handleNavZoneChange}
-		{isEditMode}
-		{isBoxEditMode}
 		{showTriggerOutline}
-		onToggleEditMode={toggleEditMode}
-		onToggleBoxEditMode={toggleBoxEditMode}
 		onToggleTriggerOutline={toggleTriggerOutline}
 	/>
 </div>
