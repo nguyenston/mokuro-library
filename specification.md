@@ -40,6 +40,7 @@ The system will be a decoupled client-server application.
 
 3.  **Per-User Progress & Settings:**
     * All reading progress (current page, stats) will be saved to the database, linked to the specific user ID.
+        * Reading progress and read markers will be displayed on volume entry   
     * All user-configurable settings (theme, reader behavior, etc.) will be saved to the database, linked to the user ID.
 
 4.  **Manga Reader UI:**
@@ -102,7 +103,7 @@ All endpoints (except /auth) are protected and require an authenticated session 
 * **GET /api/library/series/:id**
     * Gets a specific Series and associated Volume metadata owned by the current user.
 * **POST /api/library/upload**
-    * Uploads new manga (zip or directory) and associates it with the current user's ownerId.
+    * Uploads new manga (~~zip~~ or directory) and associates it with the current user's ownerId.
 * **GET /api/library/volume/:id**
     * Gets full data for one volume, including the parsed .mokuro JSON.
     * Fails (404/403) if the volume does not belong to the current user.
