@@ -544,6 +544,153 @@ const libraryRoutes: FastifyPluginAsync = async (
       }
     }
   );
+
+  /**
+     * DELETE /api/library/series/:id
+     * Deletes an entire series, all its volumes, and all associated files.
+     */
+  fastify.delete<{ Params: SeriesParams }>(
+    '/series/:id',
+    async (request, reply) => {
+      const { id: seriesId } = request.params;
+      const userId = request.user.id;
+
+      try {
+        // 1. Find series and verify ownership, include volumes for file paths
+        const series = await fastify.prisma.series.findFirst({
+          where: {
+            id: seriesId,
+            ownerId: userId
+          },
+          include: {
+            volumes: {
+              select: {
+                mokuroPath: true // We only need one path to find the series dir
+              }
+            }
+          }
+        });
+
+        if (!series) {
+          return reply.status(404).send({
+            statusCode: 404,
+            error: 'Not Found',
+            message: 'Series not found or access denied.'
+          });
+        }
+
+        // 2. Delete all files from disk
+        if (series.volumes.length > 0) {
+          // All volumes share the same parent (series) directory.
+          // mokuroPath is 'uploads/userId/seriesTitle/volume.mokuro'
+          const seriesDir = path.dirname(series.volumes[0].mokuroPath);
+          await fs.promises.rm(seriesDir, { recursive: true, force: true });
+        }
+
+        // 3. Delete series from DB. Prisma 'onDelete: Cascade'
+        // will automatically delete all related volumes and progress.
+        await fastify.prisma.series.delete({
+          where: {
+            id: seriesId
+          }
+        });
+
+        return reply.status(200).send({ message: 'Series deleted successfully.' });
+      } catch (error) {
+        fastify.log.error(
+          { err: error },
+          'Error deleting series'
+        );
+        return reply.status(500).send({
+          statusCode: 500,
+          error: 'Internal Server Error',
+          message: 'An unexpected error occurred while deleting the series.'
+        });
+      }
+    }
+  );
+
+  /**
+   * DELETE /api/library/volume/:id
+   * Deletes a single volume, its files, and its progress.
+   */
+  fastify.delete<{ Params: VolumeParams }>(
+    '/volume/:id',
+    async (request, reply) => {
+      const { id: volumeId } = request.params;
+      const userId = request.user.id;
+
+      try {
+        // 1. Find volume and verify ownership
+        // We also get the series and a count of its volumes
+        const volume = await fastify.prisma.volume.findFirst({
+          where: {
+            id: volumeId,
+            series: {
+              ownerId: userId
+            }
+          },
+          include: {
+            series: {
+              include: {
+                _count: {
+                  select: { volumes: true }
+                }
+              }
+            }
+          }
+        });
+
+        if (!volume) {
+          return reply.status(404).send({
+            statusCode: 404,
+            error: 'Not Found',
+            message: 'Volume not found or access denied.'
+          });
+        }
+
+        // 2. Delete volume files from disk
+        // filePath is 'uploads/userId/seriesTitle/volumeTitle'
+        await fs.promises.rm(volume.filePath, { recursive: true, force: true });
+        // mokuroPath is 'uploads/userId/seriesTitle/volume.mokuro'
+        await fs.promises.rm(volume.mokuroPath, { force: true });
+
+        const seriesDir = path.dirname(volume.mokuroPath);
+        const volumeCount = volume.series._count.volumes;
+
+        // 3. Delete volume from DB. Cascade delete handles progress.
+        await fastify.prisma.volume.delete({
+          where: {
+            id: volumeId
+          }
+        });
+
+        // 4. If this was the last volume, clean up the parent series directory
+        if (volumeCount === 1) {
+          try {
+            await fs.promises.rm(seriesDir, { recursive: true, force: true });
+            // We can optionally delete the Series DB entry too if we want
+            // await fastify.prisma.series.delete({ where: { id: volume.seriesId } });
+          } catch (e) {
+            // Log a warning if the empty dir fails to delete, but don't fail the request
+            fastify.log.warn(`Could not clean up empty series dir: ${seriesDir}`);
+          }
+        }
+
+        return reply.status(200).send({ message: 'Volume deleted successfully.' });
+      } catch (error) {
+        fastify.log.error(
+          { err: error },
+          'Error deleting volume'
+        );
+        return reply.status(500).send({
+          statusCode: 500,
+          error: 'Internal Server Error',
+          message: 'An unexpected error occurred while deleting the volume.'
+        });
+      }
+    }
+  );
 };
 
 export default libraryRoutes;
