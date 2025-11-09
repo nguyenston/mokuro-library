@@ -82,6 +82,46 @@ const filesRoutes: FastifyPluginAsync = async (fastify, opts): Promise<void> => 
       }
     }
   );
+
+  /**
+   * GET /api/files/series/:id/cover
+   * Securely serves the series cover image.
+   */
+  fastify.get<{ Params: { id: string } }>(
+    '/series/:id/cover',
+    async (request, reply) => {
+      const { id: seriesId } = request.params;
+      const userId = request.user.id;
+
+      try {
+        const series = await fastify.prisma.series.findFirst({
+          where: {
+            id: seriesId,
+            ownerId: userId,
+          },
+          select: {
+            coverPath: true,
+          },
+        });
+
+        if (!series || !series.coverPath) {
+          return reply.status(405).send('Cover not found');
+        }
+
+        // Ensure file exists before trying to send it
+        try {
+          await fs.promises.access(path.resolve(series.coverPath), fs.constants.R_OK);
+        } catch {
+          return reply.status(406).send('Cover file missing from disk');
+        }
+
+        return reply.sendFile(path.resolve(series.coverPath));
+      } catch (error) {
+        fastify.log.error(error);
+        return reply.status(500).send('Error serving cover');
+      }
+    }
+  );
 };
 
 export default filesRoutes;

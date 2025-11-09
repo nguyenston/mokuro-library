@@ -281,6 +281,64 @@ const libraryRoutes: FastifyPluginAsync = async (
   });
 
   /**
+   * ADDED: POST /api/library/series/:id/cover
+   * Uploads and sets the cover image for a series.
+   */
+  fastify.post<{ Params: SeriesParams }>(
+    '/series/:id/cover',
+    async (request, reply) => {
+      const { id: seriesId } = request.params;
+      const userId = request.user.id;
+
+      const data = await request.file();
+      if (!data) {
+        return reply.status(400).send({ message: 'No file uploaded.' });
+      }
+
+      try {
+        // 1. Verify ownership and get series details
+        const series = await fastify.prisma.series.findFirst({
+          where: { id: seriesId, ownerId: userId }
+        });
+
+        if (!series) {
+          // Consume stream to avoid hanging
+          await data.toBuffer();
+          return reply.status(404).send({ message: 'Series not found.' });
+        }
+
+        // 2. Determine paths
+        // We need to find the series root directory. We can infer it.
+        // Based on upload logic, it's 'uploads/<userId>/<seriesTitle>/'
+        const seriesDir = path.join('uploads', userId, series.title);
+
+        // Ensure directory exists (it should, but good practice)
+        await fs.promises.mkdir(seriesDir, { recursive: true });
+
+        // 3. Construct new filename: <seriesTitle>.<ext>
+        const ext = path.extname(data.filename).toLowerCase() || '.jpg';
+        const newFileName = `${series.title}${ext}`;
+        const filePath = path.join(seriesDir, newFileName);
+
+        // 4. Save file
+        await pump(data.file, fs.createWriteStream(filePath));
+
+        // 5. Update DB with absolute path (or relative if you prefer consistent storage)
+        // Storing absolute path for consistency with volume.filePath
+        await fastify.prisma.series.update({
+          where: { id: seriesId },
+          data: { coverPath: filePath }
+        });
+
+        return reply.status(200).send({ message: 'Cover updated successfully.' });
+      } catch (error) {
+        fastify.log.error(error);
+        return reply.status(500).send({ message: 'Failed to upload cover.' });
+      }
+    }
+  );
+
+  /**
    * GET /api/library/series/:id
    * Gets full data for one series, including its volumes.
    */
@@ -301,6 +359,19 @@ const libraryRoutes: FastifyPluginAsync = async (
               orderBy: {
                 title: 'asc', // Or by a 'volumeNumber' if we add one later
               },
+              include: {
+                progress: {
+                  where: {
+                    userId: userId
+                  },
+                  select: {
+                    page: true,
+                    completed: true,
+                    timeRead: true,
+                    charsRead: true
+                  }
+                }
+              }
             },
           },
         });
@@ -349,6 +420,19 @@ const libraryRoutes: FastifyPluginAsync = async (
               ownerId: userId,
             },
           },
+          include: {
+            progress: {
+              where: {
+                userId: userId
+              },
+              select: {
+                page: true,
+                completed: true,
+                timeRead: true,
+                charsRead: true
+              }
+            }
+          }
         });
 
         // Case 1: Volume not found or user does not own it
@@ -416,7 +500,7 @@ const libraryRoutes: FastifyPluginAsync = async (
           seriesId: volume.seriesId,
           pageCount: volume.pageCount,
           coverImageName: volume.coverImageName,
-
+          progress: volume.progress,
           mokuroData: mokuroJson,
         };
 
