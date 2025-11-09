@@ -5,6 +5,7 @@ import fastifyCookie from '@fastify/cookie';
 import fastifyMultipart from '@fastify/multipart';
 import fastifyStatic from '@fastify/static';
 import path from 'path';
+import fs from 'fs';
 
 // Import Plugins
 import authPlugin from './plugins/auth';
@@ -41,11 +42,9 @@ fastify.register(fastifyMultipart, {
   },
 });
 fastify.register(fastifyStatic, {
-  // Register fastify-static
-  // We set 'serve: false' because we are not serving an entire
-  // public directory. We just want to use the 'reply.sendFile' decorator
-  // for our secure, custom routes.
-  serve: false,
+  serve: false, // Does not automatically serve any folder
+  // No 'root' defined here means it defaults to '/', allowing
+  // API routes to pass absolute paths to reply.sendFile().
 });
 
 // Decorate Fastify instance with Prisma Client
@@ -72,6 +71,44 @@ fastify.get('/api/health', async (request, reply) => {
       .status(500)
       .send({ status: 'error', db: 'disconnected' });
   }
+});
+
+// ---  Frontend Serving Handler ---
+// This uses setNotFoundHandler so it ONLY fires if no API route matched.
+fastify.setNotFoundHandler(async (request, reply) => {
+  // 1. Safety check: If it tried to be an API call, return a real 404 JSON
+  if (request.raw.url?.startsWith('/api/')) {
+    return reply.status(404).send({
+      statusCode: 404,
+      error: 'Not Found',
+      message: `Route ${request.method}:${request.raw.url} not found`
+    });
+  }
+
+  // 2. Prepare paths for frontend assets
+  const buildPath = path.join(__dirname, '../frontend/build');
+  const urlPath = request.raw.url?.split('?')[0] || ''; // ignore query params
+  const potentialFilePath = path.join(buildPath, urlPath);
+
+  try {
+    // 3. Try to find a real file (like /_app/immutable/..., /favicon.svg, etc.)
+    // Security: Ensure the resolved path is still inside buildPath to prevent traversal
+    const resolvedPath = path.resolve(potentialFilePath);
+    if (!resolvedPath.startsWith(path.resolve(buildPath))) {
+      throw new Error('Path traversal attempt');
+    }
+
+    const stat = await fs.promises.stat(resolvedPath);
+    if (stat.isFile()) {
+      // It's a real file, serve it explicitly from the build folder
+      return reply.sendFile(urlPath, buildPath);
+    }
+  } catch (e) {
+    // Not a file, or doesn't exist. Ignore and fall through to index.html
+  }
+
+  // 4. Fallback for SPA: Serve index.html for any other route (e.g. /series/123)
+  return reply.sendFile('index.html', buildPath);
 });
 
 // --- Start Server ---

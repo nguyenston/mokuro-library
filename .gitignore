@@ -5,6 +5,9 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
+# Docker container volume
+data/
+
 # Env
 .env
 .env.local

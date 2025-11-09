@@ -133,8 +133,14 @@ const libraryRoutes: FastifyPluginAsync = async (
     let tempUploadDir: string | undefined = undefined;
 
     try {
+      // Define the base temp path relative to permanent storage root
+      const tempBaseDir = path.join('uploads', '.tmp');
+
+      // Ensure the base temporary directory exists before making a unique one
+      await fs.promises.mkdir(tempBaseDir, { recursive: true });
+
       tempUploadDir = await fs.promises.mkdtemp(
-        path.join(os.tmpdir(), 'mokuro-upload-')
+        path.join(tempBaseDir, 'mokuro-upload-')
       );
       fastify.log.info(`Created temp dir: ${tempUploadDir}`);
 

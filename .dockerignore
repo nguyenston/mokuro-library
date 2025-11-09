@@ -1,0 +1,35 @@
+# -----------------
+# Critical Ignores
+# -----------------
+
+# 1. Ignore the local development database.
+backend/prisma/library.db
+
+# 2. Ignore node_modules folders.
+# These will be re-installed inside the container using 'npm ci'.
+backend/node_modules
+frontend/node_modules
+
+# -----------------
+# General Ignores
+# -----------------
+
+# 3. Ignore the Git directory.
+.git
+
+# 4. Ignore Docker-related files.
+.dockerignore
+Dockerfile
+docker-compose.yml
+
+# 5. Ignore other common files.
+.gitignore
+README.md
+
+# 6. Ignore OS-specific files.
+.DS_Store
+Thumbs.db
+
+# 7. Ignore IDE/editor configuration.
+.vscode
+.idea

@@ -1,0 +1,22 @@
+services:
+  mokuro:
+    container_name: mokuro-library
+    # Option 1: Build from the current directory
+    build: .
+    # Option 2: Use a pre-built image name (if built manually before)
+    # image: mokuro-library
+    # restart: unless-stopped
+    ports:
+      # Maps port 80 on computer to port 3001 inside the container.
+      # Change the first number if port 80 is already in use (e.g., "8080:3001").
+      - "80:3001"
+    volumes:
+      # Persist the SQLite database.
+      - ./data:/app/data
+      # Persist uploaded manga files.
+      - ./data/uploads:/app/uploads
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      # Ensure the DB file is stored in the mounted /app/prisma volume
+      - DATABASE_URL=file:/app/data/library.db
