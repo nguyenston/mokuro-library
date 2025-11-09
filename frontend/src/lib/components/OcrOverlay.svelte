@@ -647,7 +647,7 @@
 						<div
 							class={`
                 ${isEditMode ? 'border-red-500/70' : 'border-transparent'}
-                absolute border p-0 m-0 text-black placeholder-transparent 
+                absolute border p-0 m-0 placeholder-transparent 
                 transition-opacity leading-none group/line
               `}
 							class:vertical-text={block.vertical}
@@ -708,11 +708,12 @@
 							<div
 								contenteditable={isEditMode}
 								role={isEditMode ? 'textbox' : undefined}
-								class="h-full w-full"
+								class="h-full w-full text-black text-semibold"
 								style={`
                 background-color: ${isEditMode || isBoxEditMode ? 'rgba(239, 68, 68, 0.5)' : 'transparent'};
                 cursor: ${isBoxEditMode ? 'grab' : block.vertical ? 'vertical-text' : 'text'};
                 font-size: calc(calc(90vh / ${page.img_height}) * ${block.font_size});
+                font-weight: 550;
                 white-space: nowrap;
                 user-select: text;
               `}

@@ -32,6 +32,9 @@
 	let isLoading = $state(true);
 	let error = $state<string | null>(null);
 
+	let fileInput: HTMLInputElement | null = $state(null); // Reference to hidden input
+	let coverRefreshTrigger = $state(0); // Used to bust cache on cover update
+
 	// Get the series ID from the URL
 	// Get the 'params' prop from SvelteKit's router
 	let { params } = $props<{ params: { id: string } }>();
@@ -209,7 +212,47 @@
 			Error loading series: {error}
 		</p>
 	{:else if series}
-		<h1 class="text-4xl font-bold dark:text-white">{series.title}</h1>
+		<!-- MODIFIED: Header with Avatar -->
+		<div class="mb-8 flex items-center gap-6">
+			<!-- Avatar Container -->
+			<div
+				class="group relative h-64 w-48 flex-shrink-0 overflow-hidden rounded-md bg-gray-200 shadow-md dark:bg-gray-800"
+			>
+				{#if series.coverPath}
+					<img
+						src={`/api/files/series/${series.id}/cover?t=${coverRefreshTrigger}`}
+						alt={series.title}
+						class="h-full w-full object-contain"
+					/>
+				{:else}
+					<div
+						class="flex h-full w-full items-center justify-center text-4xl font-bold text-gray-400"
+					>
+						{series.title.charAt(0).toUpperCase()}
+					</div>
+				{/if}
+
+				<!-- Hover Overlay -->
+				<button
+					type="button"
+					onclick={() => fileInput?.click()}
+					class="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 transition-opacity group-hover:opacity-100"
+				>
+					<span class="text-sm font-medium text-white">Change Cover</span>
+				</button>
+			</div>
+
+			<h1 class="text-4xl font-bold dark:text-white">{series.title}</h1>
+		</div>
+
+		<!-- Hidden File Input -->
+		<input
+			type="file"
+			accept="image/*"
+			class="hidden"
+			bind:this={fileInput}
+			onchange={handleCoverUpload}
+		/>
 
 		<div
 			class="mt-8 grid grid-cols-2 gap-y-10 gap-x-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:gap-x-8"

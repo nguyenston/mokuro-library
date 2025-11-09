@@ -7,11 +7,17 @@
 	import UploadModal from '$lib/components/UploadModal.svelte';
 
 	// --- Type definitions ---
+	interface UserProgress {
+		page: number;
+		completed: boolean;
+	}
+
 	interface Volume {
 		id: string;
 		title: string;
 		pageCount: number;
 	}
+
 	interface Series {
 		id: string;
 		title: string;
@@ -135,42 +141,73 @@
 				</div>
 			{:else}
 				<div
-					class="mt-6 grid grid-cols-2 gap-y-10 gap-x-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:gap-x-8"
+					class="mt-6 grid grid-cols-2 gap-y-10 gap-x-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 xl:gap-x-8"
 				>
 					{#each library as series (series.id)}
 						<div class="group relative">
-							<div class="mt-4">
-								<h3 class="text-md font-medium text-gray-900 dark:text-white">
-									<a href={`/series/${series.id}`}>
-										<span aria-hidden="true" class="absolute inset-0"></span>
+							<!-- Series Cover Display -->
+							<div
+								class="aspect-[3/4] w-full overflow-hidden rounded-md bg-gray-200 shadow-md dark:bg-gray-800"
+							>
+								{#if series.coverPath}
+									<img
+										src={`/api/files/series/${series.id}/cover`}
+										alt={series.title}
+										class="h-full w-full object-contain object-center transition-opacity group-hover:opacity-75"
+									/>
+								{:else}
+									<div
+										class="flex h-full w-full items-center justify-center p-4 text-center text-xl font-bold text-gray-400"
+									>
 										{series.title}
-									</a>
-								</h3>
-								<p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-									{series.volumes.length}
-									{series.volumes.length === 1 ? 'volume' : 'volumes'}
-								</p>
+									</div>
+								{/if}
+
+								<!-- Clickable Link Overlay -->
+								<a href={`/series/${series.id}`} class="absolute inset-0">
+									<span class="sr-only">View {series.title}</span>
+								</a>
 							</div>
 
-							<!-- Delete Button -->
-							<button
-								type="button"
-								aria-label="Delete series"
-								onclick={(e) => {
-									e.preventDefault(); // Stop navigation
-									e.stopPropagation(); // Stop group click
-									handleDeleteSeries(series.id, series.title);
-								}}
-								class="absolute top-2 right-2 z-10 rounded-full bg-black/30 p-1 text-white/70 opacity-0 transition-opacity hover:bg-red-600 hover:text-white group-hover:opacity-100"
-							>
-								<!-- Trash Icon -->
-								<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24">
-									<path
-										fill="currentColor"
-										d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zm2.46-7.12l1.41-1.41L12 12.59l2.12-2.12l1.41 1.41L13.41 14l2.12 2.12l-1.41 1.41L12 15.41l-2.12 2.12l-1.41-1.41L10.59 14l-2.13-2.12zM15.5 4l-1-1h-5l-1 1H5v2h14V4z"
-									/>
-								</svg>
-							</button>
+							<div class="mt-4 flex justify-between">
+								<div>
+									<h3 class="text-sm font-medium text-gray-900 dark:text-white">
+										<a href={`/series/${series.id}`}>
+											<span aria-hidden="true" class="absolute inset-0"></span>
+											{series.title}
+										</a>
+									</h3>
+									<p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+										{series.volumes.length}
+										{series.volumes.length === 1 ? 'volume' : 'volumes'}
+									</p>
+								</div>
+
+								<!-- Delete Button (kept from previous step) -->
+								<button
+									type="button"
+									aria-label="Delete series"
+									onclick={(e) => {
+										e.preventDefault();
+										e.stopPropagation();
+										handleDeleteSeries(series.id, series.title);
+									}}
+									class="relative z-10 -m-2 p-2 text-gray-400 hover:text-red-500"
+								>
+									<!-- Trash Icon -->
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										width="20"
+										height="20"
+										viewBox="0 0 24 24"
+									>
+										<path
+											fill="currentColor"
+											d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zm2.46-7.12l1.41-1.41L12 12.59l2.12-2.12l1.41 1.41L13.41 14l2.12 2.12l-1.41 1.41L12 15.41l-2.12 2.12l-1.41-1.41L10.59 14l-2.13-2.12zM15.5 4l-1-1h-5l-1 1H5v2h14V4z"
+										/>
+									</svg>
+								</button>
+							</div>
 						</div>
 					{/each}
 				</div>

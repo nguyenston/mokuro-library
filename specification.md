@@ -44,7 +44,6 @@ The system will be a decoupled client-server application.
     * All user-configurable settings (theme, reader behavior, etc.) will be saved to the database, linked to the user ID.
 
 4.  **Manga Reader UI:**
-    * The reader UI from zxy101/mokuro-reader will be adapted.
 	* Core reader features (must-haves)
 		* Fetch and display the current page's image.
 		* Layout Mode: A toggle for Single Page vs. Dual-Page Spread (e.g., showing two pages side-by-side).
@@ -104,6 +103,8 @@ All endpoints (except /auth) are protected and require an authenticated session 
     * Gets a specific Series and associated Volume metadata owned by the current user.
 * **POST /api/library/upload**
     * Uploads new manga (~~zip~~ or directory) and associates it with the current user's ownerId.
+* **POST /api/library/series/:id/cover**
+    * Uploads and sets the cover image for a series.
 * **GET /api/library/volume/:id**
     * Gets full data for one volume, including the parsed .mokuro JSON.
     * Fails (404/403) if the volume does not belong to the current user.
