@@ -77,6 +77,10 @@ fastify.get('/api/health', async (request, reply) => {
 // --- Start Server ---
 const start = async () => {
   try {
+    // Wait for all plugins to load
+    await fastify.ready();
+    // Print the routing tree to the console
+    console.log(fastify.printRoutes());
     // Listen on 0.0.0.0:3001
     await fastify.listen({ port: 3001, host: '0.0.0.0' });
   } catch (err) {
