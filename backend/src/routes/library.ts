@@ -129,6 +129,9 @@ const libraryRoutes: FastifyPluginAsync = async (
     const parts = request.parts();
     const volumesMap = new Map<string, UploadedVolume>();
 
+    // Track series cover
+    const seriesCoverMap = new Map<string, { originalPath: string; tempPath: string }>();
+
     // 3. Create a unique temp directory for this upload
     let tempUploadDir: string | undefined = undefined;
 
@@ -169,6 +172,36 @@ const libraryRoutes: FastifyPluginAsync = async (
           // 4. Parser logic
           const pathParts = parsedPath.dir.split(path.sep).filter((p) => p);
           let seriesTitle: string, volumeTitle: string;
+
+          // A file is a series cover if:
+          // 1. It's an image
+          // 3. Its filename matches its folder name (e.g., "Series Title.jpg")
+          const isSeriesCover =
+            isImage &&
+            pathParts.length > 0 &&
+            parsedPath.name === pathParts[pathParts.length - 1];
+
+          if (isSeriesCover) {
+            seriesTitle = pathParts[pathParts.length - 1];
+
+            // Save to a special subfolder in the temp dir
+            const tempPathDir = path.join(
+              tempUploadDir,
+              seriesTitle,
+              '_series_cover_'
+            );
+            const tempPath = path.join(tempPathDir, parsedPath.base);
+            await fs.promises.mkdir(tempPathDir, { recursive: true });
+            await pump(part.file, fs.createWriteStream(tempPath));
+
+            // Store in our new map
+            seriesCoverMap.set(seriesTitle, {
+              originalPath: part.filename,
+              tempPath
+            });
+
+            continue; // Skip the volume logic below
+          }
 
           if (isMokuro && pathParts.length > 0) {
             volumeTitle = parsedPath.name;
@@ -224,13 +257,48 @@ const libraryRoutes: FastifyPluginAsync = async (
         }
 
         // --- DB Collision Check ---
+        // 1. Find or create the series
         let series = await fastify.prisma.series.findFirst({
-          where: { title: volume.seriesTitle, ownerId: userId },
+          where: { title: volume.seriesTitle, ownerId: userId }
         });
+
         if (!series) {
           series = await fastify.prisma.series.create({
-            data: { title: volume.seriesTitle, ownerId: userId },
+            data: {
+              title: volume.seriesTitle,
+              ownerId: userId,
+              coverPath: null // Always create with null cover
+            }
           });
+        }
+
+        // 2. Check for and process a cover, regardless of whether
+        // the series is new or existing.
+        if (seriesCoverMap.has(volume.seriesTitle)) {
+          const coverFile = seriesCoverMap.get(volume.seriesTitle)!;
+          const seriesDir = path.join('uploads', userId, series.title);
+          const ext = path.extname(coverFile.originalPath);
+          const newCoverName = `${volume.seriesTitle}${ext}`;
+          const newCoverPath = path.join(seriesDir, newCoverName);
+          const normalizedCoverPath = newCoverPath.replace(/\\/g, '/');
+
+          // Ensure directory exists and move the file
+          await fs.promises.mkdir(seriesDir, { recursive: true });
+          await fs.promises.rename(coverFile.tempPath, newCoverPath);
+
+          // remove cover from the map
+          seriesCoverMap.delete(volume.seriesTitle);
+
+          // 3. Update the series in the DB if the path is new
+          if (series.coverPath !== normalizedCoverPath) {
+            // use 'series.id' to update the record we just found or created
+            await fastify.prisma.series.update({
+              where: { id: series.id },
+              data: { coverPath: normalizedCoverPath }
+            });
+            // Update local 'series' object
+            series.coverPath = normalizedCoverPath;
+          }
         }
 
         const existingVolume = await fastify.prisma.volume.findFirst({
