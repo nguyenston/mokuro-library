@@ -6,7 +6,7 @@ Mokuro Library is a self-hosted, multi-user web application designed to run on a
 
 ## 🌟 Core Features
 
-Based on the project specification:
+For more details, read [the specification](specification.md):
 * **Multi-User Authentication:** Separate accounts for different users, with progress and settings saved per-user.
 * **Server-Side Library:** Upload entire Mokuro-processed directories. The server parses the structure and populates the database.
 * **Persistent, Per-User Progress:** Reading progress, page, and completion status are saved to the database for each user/+page.svelte].
