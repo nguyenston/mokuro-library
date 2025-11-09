@@ -674,99 +674,99 @@
 			<div
 				class={`
           ${showTriggerOutline ? 'border-green-500/70' : 'border-transparent'}
-          absolute top-0 left-0 h-full w-full border transition-opacity
+          absolute top-0 left-0 h-full w-full border transition-opacity z-1
         `}
-			>
-				<div
-					class={`
+			></div>
+			<div
+				class={`
             ${(isSliderInteracting || isSliderHovered) && focusedBlock === block ? 'opacity-100' : 'opacity-0 group-hover/block:opacity-100'}
             ${isBoxEditMode ? 'bg-transparent' : 'bg-white'}
             relative h-full w-full
           `}
-					class:vertical-text={block.vertical}
-					bind:this={block.domElement}
-					role="group"
-				>
-					{#each block.lines as line, lineIndex}
-						{@const coords = block.lines_coords[lineIndex]}
+				class:vertical-text={block.vertical}
+				bind:this={block.domElement}
+				role="group"
+			>
+				{#each block.lines as line, lineIndex}
+					{@const coords = block.lines_coords[lineIndex]}
 
-						{@const relative_x_min =
-							((coords[0][0] - block.box[0]) / (block.box[2] - block.box[0])) * 100}
-						{@const relative_y_min =
-							((coords[0][1] - block.box[1]) / (block.box[3] - block.box[1])) * 100}
-						{@const relative_x_max =
-							((coords[2][0] - block.box[0]) / (block.box[2] - block.box[0])) * 100}
-						{@const relative_y_max =
-							((coords[2][1] - block.box[1]) / (block.box[3] - block.box[1])) * 100}
-						{@const width = relative_x_max - relative_x_min}
-						{@const height = relative_y_max - relative_y_min}
+					{@const relative_x_min =
+						((coords[0][0] - block.box[0]) / (block.box[2] - block.box[0])) * 100}
+					{@const relative_y_min =
+						((coords[0][1] - block.box[1]) / (block.box[3] - block.box[1])) * 100}
+					{@const relative_x_max =
+						((coords[2][0] - block.box[0]) / (block.box[2] - block.box[0])) * 100}
+					{@const relative_y_max =
+						((coords[2][1] - block.box[1]) / (block.box[3] - block.box[1])) * 100}
+					{@const width = relative_x_max - relative_x_min}
+					{@const height = relative_y_max - relative_y_min}
 
-						<div
-							class={`
+					<div
+						class={`
                 ${isEditMode ? 'border-red-500/70' : 'border-transparent'}
                 absolute border p-0 m-0 placeholder-transparent 
-                transition-opacity leading-none group/line
+                transition-opacity leading-none z-2 group/line
               `}
-							class:vertical-text={block.vertical}
-							style={`
+						class:vertical-text={block.vertical}
+						style={`
                 left: ${relative_x_min}%;
                 top: ${relative_y_min}%;
                 width: ${width}%;
                 height: ${height}%;
                 background-color: ${isEditMode ? 'rgba(239, 68, 68, 0.5)' : 'transparent'};
               `}
-							role={isBoxEditMode ? 'button' : undefined}
-							onmousedown={(e) => handleLineDragStart(e, block, lineIndex)}
-							oncontextmenu={(e) => openLineContextMenu(e, block, lineIndex)}
-						>
-							<!-- Inner Line Resize Handles -->
-							{#if isBoxEditMode}
-								<div
-									class="absolute -left-0.5 -top-0.5 z-20 h-1.5 w-1.5 cursor-nwse-resize rounded-full bg-yellow-400 opacity-0 group-hover/line:opacity-100"
-									onmousedown={(e) => handleLineResizeStart(e, block, lineIndex, 'top-left')}
-									role={isBoxEditMode ? 'button' : undefined}
-								></div>
-								<div
-									class="absolute -top-0.5 left-1/2 z-20 h-1.5 w-1.5 -translate-x-1/2 cursor-ns-resize rounded-full bg-yellow-400 opacity-0 group-hover/line:opacity-100"
-									onmousedown={(e) => handleLineResizeStart(e, block, lineIndex, 'top-center')}
-									role={isBoxEditMode ? 'button' : undefined}
-								></div>
-								<div
-									class="absolute -right-0.5 -top-0.5 z-20 h-1.5 w-1.5 cursor-nesw-resize rounded-full bg-yellow-400 opacity-0 group-hover/line:opacity-100"
-									onmousedown={(e) => handleLineResizeStart(e, block, lineIndex, 'top-right')}
-									role={isBoxEditMode ? 'button' : undefined}
-								></div>
-								<div
-									class="absolute -left-0.5 top-1/2 z-20 h-1.5 w-1.5 -translate-y-1/2 cursor-ew-resize rounded-full bg-yellow-400 opacity-0 group-hover/line:opacity-100"
-									onmousedown={(e) => handleLineResizeStart(e, block, lineIndex, 'middle-left')}
-									role={isBoxEditMode ? 'button' : undefined}
-								></div>
-								<div
-									class="absolute -right-0.5 top-1/2 z-20 h-1.5 w-1.5 -translate-y-1/2 cursor-ew-resize rounded-full bg-yellow-400 opacity-0 group-hover/line:opacity-100"
-									onmousedown={(e) => handleLineResizeStart(e, block, lineIndex, 'middle-right')}
-									role={isBoxEditMode ? 'button' : undefined}
-								></div>
-								<div
-									class="absolute -bottom-0.5 -left-0.5 z-20 h-1.5 w-1.5 cursor-nesw-resize rounded-full bg-yellow-400 opacity-0 group-hover/line:opacity-100"
-									onmousedown={(e) => handleLineResizeStart(e, block, lineIndex, 'bottom-left')}
-									role={isBoxEditMode ? 'button' : undefined}
-								></div>
-								<div
-									class="absolute -bottom-0.5 left-1/2 z-20 h-1.5 w-1.5 -translate-x-1/2 cursor-ns-resize rounded-full bg-yellow-400 opacity-0 group-hover/line:opacity-100"
-									onmousedown={(e) => handleLineResizeStart(e, block, lineIndex, 'bottom-center')}
-									role={isBoxEditMode ? 'button' : undefined}
-								></div>
-								<div
-									class="absolute -bottom-0.5 -right-0.5 z-20 h-1.5 w-1.5 cursor-nwse-resize rounded-full bg-yellow-400 opacity-0 group-hover/line:opacity-100"
-									onmousedown={(e) => handleLineResizeStart(e, block, lineIndex, 'bottom-right')}
-									role={isBoxEditMode ? 'button' : undefined}
-								></div>
-							{/if}
+						role={isBoxEditMode ? 'button' : undefined}
+						onmousedown={(e) => handleLineDragStart(e, block, lineIndex)}
+						oncontextmenu={(e) => openLineContextMenu(e, block, lineIndex)}
+					>
+						<!-- Inner Line Resize Handles -->
+						{#if isBoxEditMode}
 							<div
-								contenteditable={isEditMode}
-								role={isEditMode ? 'textbox' : undefined}
-								class="h-full w-full text-black text-semibold"
-								style={`
+								class="absolute -left-0.5 -top-0.5 z-20 h-1.5 w-1.5 cursor-nwse-resize rounded-full bg-yellow-400 opacity-0 group-hover/line:opacity-100"
+								onmousedown={(e) => handleLineResizeStart(e, block, lineIndex, 'top-left')}
+								role={isBoxEditMode ? 'button' : undefined}
+							></div>
+							<div
+								class="absolute -top-0.5 left-1/2 z-20 h-1.5 w-1.5 -translate-x-1/2 cursor-ns-resize rounded-full bg-yellow-400 opacity-0 group-hover/line:opacity-100"
+								onmousedown={(e) => handleLineResizeStart(e, block, lineIndex, 'top-center')}
+								role={isBoxEditMode ? 'button' : undefined}
+							></div>
+							<div
+								class="absolute -right-0.5 -top-0.5 z-20 h-1.5 w-1.5 cursor-nesw-resize rounded-full bg-yellow-400 opacity-0 group-hover/line:opacity-100"
+								onmousedown={(e) => handleLineResizeStart(e, block, lineIndex, 'top-right')}
+								role={isBoxEditMode ? 'button' : undefined}
+							></div>
+							<div
+								class="absolute -left-0.5 top-1/2 z-20 h-1.5 w-1.5 -translate-y-1/2 cursor-ew-resize rounded-full bg-yellow-400 opacity-0 group-hover/line:opacity-100"
+								onmousedown={(e) => handleLineResizeStart(e, block, lineIndex, 'middle-left')}
+								role={isBoxEditMode ? 'button' : undefined}
+							></div>
+							<div
+								class="absolute -right-0.5 top-1/2 z-20 h-1.5 w-1.5 -translate-y-1/2 cursor-ew-resize rounded-full bg-yellow-400 opacity-0 group-hover/line:opacity-100"
+								onmousedown={(e) => handleLineResizeStart(e, block, lineIndex, 'middle-right')}
+								role={isBoxEditMode ? 'button' : undefined}
+							></div>
+							<div
+								class="absolute -bottom-0.5 -left-0.5 z-20 h-1.5 w-1.5 cursor-nesw-resize rounded-full bg-yellow-400 opacity-0 group-hover/line:opacity-100"
+								onmousedown={(e) => handleLineResizeStart(e, block, lineIndex, 'bottom-left')}
+								role={isBoxEditMode ? 'button' : undefined}
+							></div>
+							<div
+								class="absolute -bottom-0.5 left-1/2 z-20 h-1.5 w-1.5 -translate-x-1/2 cursor-ns-resize rounded-full bg-yellow-400 opacity-0 group-hover/line:opacity-100"
+								onmousedown={(e) => handleLineResizeStart(e, block, lineIndex, 'bottom-center')}
+								role={isBoxEditMode ? 'button' : undefined}
+							></div>
+							<div
+								class="absolute -bottom-0.5 -right-0.5 z-20 h-1.5 w-1.5 cursor-nwse-resize rounded-full bg-yellow-400 opacity-0 group-hover/line:opacity-100"
+								onmousedown={(e) => handleLineResizeStart(e, block, lineIndex, 'bottom-right')}
+								role={isBoxEditMode ? 'button' : undefined}
+							></div>
+						{/if}
+						<div
+							contenteditable={isEditMode}
+							role={isEditMode ? 'textbox' : undefined}
+							class="h-full w-full text-black text-semibold"
+							style={`
                 background-color: ${isEditMode || isBoxEditMode ? 'rgba(239, 68, 68, 0.5)' : 'transparent'};
                 cursor: ${isBoxEditMode ? 'grab' : block.vertical ? 'vertical-text' : 'text'};
                 font-size: calc(calc(90vh / ${page.img_height}) * ${block.font_size});
@@ -774,28 +774,27 @@
                 white-space: nowrap;
                 user-select: text;
               `}
-								onblur={(e) => {
-									let newText = (e.currentTarget as HTMLDivElement).innerText;
-									block.lines[lineIndex] = newText;
-									onOcrChange();
+							onblur={(e) => {
+								let newText = (e.currentTarget as HTMLDivElement).innerText;
+								block.lines[lineIndex] = newText;
+								onOcrChange();
 
-									if (!isSliderInteracting) {
-										onLineFocus(null, null);
-										focusedLineElement = null;
-										focusedBlock = null;
-									}
-								}}
-								onfocus={(e) => {
-									focusedLineElement = e.currentTarget;
-									focusedBlock = block;
-									onLineFocus(block, page);
-								}}
-							>
-								{isEditMode ? line : wrapDotSequences(line)}
-							</div>
+								if (!isSliderInteracting) {
+									onLineFocus(null, null);
+									focusedLineElement = null;
+									focusedBlock = null;
+								}
+							}}
+							onfocus={(e) => {
+								focusedLineElement = e.currentTarget;
+								focusedBlock = block;
+								onLineFocus(block, page);
+							}}
+						>
+							{isEditMode ? line : wrapDotSequences(line)}
 						</div>
-					{/each}
-				</div>
+					</div>
+				{/each}
 			</div>
 		</div>
 	{/each}
