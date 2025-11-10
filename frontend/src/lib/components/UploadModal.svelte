@@ -85,7 +85,8 @@
 
 		<div class="mt-4">
 			<p class="text-sm text-gray-600 dark:text-gray-400">
-				Select the **root** folder (e.g., "Mokuro Output") containing your processed series.
+				Select the **root** folder of your library containing your processed series or the root
+				folder of your series.
 			</p>
 
 			<label
