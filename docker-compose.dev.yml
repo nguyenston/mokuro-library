@@ -1,6 +1,8 @@
 version: '3.8'
 services:
   mokuro:
+    container_name: mokuro-library-dev
+
     # Target the 'backend-builder' stage from Dockerfile.
     # This stage has 'npm ci' run, so it includes all
     # devDependencies (like ts-node-dev).
@@ -35,6 +37,7 @@ services:
       - CHOKIDAR_USEPOLLING=true
 
   frontend:
+      container_name: mokuro-library-frontend-dev
       # Targets Stage 1 from Dockerfile
       build:
         context: .
