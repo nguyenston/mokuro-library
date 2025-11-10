@@ -16,6 +16,7 @@ import settingsRoutes from './routes/settings';
 import progressRoutes from './routes/progress';
 import libraryRoutes from './routes/library';
 import filesRoutes from './routes/files';
+import exportRoutes from './routes/export';
 
 // Define the absolute project root, /app, in both environments:
 // In dev: __dirname is /app/backend/src. Root is two levels up.
@@ -68,6 +69,7 @@ fastify.register(settingsRoutes, { prefix: '/api/settings' });
 fastify.register(progressRoutes, { prefix: '/api/progress' });
 fastify.register(libraryRoutes, { prefix: '/api/library' });
 fastify.register(filesRoutes, { prefix: '/api/files' });
+fastify.register(exportRoutes, { prefix: '/api/export' });
 
 // --- Health Check Route ---
 fastify.get('/api/health', async (request, reply) => {

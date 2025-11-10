@@ -112,7 +112,7 @@
 			<div class="flex items-center gap-4 w-full sm:w-auto sm:ml-auto">
 				<!-- Download Library Button -->
 				<button
-					onclick={() => triggerDownload('/api/library/download')}
+					onclick={() => triggerDownload('/api/export/zip')}
 					disabled={library.length === 0}
 					class="hidden sm:flex items-center gap-2 rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:hover:bg-gray-600"
 				>

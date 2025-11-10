@@ -244,7 +244,7 @@
 
 				<!-- Series Download Button -->
 				<button
-					onclick={() => triggerDownload(`/api/library/series/${series?.id}/download`)}
+					onclick={() => triggerDownload(`/api/export/series/${series?.id}/zip`)}
 					class="flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
 				>
 					<!-- Download Icon -->
@@ -358,7 +358,7 @@
 							onclick={(e) => {
 								e.preventDefault();
 								e.stopPropagation();
-								triggerDownload(`/api/library/volume/${volume.id}/download`);
+								triggerDownload(`/api/export/volume/${volume.id}/zip`);
 							}}
 							class="rounded-full bg-black/30 p-1 text-white/70 hover:bg-blue-600 hover:text-white"
 						>
