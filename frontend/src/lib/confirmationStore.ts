@@ -4,6 +4,8 @@ type ConfirmationState = {
   isOpen: boolean;
   title: string;
   message: string;
+  confirmLabel: string;
+  processingLabel: string;
   onConfirm: () => Promise<void>;
 };
 
@@ -12,6 +14,8 @@ const defaultState: ConfirmationState = {
   isOpen: false,
   title: 'Are you sure?',
   message: 'This action cannot be undone.',
+  confirmLabel: 'Confirm',
+  processingLabel: 'Processing...',
   onConfirm: async () => { } // No-op
 };
 
@@ -26,12 +30,16 @@ function createConfirmationStore() {
     open: (
       title: string,
       message: string,
-      onConfirm: () => Promise<void>
+      onConfirm: () => Promise<void>,
+      confirmLabel: string = 'Confirm',
+      processingLabel: string = 'Processing...',
     ) => {
       set({
         isOpen: true,
         title,
         message,
+        confirmLabel,
+        processingLabel,
         onConfirm
       });
     },

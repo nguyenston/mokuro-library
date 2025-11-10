@@ -58,7 +58,7 @@
 				disabled={isProcessing}
 				class="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 disabled:opacity-50"
 			>
-				{isProcessing ? 'Deleting...' : 'Delete'}
+				{isProcessing ? $confirmation.processingLabel : $confirmation.confirmLabel}
 			</button>
 		</div>
 	</div>

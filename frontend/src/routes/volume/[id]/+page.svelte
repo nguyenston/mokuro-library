@@ -6,6 +6,8 @@
 	import type { VolumeResponse, MokuroData, MokuroPage, MokuroBlock } from '$lib/types';
 	import ReaderSettings from '$lib/components/ReaderSettings.svelte';
 	import OcrOverlay from '$lib/components/OcrOverlay.svelte';
+	import { goto } from '$app/navigation';
+	import { confirmation } from '$lib/confirmationStore';
 
 	// --- SvelteKit Props ---
 	let { params } = $props<{ params: { id: string } }>(); // volumeId
@@ -46,7 +48,7 @@
 	let panzoomElement = $state<HTMLDivElement | null>(null);
 	let panzoomInstance = $state<PanzoomObject | null>(null);
 
-	// --- ADDED: Progress Tracking State ---
+	// --- Progress Tracking State ---
 	let initialPage = $state(0); // The page number we loaded with
 	let progressSaveTimer: ReturnType<typeof setTimeout> | null = null;
 	let isSavingProgress = $state(false);
@@ -275,6 +277,29 @@
 	});
 
 	// --- Event Handlers ---
+	const handleGoBack = () => {
+		const seriesId = volumeResponse?.seriesId;
+		if (!seriesId) return; // Safety check
+
+		// If no changes, just go back
+		if (!hasUnsavedChanges) {
+			goto(`/series/${seriesId}`);
+			return;
+		}
+
+		// If there ARE changes, show a confirmation modal
+		confirmation.open(
+			'Discard Unsaved Changes?',
+			'You have unsaved OCR edits. Are you sure you want to discard them and exit?',
+			async () => {
+				// onConfirm: Just navigate, discarding changes
+				goto(`/series/${seriesId}`);
+			},
+			'Discard & Exit', // confirmLabel
+			'Exiting...' // processingLabel
+		);
+	};
+
 	const syncDoublePageOffset = () => {
 		const hasOddOffset = doublePageOffset === 'odd';
 		const pageIsEven = currentPageIndex % 2 === 0;
@@ -339,6 +364,15 @@
 		if (focusedBlock) {
 			const newSize = parseFloat((e.target as HTMLInputElement).value);
 			focusedBlock.font_size = newSize;
+			onOcrChange();
+		}
+	};
+
+	const handleFontSizeWheel = (e: WheelEvent) => {
+		if (focusedBlock) {
+			const delta = e.deltaY > 0 ? -1 : 1;
+			const newFontSize = (focusedBlock.font_size ?? 16) + delta;
+			focusedBlock.font_size = Math.max(newFontSize, 0);
 			onOcrChange();
 		}
 	};
@@ -473,12 +507,16 @@
 		<header
 			class="absolute top-0 left-0 right-0 z-20 flex h-16 items-center justify-between bg-gradient-to-b from-black/70 to-transparent px-4 text-white"
 		>
-			<a
-				href={`/series/${volumeResponse?.seriesId}`}
-				class="flex-1 truncate whitespace-nowrap pr-2 text-sm hover:text-indigo-400 sm:text-base"
-			>
-				&larr; {mokuroData.title}
-			</a>
+			<div class="flex-1 justify-start">
+				<button
+					type="button"
+					onclick={handleGoBack}
+					class="flex-1 truncate whitespace-nowrap pr-2 text-sm hover:text-indigo-400 sm:text-base cursor-pointer"
+				>
+					&larr;
+					{mokuroData.title}
+				</button>
+			</div>
 
 			<div class="flex-1 text-center">
 				{#if isEditMode && focusedBlock}
@@ -502,6 +540,7 @@
 							max={sliderMax}
 							step="1"
 							value={focusedBlockFontSize}
+							onwheel={handleFontSizeWheel}
 							oninput={handleFontSizeInput}
 							class="h-1.5 w-full cursor-pointer appearance-none rounded-lg bg-gray-500/50 accent-indigo-500"
 							aria-valuemin="8"
