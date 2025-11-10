@@ -206,7 +206,7 @@
 									</p>
 								</div>
 
-								<!-- Delete Button (kept from previous step) -->
+								<!-- Delete Button -->
 								<button
 									type="button"
 									aria-label="Delete series"

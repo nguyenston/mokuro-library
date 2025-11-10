@@ -330,7 +330,7 @@
 						class="absolute top-2 left-2 z-10 rounded-full p-1 transition-colors cursor-pointer
                      {isCompleted
 							? 'bg-green-500 text-white opacity-100'
-							: 'bg-black/30 text-white/50 opacity-0 hover:bg-black/50 hover:text-white group-hover:opacity-100'}"
+							: 'bg-black/30 text-white/50 opacity-0 hover:bg-black/50 hover:text-white group-hover:opacity-100 [@media(hover:none)]:opacity-100'}"
 					>
 						<!-- Check Icon -->
 						<svg
@@ -348,7 +348,9 @@
 					</button>
 
 					<!-- Volume Actions (Top-Right) -->
-					<div class="absolute top-2 right-2 z-10 flex flex-col gap-2">
+					<div
+						class="absolute top-2 right-2 z-10 flex flex-col gap-2 transition-opacity opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100"
+					>
 						<!-- Volume Download Button -->
 						<button
 							type="button"
@@ -358,7 +360,7 @@
 								e.stopPropagation();
 								triggerDownload(`/api/library/volume/${volume.id}/download`);
 							}}
-							class="rounded-full bg-black/30 p-1 text-white/70 opacity-0 transition-opacity hover:bg-blue-600 hover:text-white group-hover:opacity-100"
+							class="rounded-full bg-black/30 p-1 text-white/70 hover:bg-blue-600 hover:text-white"
 						>
 							<!-- Download Icon (Small) -->
 							<svg
@@ -386,8 +388,8 @@
 								handleDeleteVolume(volume.id, volume.title);
 							}}
 							class="rounded-full bg-black/30
-              p-1 text-white/70 opacity-0 transition-opacity hover:bg-red-600
-              hover:text-white group-hover:opacity-100 cursor-pointer"
+              p-1 text-white/70 hover:bg-red-600
+              hover:text-white cursor-pointer"
 						>
 							<!-- Trash Icon -->
 							<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24">

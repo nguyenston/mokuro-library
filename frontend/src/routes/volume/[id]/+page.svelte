@@ -557,11 +557,18 @@
 
 			<div class="flex flex-1 justify-end gap-2">
 				<!-- Page Counter -->
+
 				<span
-					class="flex items-center justify-center text-sm font-medium font-semibold text-gray-300 mr-2"
+					class="flex flex-row items-center justify-center text-sm font-medium font-semibold text-gray-300"
 				>
-					{`${currentPageIndex + 1}${currentPages.length == 2 ? `-${currentPageIndex + 2}` : ''}`} /
-					{totalPages}
+					<span class="inline md:hidden mr-1">
+						{`${currentPageIndex + 1}${currentPages.length == 2 ? `-${currentPageIndex + 2}` : ''}`}
+					</span>
+					<span class="hidden md:inline mr-1">
+						{`${currentPageIndex + 1}${currentPages.length == 2 ? `-${currentPageIndex + 2}` : ''}`}
+						/
+						{totalPages}
+					</span>
 				</span>
 
 				<!-- OCR TEXT EDIT MODE TOGGLE -->
