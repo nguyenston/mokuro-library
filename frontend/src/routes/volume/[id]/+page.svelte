@@ -631,6 +631,7 @@
 				{/if}
 				<button
 					onclick={() => (settingsOpen = true)}
+					title="Open settings"
 					type="button"
 					class="text-gray-400 hover:text-white cursor-pointer"
 					aria-label="Open settings"
