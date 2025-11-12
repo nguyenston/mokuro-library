@@ -26,7 +26,7 @@ This project is a monorepo containing a decoupled frontend and backend.
 * **ORM:** **Prisma** for type-safe database access and migrations.
 * **Containerization:** **Docker** and **Docker Compose**.
 
-## 🚀 Usage
+## 🚀 Installation
 
 The recommended way to run Mokuro Library is with Docker Compose, which handles the database, backend, and frontend in one managed container.
 

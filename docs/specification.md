@@ -72,6 +72,8 @@ The system will be a decoupled client-server application.
 * [ ] Reading Statistics: Implement the UI to display reading stats (time, characters read), which will be tracked in the database.
 * [ ] AnkiConnect Integration: Focuses on sentence mining, as dictionary extensions like Yomi-tan already have word mining down.
 * [ ] The ability to export the library in different format (e.g. pdf, cbz, ...)
+  * [x] zip
+  * [x] pdf with selectable text
 
 ## Technology Stack
 
@@ -134,6 +136,20 @@ All endpoints (except /auth) are protected and require an authenticated session 
 * **GET /api/files/series/:id/cover**
     * Securely serves the cover image for a series.
     * Fails if the series does not belong to the current user.
+### Export API (User-Scoped)
+
+* GET /api/export/volume/:id/zip
+    * Downloads a single volume as a ZIP.
+* GET /api/export/series/:id/zip
+    * Downloads an entire series as a ZIP.
+* GET /api/export/zip
+    * Downloads the entire user library as a ZIP.
+* GET /api/export/volume/:id/pdf
+    * Downloads a single volume as a pdf with selectable text.
+* GET /api/export/series/:id/pdf
+    * Downloads an entire series as a ZIP of pdfs.
+* GET /api/export/pdf
+    * Downloads the entire user library as a ZIP of pdfs.
 
 ## Draft Database Schema (Prisma)
 
