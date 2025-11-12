@@ -42,6 +42,7 @@ COPY --from=backend-builder /app/backend/src/generated/prisma ./dist/generated/p
 
 # Copy built frontend static files to the expected location
 COPY --from=frontend-builder /app/frontend/build ./frontend/build
+COPY --from=frontend-builder /app/frontend/static ./frontend/static
 
 # Environment variables (can be overridden at runtime)
 ENV NODE_ENV=production

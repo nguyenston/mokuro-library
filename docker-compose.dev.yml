@@ -24,6 +24,7 @@ services:
       # /app/backend/node_modules folder and ignore your
       # local host's node_modules (if any).
       - /app/backend/node_modules
+      - ./frontend/static/fonts:/app/frontend/static/fonts:ro
 
       - ./data:/app/data
       - ./data/uploads:/app/uploads
