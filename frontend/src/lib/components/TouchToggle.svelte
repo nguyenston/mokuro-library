@@ -5,7 +5,8 @@
 		trigger: Snippet;
 		children: Snippet;
 		class?: string;
-		mode?: 'tooltip' | 'overlay';
+		mode?: 'tooltip' | 'overlay' | 'custom';
+		childClass?: string;
 		forceVisible?: boolean;
 	}
 
@@ -14,6 +15,7 @@
 		children,
 		class: className = '',
 		mode = 'tooltip',
+		childClass = '',
 		forceVisible = false
 	}: Props = $props();
 
@@ -90,14 +92,14 @@
       - scale-100/95: Provides the "zoom" entrance/exit animation effect.
     -->
 		<div
-			class="absolute left-0 mt-2 w-max min-w-[200px] origin-top-left transition-all duration-200 ease-out
+			class="absolute left-0 mt-2 w-max min-w-[200px] origin-top-left transition-all duration-200 ease-out {childClass}
             {isVisible
 				? 'scale-100 opacity-100 pointer-events-auto'
 				: 'scale-95 opacity-0 pointer-events-none'}"
 		>
 			{@render children()}
 		</div>
-	{:else}
+	{:else if mode === 'overlay'}
 		<!--
       OVERLAY MODE:
       - absolute top-0 left-0: Anchors the overlay exactly to the top-left corner of the parent container.
@@ -107,8 +109,16 @@
       - pointer-events-auto/none: Manually manages interaction capability. critical when opacity is 0 so clicks pass through to the trigger.
     -->
 		<div
-			class="absolute top-0 left-0 h-full w-full transition-opacity duration-200 ease-out
+			class="absolute top-0 left-0 h-full w-full transition-opacity duration-200 ease-out {childClass}
             {isVisible ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}"
+		>
+			{@render children()}
+		</div>
+	{:else}
+		<div
+			class="{childClass} {isVisible
+				? 'opacity-100 pointer-events-auto'
+				: 'opacity-0 pointer-events-none'}"
 		>
 			{@render children()}
 		</div>
