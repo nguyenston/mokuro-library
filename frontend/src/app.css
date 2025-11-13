@@ -44,10 +44,12 @@
 }
 
 @font-face {
-  font-family: 'Migu 1P';
+  font-family: 'Source Han Serif JP';
   font-style: normal;
-  font-weight: 400;
+  font-weight: 400 900;
   font-display: swap;
-  src: url('/fonts/migu-1p-regular.woff2') format('woff2');
+  src: url('/fonts/SourceHanSerif-VF.otf.woff2') format('woff2');
 }
+
+
 @import 'tailwindcss';
