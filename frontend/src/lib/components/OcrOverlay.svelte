@@ -32,6 +32,7 @@
 	// --- States ---
 	// current focused mokuroBlock for hovering behavior
 	let focusedBlock = $state<MokuroBlock | null>(null);
+	let hoveredBlock = $state<MokuroBlock | null>(null);
 
 	//stable reference to the root element, should be the same size as the view port
 	let overlayRootElement: HTMLDivElement | null = $state(null);
@@ -683,15 +684,48 @@
 	 * Handles clicks on the empty overlay background.
 	 */
 	const handleOverlayClick = (e: MouseEvent) => {
+		// Only act on clicks directly on the background (not a block/line)
+		if (e.target !== e.currentTarget) {
+			return;
+		}
 		// Check if in text edit mode, a line is focused,
 		// and the click was on the background (target === currentTarget)
-		if (isEditMode && focusedLineElement && e.target === e.currentTarget) {
+		if (isEditMode && focusedLineElement) {
 			focusedLineElement.blur();
+			return;
+		}
+
+		// In Neutral or Box Edit Mode, the goal is to clear any text selection
+		const selection = window.getSelection();
+		if (selection) {
+			selection.removeAllRanges();
+		}
+	};
+	const handleKeydown = (event: KeyboardEvent) => {
+		const isNeutralMode = !isEditMode && !isBoxEditMode;
+
+		// Check for Ctrl+A, in neutral mode, and if a block is hovered
+		if (event.ctrlKey && event.key === 'a' && isNeutralMode && hoveredBlock?.domElement) {
+			// Prevent the default browser action (selecting the entire page)
+			event.preventDefault();
+
+			const selection = window.getSelection();
+			if (selection) {
+				const range = document.createRange();
+				// Select all contents of the hovered block's common parent
+				range.selectNodeContents(hoveredBlock.domElement);
+				selection.removeAllRanges();
+				selection.addRange(range);
+			}
 		}
 	};
 </script>
 
-<svelte:window bind:innerWidth={viewportWidth} bind:innerHeight={viewportHeight} />
+<svelte:window
+	bind:innerWidth={viewportWidth}
+	bind:innerHeight={viewportHeight}
+	onkeydown={handleKeydown}
+/>
 <!-- svelte-ignore a11y_no_static_element_interactions, a11y_click_events_have_key_events -->
 <div
 	class="absolute top-0 left-0 h-full w-full ocr-top-layer"
@@ -714,6 +748,8 @@
         height: ${box_height}%;
         pointer-events: auto;
       `}
+			onmouseenter={() => (hoveredBlock = block)}
+			onmouseleave={() => (hoveredBlock = null)}
 			onmousedown={(e) => handleBlockDragStart(e, block)}
 			oncontextmenu={(e) => openBlockContextMenu(e, block)}
 			role={isBoxEditMode ? 'button' : undefined}
