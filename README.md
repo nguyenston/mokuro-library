@@ -13,6 +13,7 @@ For more details, read [the specification](docs/specification.md):
 * **Persistent, Per-User Progress:** Reading progress, page, and completion status are saved to the database for each user.
 * **Persistent Reader Settings:** All reader preferences (layout, direction, etc.) are saved to your account.
 * **Live OCR Editing:** Edit and correct OCR text blocks directly in the reader UI. Changes are saved back to the `.mokuro` file on the server.
+* **Smart Resize Mode:** Automatically adjusts font size to fit text within its bounding box during editing.
 * **Dockerized Deployment:** A single Docker container runs the entire application, making setup and maintenance simple.
 * **Volume & Series Management:** Upload series covers, delete individual volumes, or remove entire series from your library.
 
@@ -39,7 +40,7 @@ The recommended way to run Mokuro Library is with Docker Compose, which handles 
 
 1.  **Clone the repository:**
     ```bash
-    git clone https://github.com/nguyenston/mokuro-library.git
+    git clone [https://github.com/nguyenston/mokuro-library.git](https://github.com/nguyenston/mokuro-library.git)
     ```
 
 2.  **Navigate to the directory:**
@@ -81,30 +82,60 @@ When you pull new changes from Git or modify the schema:
     
 ## 🛠️ Development (with Hot-Reload)
 
-See [the development doc](docs/development.md).
+The recommended workflow is the full-stack, containerized dev environment. For details on this and alternative workflows (like Hybrid Development), see [the development doc](docs/development.md).
+
+### Recommended Dev Workflow
+
+1.  **First-Time Build (or when `package.json` changes):**
+    You must build the dev images once to install all dependencies.
+    ```bash
+    docker compose -f docker-compose.yml -f docker-compose.dev.yml build
+    ```
+   
+
+2.  **Start the Dev Environment:**
+    This command starts both the backend and frontend services with hot-reloading.
+    ```bash
+    docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+    ```
+   
+
+3.  **Access the app:**
+    * Open `http://localhost:5173` in your browser.
+    * The SvelteKit app will auto-proxy `/api` requests to the backend container.
 
 ## 📚FAQ
-### 1. Server-Side vs. Client-Side
+### 1. Mokuro Library vs. Mokuro Reader
 
-The original [ZXY101/mokuro-reader](https://github.com/ZXY101/mokuro-reader) is a fantastic **client-side** reader. It's fast, simple, and perfect for loading files directly into the browser.
+The original [ZXY101/mokuro-reader](https://github.com/ZXY101/mokuro-reader) is a fantastic **browser-based** reader. It's fast, simple, and perfect for loading `.mokuro` files directly into your browser without installing anything. It stores your library and reading progress in the browser's internal storage (IndexedDB).
 
-However, as a client-side tool, it relies on browser storage, which has limitations. If you have a large library or want to sync progress between devices, you can quickly hit those limits.
+**Mokuro Library** is a **self-hosted, server-side** application that solves a different set of problems. It is designed to run as a persistent service (e.g., in a Docker container on a NAS). It moves the entire library, all user accounts, and all progress tracking to the server, using a central SQLite database and the server's filesystem.
 
-**Mokuro Library solves this problem** by moving everything to the server:
+#### Which One Should You Use?
 
-* **Solve Storage Limits:** Library size is limited only by the server's hard drive, not browser's cache.
-* **Persistent Centralized Progress:** All reading progress, page numbers, and settings are saved to your user account on the server, so you are not browser/devide-bound.
-* **Data lives in the open:** Uploaded files stay on the server and accessible through the file system.
-* **File-Based Edit Persistence:** OCR modifications are written directly back to the corresponding `.mokuro` file on the server's filesystem. As a result, all corrections are as persistent and portable as the `.mokuro` files themselves.
+**Use the original [ZXY101/mokuro-reader](https://github.com/ZXY101/mokuro-reader) if:**
+* You want to quickly read a `.mokuro` file without setting up a server.
+* You prefer a hosted (don't worry, your data is still local), zero-installation experience.
+* You are managing a smaller library that fits comfortably within your browser's storage limits.
+* You only need to track your progress on a single device.
+
+**Use Mokuro Library (this project) if:**
+* You have a large manga library and are hitting browser storage quotas.
+* You run a NAS or home server and want a persistent, "always-on" library.
+* You want **multi-user** support.
+* You want your files living out in the open and accessible in the filesystem.
+* You want your OCR text edits to be **saved directly back to the `.mokuro` files** on your server for ease of migration.
 
 ### 2. Non-essential stretch features:
 * [ ] Optional Reader features
   * [x] Per user persistent reader settings
-  * [ ] Webtoon Mode: A single, long-scrolling vertical layout.
+  * [ ] A single, long-scrolling vertical layout.
   * [ ] Caching: Pre-loading the next and previous page images.
 * [ ] Reading Statistics: Implement the UI to display reading stats (time, characters read), which will be tracked in the database.
 * [ ] AnkiConnect Integration: Focuses on sentence mining, as dictionary extensions like Yomi-tan already have word mining down.
-* [ ] The ability to export the library in different format (e.g. pdf, cbz, ...)
+* [x] The ability to export the library in different format (e.g. pdf, cbz, ...)
+  * [x] zip
+  * [x] pdf with selectable text
 
 
 ## 🔧 Troubleshooting
@@ -135,7 +166,7 @@ Docker requires hardware virtualization to be enabled in your computer's BIOS/UE
 
 This means another application on your computer is already using port 3001.
 * **Solution:**
-    1.  Open `docker-compose.yml` [cite: mokuro-lib/docker-compose.yml].
+    1.  Open `docker-compose.yml`.
     2.  Find the `ports:` section.
     3.  Change the *first* number in `"3001:3001"` to something else, like `"8080:3001"`.
     4.  Access the library at `http://localhost:8080`.
