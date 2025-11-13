@@ -28,8 +28,8 @@ The system will be a decoupled client-server application.
     * [x] The backend will use a simple, non-HTTPS-only cookie for session management, suitable for a trusted LAN/VPN environment.
 
 2.  **Server-Side Library (Directory Upload-Style):**
-    * [ ] Authenticated users can upload content via the web UI. The upload modal will support two methods:
-        * [ ] Single File Upload: .zip or .cbz files containing a single volume, \<series\_title\> will be pulled from inside the .mokuro file.
+    * [x] Authenticated users can upload content via the web UI. The upload modal will support two methods:
+        * [x] ~~Single File Upload: .zip or .cbz files containing a single volume, \<series\_title\> will be pulled from inside the .mokuro file.~~ 
         * [x] Directory Upload: Users can select a "root" folder from their computer that contains pre-processed Mokuro output.
     * The backend will be able to parse the uploaded directory structure to find series and volumes based on the standard Mokuro output format:
         **Mokuro Output Structure:**
@@ -59,13 +59,14 @@ The system will be a decoupled client-server application.
 5.  **OCR Editing (Write-Back):**
     * [x] Ability to delete, create, and change existing OCR blocks
       * [x] Users can edit the textbox location (i.e. the four corners) of an OCR text box
-      * [x] Users can edit the text within an OCR text box.
+      * [x] Users can edit the text (content and font size) within an OCR text box.
     * [x] A "Save" button will send the modified text data to the backend.
     * [x] The backend will verify the user owns the volume, read the corresponding .mokuro file from the disk, update its JSON content, and save the changes.
 
 ### Nice-to-Haves (Post-MVP)
 
 * [ ] Optional Reader features
+  * [x] Smart resize mode that auto fit the text content to the bounding box
   * [x] Per user persistent reader settings
   * [ ] Webtoon Mode: A single, long-scrolling vertical layout.
   * [ ] Caching: Pre-loading the next and previous page images.
