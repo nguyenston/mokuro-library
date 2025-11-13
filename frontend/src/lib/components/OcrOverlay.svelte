@@ -437,26 +437,58 @@
 	/**
 	 * Executes a document command (cut, copy, paste) on the focused line.
 	 */
-	const execCommandOnLine = (
+	const execCommandOnLine = async (
 		command: 'cut' | 'copy' | 'paste',
 		block: MokuroBlock,
 		lineIndex: number
 	) => {
 		if (!focusedLineElement) return;
+		focusedLineElement.focus(); // just to be double sure
 
-		// Focus the element to ensure the command targets it
-		focusedLineElement.focus();
-		document.execCommand(command);
+		// Get selection details
+		const selection = window.getSelection();
+		if (!selection || selection.rangeCount === 0) return;
 
-		// For cut/paste, we must immediately sync state
-		if (command === 'cut' || command === 'paste') {
-			// Allow the DOM to update, then read it back
-			setTimeout(() => {
-				if (focusedLineElement) {
-					block.lines[lineIndex] = focusedLineElement.innerText;
-					onOcrChange();
+		let range: Range | null = null;
+		try {
+			range = selection.getRangeAt(0);
+		} catch (e) {
+			return; // No valid range
+		}
+
+		// Ensure the selection is within the focused line
+		if (!focusedLineElement.contains(range.commonAncestorContainer)) {
+			return;
+		}
+
+		try {
+			if (command === 'copy') {
+				if (range && !range.collapsed) {
+					await navigator.clipboard.writeText(selection.toString());
 				}
-			}, 0);
+			} else if (command === 'cut') {
+				if (range && !range.collapsed) {
+					await navigator.clipboard.writeText(selection.toString());
+					range.deleteContents(); // Delete the selected text
+					// Manually dispatch 'input' event to sync bind:innerText
+					focusedLineElement.dispatchEvent(new Event('input', { bubbles: true, cancelable: true }));
+				}
+			} else if (command === 'paste') {
+				const textToPaste = await navigator.clipboard.readText();
+				if (!textToPaste) return;
+
+				// Replace selection or insert at caret
+				range.deleteContents();
+				range.insertNode(document.createTextNode(textToPaste));
+
+				// Move caret to end of inserted text
+				selection.collapseToEnd();
+
+				// Manually dispatch 'input' event to sync bind:innerText
+				focusedLineElement.dispatchEvent(new Event('input', { bubbles: true, cancelable: true }));
+			}
+		} catch (err) {
+			console.error(`Clipboard ${command} failed:`, err);
 		}
 	};
 
@@ -636,15 +668,15 @@
 			// Text Edit Mode options
 			options.push({
 				label: 'Cut',
-				action: () => execCommandOnLine('cut', block, lineIndex)
+				action: async () => await execCommandOnLine('cut', block, lineIndex)
 			});
 			options.push({
 				label: 'Copy',
-				action: () => execCommandOnLine('copy', block, lineIndex)
+				action: async () => await execCommandOnLine('copy', block, lineIndex)
 			});
 			options.push({
 				label: 'Paste',
-				action: () => execCommandOnLine('paste', block, lineIndex)
+				action: async () => await execCommandOnLine('paste', block, lineIndex)
 			});
 			options.push({ separator: true });
 			options.push({
