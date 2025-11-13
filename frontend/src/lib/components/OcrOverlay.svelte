@@ -117,7 +117,7 @@
 			guess = (max + min) / 2;
 		}
 		// 6. State Update
-		block.font_size = guess;
+		block.font_size = +guess.toFixed(3);
 		// 7. Persistence
 		onOcrChange();
 		// 5. cleanup
