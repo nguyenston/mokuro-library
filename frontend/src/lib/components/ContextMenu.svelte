@@ -75,6 +75,8 @@
 		style="left: {finalX}px; top: {finalY}px;"
 		role="menu"
 		aria-orientation="vertical"
+		onmousedown={(event) => event.preventDefault()}
+		tabindex="0"
 	>
 		<div class="py-1" role="none">
 			{#each $contextMenu.options as option}

@@ -843,7 +843,8 @@
 				class={`
         relative h-full w-full
       `}
-				forceVisible={(isSliderInteracting || isSliderHovered) && focusedBlock === block}
+				forceVisible={(isSliderInteracting || isSliderHovered || $contextMenu.isOpen) &&
+					focusedBlock === block}
 				mode="overlay"
 			>
 				{#snippet trigger()}
@@ -938,45 +939,60 @@
 									role={isBoxEditMode ? 'button' : undefined}
 								></div>
 							{/if}
-							<div
-								data-line-text="true"
-								contenteditable={isEditMode}
-								role={isEditMode ? 'textbox' : undefined}
-								class="ocr-line-text self-center"
-								class:vertical-text={block.vertical}
-								style={`
-                cursor: ${isBoxEditMode ? 'grab' : block.vertical ? 'vertical-text' : 'text'};
-                font-size: ${fontScale * block.font_size}px;
-              `}
-								ondblclick={(e) => {
-									if (!isEditMode && !isBoxEditMode && isSmartResizeMode) {
-										e.stopPropagation();
-										smartResizeFont(block, e.currentTarget as HTMLElement);
-									}
-								}}
-								onblur={(e) => {
-									let newText = (e.currentTarget as HTMLDivElement).innerText;
-									block.lines[lineIndex] = newText;
-									onOcrChange();
 
-									if (!isSliderInteracting) {
-										onLineFocus(null, null);
-										focusedLineElement = null;
-										focusedBlock = null;
-									}
+							{#if isEditMode}
+								<div
+									data-line-text="true"
+									contenteditable="true"
+									role="textbox"
+									tabindex="0"
+									class="ocr-line-text self-center"
+									class:vertical-text={block.vertical}
+									style={`
+                    cursor: ${block.vertical ? 'vertical-text' : 'text'};
+                    font-size: ${fontScale * block.font_size}px;
+                  `}
+									bind:innerText={block.lines[lineIndex]}
+									oninput={() => {
+										onOcrChange();
+									}}
+									onblur={(e) => {
+										// We only need to handle focus logic.
+										if (!isSliderInteracting) {
+											onLineFocus(null, null);
+											focusedLineElement = null;
+											focusedBlock = null;
+										}
 
-									if (isSmartResizeMode) {
-										smartResizeFont(block, e.currentTarget as HTMLElement);
-									}
-								}}
-								onfocus={(e) => {
-									focusedLineElement = e.currentTarget;
-									focusedBlock = block;
-									onLineFocus(block, page);
-								}}
-							>
-								{isEditMode ? line : ligaturize(line, block.vertical)}
-							</div>
+										if (isSmartResizeMode) {
+											smartResizeFont(block, e.currentTarget as HTMLElement);
+										}
+									}}
+									onfocus={(e) => {
+										focusedLineElement = e.currentTarget;
+										focusedBlock = block;
+										onLineFocus(block, page);
+									}}
+								></div>
+							{:else}
+								<div
+									data-line-text="true"
+									class="ocr-line-text self-center"
+									class:vertical-text={block.vertical}
+									style={`
+                    cursor: ${isBoxEditMode ? 'grab' : 'text'};
+                    font-size: ${fontScale * block.font_size}px;
+                  `}
+									ondblclick={(e) => {
+										if (!isEditMode && !isBoxEditMode && isSmartResizeMode) {
+											e.stopPropagation();
+											smartResizeFont(block, e.currentTarget as HTMLElement);
+										}
+									}}
+								>
+									{ligaturize(line, block.vertical)}
+								</div>
+							{/if}
 						</div>
 					{/each}
 				</div>
