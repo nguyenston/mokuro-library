@@ -73,64 +73,70 @@
 	 */
 	function smartResizeFont(block: MokuroBlock, lineIndex: number, lineElement: HTMLElement) {
 		if (!lineElement) return;
+		if (!lineElement.parentElement) return;
 
 		const coords = block.lines_coords[lineIndex];
 		const isVertical = block.vertical ?? false;
 
 		// 1. Get Target Dimension
-		let targetDimension: number;
-		let initial_guess: number;
-		const boxHeight = coords[3][1] - coords[0][1]; // Box Height
-		const boxWidth = coords[1][0] - coords[0][0]; // Box Width
-		if (isVertical) {
-			targetDimension = boxHeight;
-			initial_guess = boxWidth;
-		} else {
-			targetDimension = boxWidth;
-			initial_guess = boxHeight;
-		}
+		const parentRect = lineElement.parentElement.getBoundingClientRect();
+		const targetMeasure = isVertical ? parentRect.height : parentRect.width;
 
 		// 2. Define search range
 		const MIN_FONT_SIZE = 8;
 		const MAX_FONT_SIZE = page.img_width / 2; // Our search ceiling
 
 		// 3. Helper function to measure the DOM at a specific size
+		const range = document.createRange();
+		range.selectNodeContents(lineElement);
 		const measure = (size: number): number => {
-			lineElement.style.fontSize = `${size}px`;
+			lineElement.style.fontSize = `${fontScale * size}px`;
 			// return isVertical ? lineElement.scrollHeight : lineElement.scrollWidth;
 			const rect = lineElement.getBoundingClientRect();
-			return (isVertical ? rect.height : rect.width) / panzoomInstance.getScale();
+			return isVertical ? rect.height : rect.width;
 		};
 
 		// 4. Binary search
 		let min = MIN_FONT_SIZE;
 		let max = MAX_FONT_SIZE;
-		let guess = Math.min(Math.max(initial_guess, min), max);
+		let minMeasure = measure(min);
+		let maxMeasure = measure(max);
+		let guess = min + ((targetMeasure - minMeasure) / (maxMeasure - minMeasure)) * (max - min);
 		let bestGuess = guess;
 
 		for (let i = 0; i < 100; i++) {
-			let measuredSize = measure(guess);
-			console.log(`${i} ${measuredSize} ${targetDimension} ${guess} ${min} ${max}`);
+			let guessMeasure = measure(guess);
+			console.log(
+				`${i} ${guessMeasure.toFixed(3)} ${targetMeasure.toFixed(3)} ${max.toFixed(3)} ${min.toFixed(3)}`
+			);
+			let delta = targetMeasure - guessMeasure;
 
-			if (max - min < 0.001) {
+			if (delta > 0) {
+				min = guess;
+				minMeasure = guessMeasure;
 				bestGuess = guess;
+			}
+			if (delta < 0) {
+				max = guess;
+				maxMeasure = guessMeasure;
+			}
+			if (max - min < 0.001 || Math.abs(delta) < 0.1) {
 				break;
 			}
-			if (measuredSize < targetDimension) {
-				min = guess;
-				bestGuess = guess;
-			}
-			if (measuredSize > targetDimension) {
-				max = guess;
-			}
-			guess = (max + min) / 2;
+
+			guess = min + ((targetMeasure - minMeasure) / (maxMeasure - minMeasure)) * (max - min);
 		}
 		// 6. State Update
 		block.font_size = +bestGuess.toFixed(3);
+		lineElement.style.fontSize = `${fontScale * block.font_size}px`;
+		const rect = lineElement.getBoundingClientRect();
+		const measureFinal = isVertical ? rect.height : rect.width;
+		console.log(`${measureFinal}`);
+
 		// 7. Persistence
 		onOcrChange();
 		// 5. cleanup
-		lineElement.style.fontSize = `${fontScale * block.font_size}px`;
+		range.detach();
 	}
 
 	/**
