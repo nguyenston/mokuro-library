@@ -71,11 +71,10 @@
 	 * the text fits snug to the current line's box
 	 * starts with a small size, then use stepping
 	 */
-	function smartResizeFont(block: MokuroBlock, lineIndex: number, lineElement: HTMLElement) {
+	function smartResizeFont(block: MokuroBlock, lineElement: HTMLElement) {
 		if (!lineElement) return;
 		if (!lineElement.parentElement) return;
 
-		const coords = block.lines_coords[lineIndex];
 		const isVertical = block.vertical ?? false;
 
 		// 1. Get Target Dimension
@@ -84,14 +83,13 @@
 
 		// 2. Define search range
 		const MIN_FONT_SIZE = 8;
-		const MAX_FONT_SIZE = page.img_width / 2; // Our search ceiling
+		const MAX_FONT_SIZE = page.img_width / 2;
 
 		// 3. Helper function to measure the DOM at a specific size
 		const range = document.createRange();
 		range.selectNodeContents(lineElement);
 		const measure = (size: number): number => {
 			lineElement.style.fontSize = `${fontScale * size}px`;
-			// return isVertical ? lineElement.scrollHeight : lineElement.scrollWidth;
 			const rect = lineElement.getBoundingClientRect();
 			return isVertical ? rect.height : rect.width;
 		};
@@ -126,7 +124,6 @@
 		// 5. State Update
 		block.font_size = +bestGuess.toFixed(3);
 		lineElement.style.fontSize = `${fontScale * block.font_size}px`;
-		const rect = lineElement.getBoundingClientRect();
 
 		// 6. Persistence
 		onOcrChange();
@@ -429,7 +426,7 @@
 
 			if (isSmartResizeMode) {
 				// Use the prop
-				smartResizeFont(block, lineIndex, textElement);
+				smartResizeFont(block, textElement);
 			}
 		};
 
@@ -922,7 +919,7 @@
 								ondblclick={(e) => {
 									if (!isEditMode && !isBoxEditMode && isSmartResizeMode) {
 										e.stopPropagation();
-										smartResizeFont(block, lineIndex, e.currentTarget as HTMLElement);
+										smartResizeFont(block, e.currentTarget as HTMLElement);
 									}
 								}}
 								onblur={(e) => {
@@ -937,7 +934,7 @@
 									}
 
 									if (isSmartResizeMode) {
-										smartResizeFont(block, lineIndex, e.currentTarget as HTMLElement);
+										smartResizeFont(block, e.currentTarget as HTMLElement);
 									}
 								}}
 								onfocus={(e) => {
