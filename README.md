@@ -1,9 +1,8 @@
 # Mokuro Library
+A self-hosted, Plex-like server for your a [Mokuro](https://github.com/kha-white/mokuro)-processed manga library.
 
-Mokuro Library is a **self-hosted, multi-user, server-side** application for a [Mokuro](https://github.com/kha-white/mokuro)-processed manga library.
-It's designed to run on a NAS/home server or local computer, providing a centralized, persistent library with per-user progress and settings, all deployed by a simple Docker container.
-
-
+Mokuro Library is a multi-user, server-side application designed to run on a NAS, home server, or local computer. 
+It provides a centralized, persistent library for your Mokuro-processed manga, deployed via a Docker container.
 
 ## 🌟 Core Features
 
@@ -104,7 +103,7 @@ The recommended workflow is the full-stack, containerized dev environment. For d
     * Open `http://localhost:5173` in your browser.
     * The SvelteKit app will auto-proxy `/api` requests to the backend container.
 
-## 📚FAQ
+## 📚 FAQ
 ### 1. Mokuro Library vs. Mokuro Reader
 
 The original [ZXY101/mokuro-reader](https://github.com/ZXY101/mokuro-reader) is a fantastic **browser-based** reader. It's fast, simple, and perfect for loading `.mokuro` files directly into your browser without installing anything. It stores your library and reading progress in the browser's internal storage (IndexedDB).

@@ -1,4 +1,4 @@
-# 🛠️ Development (with Hot-Reload)
+# Development (with Hot-Reload)
 
 This project is configured for a full-stack, containerized development environment using a `docker-compose.dev.yml` override file. This setup runs both the backend and frontend in separate, hot-reloading containers, which is the recommended workflow.
 

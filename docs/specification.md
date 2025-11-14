@@ -4,11 +4,12 @@
 
 ### Project Goal
 
-To create a self-hosted, multi-user Mokuro reader application that runs on a NAS. This application will solve the primary limitation of existing client-side readers by storing all library files and user data on the server's filesystem, bypassing browser storage quotas.
+To create a self-hosted, multi-user Mokuro reader application that runs on a NAS. This application will solve the primary limitation of existing client-side readers by storing all library files and user data on the server's filesystem, bypassing browser storage quotas. This is also a project for me to get into web development.
 
 ### Target Use Case
 
-A casual NAS owner who wants to host a manga library for a small, trusted group of users (family, friends) over a private network (LAN or VPN).
+A casual NAS owner who wants to host a manga library for a small, trusted group of users (family, friends) over a private network (LAN or VPN). 
+People into self-hosting. Or just prefer to have access of mokuro files via filesystem.
 
 ### Core Architecture
 
@@ -47,9 +48,9 @@ The system will be a decoupled client-server application.
 	* [x] Core reader features
 		* [x] Fetch and display the current page's image.
 		* [x] Layout Mode: A toggle for Single Page vs. Dual-Page Spread (e.g., showing two pages side-by-side).
-		* [x] Dual-Page offset: the ability to choose whether to start dual page from even or odd pages
-		* [x] Dual-Page reading direction: left to right or right to left
-		* [x] Ability to set the width of the side navigation buttons
+		* [x] Dual-Page offset: the ability to choose whether to start dual page from even or odd pages.
+		* [x] Dual-Page reading direction: left to right or right to left.
+		* [x] Ability to set the width of the side navigation buttons.
 		* [x] Interactivity: Zoom and Pan the image(s).
 	* [x] OCR overlay features
 		* [x] Display editable OCR blocks as overlays.
@@ -57,8 +58,8 @@ The system will be a decoupled client-server application.
 		* [x] Ensure these overlays correctly scale and pan with the base image.
 
 5.  **OCR Editing (Write-Back):**
-    * [x] Ability to delete, create, and change existing OCR blocks
-      * [x] Users can edit the textbox location (i.e. the four corners) of an OCR text box
+    * [x] Ability to delete, create, and change existing OCR blocks.
+      * [x] Users can edit the textbox location (i.e. the four corners) of an OCR text box.
       * [x] Users can edit the text (content and font size) within an OCR text box.
     * [x] A "Save" button will send the modified text data to the backend.
     * [x] The backend will verify the user owns the volume, read the corresponding .mokuro file from the disk, update its JSON content, and save the changes.
@@ -66,15 +67,20 @@ The system will be a decoupled client-server application.
 ### Nice-to-Haves (Post-MVP)
 
 * [ ] Optional Reader features
-  * [x] Smart resize mode that auto fit the text content to the bounding box
-  * [x] Per user persistent reader settings
-  * [ ] Webtoon Mode: A single, long-scrolling vertical layout.
+  * [x] Smart resize mode that auto fit the text content to the bounding box.
+  * [x] Per user persistent reader settings.
+  * [ ] A single, long-scrolling vertical layout (webtoon mode).
   * [ ] Caching: Pre-loading the next and previous page images.
-* [ ] Reading Statistics: Implement the UI to display reading stats (time, characters read), which will be tracked in the database.
-* [ ] AnkiConnect Integration: Focuses on sentence mining, as dictionary extensions like Yomi-tan already have word mining down.
 * [ ] The ability to export the library in different format (e.g. pdf, cbz, ...)
   * [x] zip
   * [x] pdf with selectable text
+  * [ ] cbz (low priority)
+* [ ] Library features
+  * [ ] More secure cookie implementation for more public use cases.
+  * [ ] The ability to rename series and volume.
+  * [ ] Search and sort.
+  * [ ] Reading Statistics: Implement the UI to display reading stats (time, characters read), which will be tracked in the database.
+* [ ] AnkiConnect Integration: Focuses on sentence mining, as dictionary extensions like Yomi-tan already have word mining down.
 
 ## Technology Stack
 
@@ -83,7 +89,7 @@ The system will be a decoupled client-server application.
 * Backend: Node.js + Fastify + TypeScript.
 * Database: SQLite (managed via Prisma ORM).
 
-## Draft API "Contract"
+## API endpoints
 
 All endpoints (except /auth) are protected and require an authenticated session cookie. All library-related endpoints are implicitly scoped to the logged-in user.
 
