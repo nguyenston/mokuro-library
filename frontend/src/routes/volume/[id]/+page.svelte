@@ -12,6 +12,9 @@
 	// --- SvelteKit Props ---
 	let { params } = $props<{ params: { id: string } }>(); // volumeId
 
+	// --- State to track hover capability ---
+	let hasHover = $state(true); // Default to true
+
 	// --- Component State ---
 	let volumeResponse = $state<VolumeResponse | null>(null);
 	let currentPageIndex = $state(0);
@@ -133,6 +136,35 @@
 				saveProgress();
 			}
 		};
+	});
+
+	// --- Effect to check for hover capability ---
+	$effect(() => {
+		if (browser) {
+			const mediaQuery = window.matchMedia('(hover: none)');
+
+			// Set the initial value
+			hasHover = !mediaQuery.matches;
+
+			// Update the value if it changes
+			const listener = (e: MediaQueryListEvent) => {
+				hasHover = !e.matches;
+			};
+			mediaQuery.addEventListener('change', listener);
+
+			// Cleanup listener
+			return () => {
+				mediaQuery.removeEventListener('change', listener);
+			};
+		}
+	});
+
+	// --- Effect to disable box edit mode if hover is lost ---
+	$effect(() => {
+		if (!hasHover && isBoxEditMode) {
+			// If user loses hover (e.g., tablet mode) while edit is on, force it off
+			isBoxEditMode = false;
+		}
 	});
 
 	const fetchVolumeAndProgressData = async (volumeId: string) => {
@@ -625,13 +657,14 @@
 				<button
 					onclick={toggleBoxEditMode}
 					type="button"
-					title="Toggle Box Edit Mode"
-					class="flex justify-center items-center rounded p-1 transition-colors aspect-square w-8 cursor-pointer"
+					title={hasHover ? 'Toggle Box Edit Mode' : 'Box edit is disabled on touch-only devices'}
+					class="flex justify-center items-center rounded p-1 transition-colors aspect-square w-8 cursor-pointer disabled:text-gray-600"
 					class:bg-indigo-600={isBoxEditMode}
 					class:hover:bg-gray-700={!isBoxEditMode}
 					class:text-white={isBoxEditMode}
 					class:text-gray-400={!isBoxEditMode}
 					aria-pressed={isBoxEditMode}
+					disabled={!hasHover}
 				>
 					<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
 						><path

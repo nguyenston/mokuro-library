@@ -19,6 +19,13 @@
 		forceVisible = false
 	}: Props = $props();
 
+	// --- State for long press detection ---
+	let longPressTimer: ReturnType<typeof setTimeout> | null = $state(null);
+	let startX = $state(0);
+	let startY = $state(0);
+	const LONG_PRESS_DURATION = 500; // 500ms
+	const MOVE_THRESHOLD = 10; // 10px drag tolerance
+
 	let isOpen = $state(false);
 	let containsFocus = $state(false);
 
@@ -31,20 +38,6 @@
 	function handlePointerLeave(e: PointerEvent) {
 		if (e.pointerType === 'mouse') {
 			isOpen = false;
-		}
-	}
-
-	/**
-	 * Filters out genuine mouse clicks (which should only use hover)
-	 * while correctly capturing touch/pen 'clicks' that don't have a hover state.
-	 */
-	function handleClick(e: MouseEvent) {
-		// Cast generic MouseEvent to PointerEvent to access the pointerType property
-		const pointerEvent = e as PointerEvent;
-
-		// Only toggle if it is NOT a mouse (i.e., it's touch or pen)
-		if (pointerEvent.pointerType !== 'mouse') {
-			isOpen = !isOpen;
 		}
 	}
 
@@ -66,6 +59,52 @@
 		}
 	}
 
+	function handlePointerDown(e: PointerEvent) {
+		if (e.pointerType === 'mouse') return; // Ignore mouse
+
+		// If the press started on a text line, ignore it
+		// and let the browser handle native text selection.
+		if ((e.target as HTMLElement).closest('[data-ignore-long-press="true"]')) {
+			return;
+		}
+
+		startX = e.clientX;
+		startY = e.clientY;
+
+		// Start a timer to detect a long press
+		longPressTimer = setTimeout(() => {
+			isOpen = !isOpen; // Toggle visibility
+			longPressTimer = null;
+		}, LONG_PRESS_DURATION);
+	}
+
+	function handlePointerUp(e: PointerEvent) {
+		if (e.pointerType === 'mouse') return; // Ignore mouse
+
+		// If the timer is still running, the user lifted their finger
+		// before the long press duration. This was a "tap".
+		if (longPressTimer) {
+			clearTimeout(longPressTimer);
+			longPressTimer = null;
+		}
+	}
+
+	function handlePointerMove(e: PointerEvent) {
+		if (e.pointerType === 'mouse') return; // Ignore mouse
+
+		// If a long press is in progress...
+		if (longPressTimer) {
+			const deltaX = Math.abs(e.clientX - startX);
+			const deltaY = Math.abs(e.clientY - startY);
+
+			// If the user drags their finger too far, cancel the long press.
+			if (deltaX > MOVE_THRESHOLD || deltaY > MOVE_THRESHOLD) {
+				clearTimeout(longPressTimer);
+				longPressTimer = null;
+			}
+		}
+	}
+
 	let isVisible = $derived(isOpen || forceVisible);
 </script>
 
@@ -73,7 +112,9 @@
 	class="relative {className}"
 	onpointerenter={handlePointerEnter}
 	onpointerleave={handlePointerLeave}
-	onclick={handleClick}
+	onpointerdown={handlePointerDown}
+	onpointerup={handlePointerUp}
+	onpointermove={handlePointerMove}
 	onkeydown={handleKeyDown}
 	onfocusin={handleFocusIn}
 	onfocusout={handleFocusOut}

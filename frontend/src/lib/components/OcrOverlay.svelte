@@ -661,22 +661,27 @@
 		event.stopPropagation(); // Prevents block context menu
 
 		const options: MenuOption[] = [];
+		// At runtime, modern browsers pass a PointerEvent
+		const isTouchEvent = (event as PointerEvent).pointerType === 'touch';
 
 		if (isEditMode) {
 			// Text Edit Mode options
-			options.push({
-				label: 'Cut',
-				action: async () => await execCommandOnLine('cut', block, lineIndex)
-			});
-			options.push({
-				label: 'Copy',
-				action: async () => await execCommandOnLine('copy', block, lineIndex)
-			});
-			options.push({
-				label: 'Paste',
-				action: async () => await execCommandOnLine('paste', block, lineIndex)
-			});
-			options.push({ separator: true });
+			if (!isTouchEvent) {
+				// Text Edit Mode options (Mouse only)
+				options.push({
+					label: 'Cut',
+					action: async () => await execCommandOnLine('cut', block, lineIndex)
+				});
+				options.push({
+					label: 'Copy',
+					action: async () => await execCommandOnLine('copy', block, lineIndex)
+				});
+				options.push({
+					label: 'Paste',
+					action: async () => await execCommandOnLine('paste', block, lineIndex)
+				});
+				options.push({ separator: true });
+			}
 			options.push({
 				label: block.vertical ? 'Set Horizontal' : 'Set Vertical',
 				action: () => toggleVertical(block)
@@ -938,7 +943,9 @@
 							{/if}
 
 							{#if isEditMode}
+								<!-- avoid toggle when long pressing onto text in edit mode -->
 								<div
+									data-ignore-long-press="true"
 									data-line-text="true"
 									contenteditable="true"
 									role="textbox"
