@@ -7,7 +7,9 @@
 	import ReaderSettings from '$lib/components/ReaderSettings.svelte';
 	import OcrOverlay from '$lib/components/OcrOverlay.svelte';
 	import { goto } from '$app/navigation';
+	import CachedImage from '$lib/components/CachedImage.svelte';
 	import { confirmation } from '$lib/confirmationStore';
+	import { tick, onMount } from 'svelte';
 
 	// --- SvelteKit Props ---
 	let { params } = $props<{ params: { id: string } }>(); // volumeId
@@ -50,11 +52,18 @@
 	let mainElement = $state<HTMLElement | null>(null);
 	let panzoomElement = $state<HTMLDivElement | null>(null);
 	let panzoomInstance = $state<PanzoomObject | null>(null);
+	let verticalScrollerElement = $state<HTMLDivElement | null>(null); // for vertical mode
 
 	// --- Progress Tracking State ---
 	let initialPage = $state(0); // The page number we loaded with
 	let progressSaveTimer: ReturnType<typeof setTimeout> | null = null;
 	let isSavingProgress = $state(false);
+
+	// --- Virtualization State ---
+	let progressObserver: IntersectionObserver | null = null;
+	let renderObserver: IntersectionObserver | null = null;
+	let destroyObserver: IntersectionObserver | null = null;
+	let visiblePages = $state<boolean[]>([]);
 
 	// --- Data Fetching Effects ---
 	// This effect fetches volume data on load
@@ -204,8 +213,6 @@
 					page: currentPageIndex + 1 // Convert 0-based to 1-based for DB
 				}
 			});
-			// Update initialPage to prevent re-saving on unmount
-			initialPage = currentPageIndex;
 		} catch (e) {
 			console.error('Failed to save progress:', (e as Error).message);
 		} finally {
@@ -286,26 +293,37 @@
 		}
 
 		// --- Dual Page Mode ---
-		const hasOddOffset = doublePageOffset === 'odd';
+		if (layoutMode === 'double') {
+			const hasOddOffset = doublePageOffset === 'odd';
 
-		// Case 1: We are on the cover page (index 0) and have an odd offset
-		if (hasOddOffset && page1Index === 0) {
-			return [page1]; // Return just the cover
+			// Case 1: We are on the cover page (index 0) and have an odd offset
+			if (hasOddOffset && page1Index === 0) {
+				return [page1]; // Return just the cover
+			}
+
+			const page2Index = page1Index + 1;
+			const page2 = mokuroData.pages[page2Index];
+
+			if (!page2) {
+				return [page1]; // No second page (e.g., last page), return just one
+			}
+
+			// We have two pages, return them in reading order
+			if (readingDirection === 'rtl') {
+				return [page2, page1]; // [Right Page, Left Page]
+			} else {
+				return [page1, page2]; // [Left Page, Right Page]
+			}
 		}
 
-		const page2Index = page1Index + 1;
-		const page2 = mokuroData.pages[page2Index];
-
-		if (!page2) {
-			return [page1]; // No second page (e.g., last page), return just one
+		// --- Vertical Mode ---
+		if (layoutMode === 'vertical') {
+			// For the header/settings UI, just show the single "current" page
+			const page = mokuroData.pages[page1Index];
+			return page ? [page] : [];
 		}
 
-		// We have two pages, return them in reading order
-		if (readingDirection === 'rtl') {
-			return [page2, page1]; // [Right Page, Left Page]
-		} else {
-			return [page1, page2]; // [Left Page, Right Page]
-		}
+		return [];
 	});
 
 	// --- Event Handlers ---
@@ -332,23 +350,108 @@
 		);
 	};
 
-	const syncDoublePageOffset = () => {
+	const setupDoublePageMode = () => {
+		if (layoutMode !== 'double') return;
+		if (currentPageIndex === 0) return;
+
+		// Not perfect, can cause page drift if repeatedly toggle even-odd
 		const hasOddOffset = doublePageOffset === 'odd';
 		const pageIsEven = currentPageIndex % 2 === 0;
-		if (layoutMode === 'single') return;
-		if (currentPageIndex === 0) return;
-		// Not perfect, can cause page drift if repeatedly toggle even-odd
 		if (hasOddOffset === pageIsEven) currentPageIndex -= 1;
 	};
 
-	const toggleDoubleLayout = () => {
-		layoutMode = layoutMode === 'single' ? 'double' : 'single';
-		syncDoublePageOffset();
+	const setupVerticalMode = () => {
+		if (layoutMode !== 'vertical') return;
+		if (!mainElement || !mokuroData) return;
+		const pageElementsNodeList = mainElement.querySelectorAll('[data-page-index]');
+		if (pageElementsNodeList.length !== mokuroData.pages.length) return;
+
+		renderObserver?.disconnect();
+		destroyObserver?.disconnect();
+		progressObserver?.disconnect();
+
+		// sort node list by index
+		const pageElements = Array(mokuroData.pages.length);
+		for (const el of pageElementsNodeList) {
+			const index = parseInt((el as HTMLElement).dataset.pageIndex!, 10);
+			pageElements[index] = el;
+		}
+		pageElements[currentPageIndex].scrollIntoView({ behavior: 'auto', block: 'start' });
+		visiblePages = Array(mokuroData.pages.length).fill(false);
+
+		const RENDER_MARGIN = '100px 0px';
+		const DESTROY_MARGIN = '500px 0px';
+
+		// 1. RENDER OBSERVER
+		renderObserver = new IntersectionObserver(
+			(entries) => {
+				for (const entry of entries) {
+					if (entry.isIntersecting) {
+						const index = parseInt((entry.target as HTMLElement).dataset.pageIndex!, 10);
+						visiblePages[index] = true;
+					}
+				}
+			},
+			{ root: verticalScrollerElement, rootMargin: RENDER_MARGIN }
+		);
+
+		// 2. DESTROY OBSERVER
+		destroyObserver = new IntersectionObserver(
+			(entries) => {
+				for (const entry of entries) {
+					if (!entry.isIntersecting) {
+						const index = parseInt((entry.target as HTMLElement).dataset.pageIndex!, 10);
+						visiblePages[index] = false;
+					}
+				}
+			},
+			{ root: verticalScrollerElement, rootMargin: DESTROY_MARGIN }
+		);
+
+		// 3. PROGRESS OBSERVER
+		progressObserver = new IntersectionObserver(
+			(entries) => {
+				let bestEntry = entries[0];
+				for (const entry of entries) {
+					if (entry.isIntersecting && entry.intersectionRatio > bestEntry.intersectionRatio) {
+						bestEntry = entry;
+					}
+				}
+				if (bestEntry.isIntersecting) {
+					console.log(entries);
+					console.log(bestEntry.intersectionRatio);
+					const index = (bestEntry.target as HTMLElement).dataset.pageIndex;
+					if (index) {
+						const newPageIndex = parseInt(index, 10);
+						currentPageIndex = newPageIndex;
+					}
+				}
+			},
+			{
+				root: verticalScrollerElement,
+				threshold: [0, 0.25, 0.5, 0.75, 1.0]
+			}
+		);
+
+		// Observe all page elements with all observers
+		pageElements.forEach((el) => {
+			renderObserver?.observe(el);
+			destroyObserver?.observe(el);
+			progressObserver?.observe(el);
+		});
+	};
+
+	const setLayout = async (mode: 'single' | 'double' | 'vertical') => {
+		console.log(`Setting layout ${mode}`);
+		layoutMode = mode;
+		await tick();
+		setupDoublePageMode();
+		setupVerticalMode();
 	};
 
 	const toggleEvenOddOffset = () => {
 		doublePageOffset = doublePageOffset === 'odd' ? 'even' : 'odd';
-		syncDoublePageOffset();
+		setupDoublePageMode();
 	};
 
 	const toggleReadingDirection = () => {
@@ -414,6 +517,7 @@
 	};
 
 	const nextPage = () => {
+		if (layoutMode === 'vertical') return; // disable for vertical mode
 		if (currentPageIndex >= totalPages - 1) return; // At end
 
 		if (layoutMode === 'single') {
@@ -433,6 +537,7 @@
 	};
 
 	const prevPage = () => {
+		if (layoutMode === 'vertical') return; // disable for vertical mode
 		if (currentPageIndex === 0) return; // At start
 
 		if (layoutMode === 'single') {
@@ -460,10 +565,13 @@
 
 			// 1. --- Define handlers in the outer scope ---
 			const onWheel = (e: WheelEvent) => {
-				e.preventDefault();
-				pz?.zoomWithWheel(e); // Use pz?. for safety
+				// ALWAYS zoom if Ctrl is held
+				if (e.ctrlKey || layoutMode !== 'vertical') {
+					e.preventDefault();
+					pz?.zoomWithWheel(e);
+					return;
+				}
 			};
-			// --- End of handler definitions ---
 
 			const initPanzoom = async () => {
 				const PanzoomModule = await import('@panzoom/panzoom');
@@ -496,7 +604,7 @@
 
 	// Effect to reset panzoom when page changes
 	$effect(() => {
-		if (panzoomInstance) {
+		if (panzoomInstance && layoutMode !== 'vertical') {
 			if (retainZoom) {
 				// Retain zoom, but reset pan to the center
 				panzoomInstance.pan(0, 0, { animate: true });
@@ -561,6 +669,7 @@
 						class="mx-auto flex w-48 items-center gap-2"
 						role="toolbar"
 						tabindex="-1"
+						bind:this={verticalScrollerElement}
 						onmousedown={(e) => {
 							// Only prevent default if the click is on the container,
 							// not on the slider input itself.
@@ -723,54 +832,79 @@
 				</button>
 			</div>
 		</header>
-
-		<main class="flex flex-1 items-center justify-center overflow-hidden" bind:this={mainElement}>
-			<button
-				onclick={readingDirection === 'rtl' ? nextPage : prevPage}
-				type="button"
-				class="panzoom-exclude absolute left-0 z-10 h-full hover:cursor-pointer"
-				aria-label="Previous Page"
-				style={`width: ${navZoneWidth}%`}
-			></button>
-			>
-			<div
-				class="relative flex h-full flex-1 items-center justify-center"
-				bind:this={panzoomElement}
-			>
-				{#each currentPages as page (page.img_path)}
-					<div
-						class="relative flex-shrink-0"
-						style={`aspect-ratio: ${page.img_width} / ${page.img_height}; max-height: 100%; max-width: 100%;`}
-					>
-						<img
-							src={`/api/files/volume/${params.id}/image/${page.img_path}`}
-							alt={`Page ${page.img_path}`}
-							class="h-full w-full object-contain"
-							draggable="false"
-						/>
-						<OcrOverlay
-							{page}
-							{panzoomInstance}
-							{isEditMode}
-							{isBoxEditMode}
-							{isSmartResizeMode}
-							{showTriggerOutline}
-							{isSliderHovered}
-							{onOcrChange}
-							{onLineFocus}
-						/>
+		{#if layoutMode === 'vertical'}
+			<main class="flex flex-1 items-center justify-center overflow-hidden" bind:this={mainElement}>
+				<div class="h-full w-full overflow-y-auto" bind:this={verticalScrollerElement}>
+					<div class="relative mx-auto w-full max-w-4xl pt-16">
+						{#each mokuroData.pages as page, i (page.img_path)}
+							<div
+								class="relative flex-shrink-0 bg-white"
+								style={`aspect-ratio: ${page.img_width} / ${page.img_height};`}
+								data-page-index={i}
+							>
+								{#if visiblePages[i]}
+									<CachedImage src={`/api/files/volume/${params.id}/image/${page.img_path}`} />
+									<OcrOverlay
+										{page}
+										{panzoomInstance}
+										{isEditMode}
+										{isBoxEditMode}
+										{isSmartResizeMode}
+										{showTriggerOutline}
+										{isSliderHovered}
+										{onOcrChange}
+										{onLineFocus}
+									/>
+								{/if}
+							</div>
+						{/each}
 					</div>
-				{/each}
-			</div>
+				</div>
+			</main>
+		{:else}
+			<main class="flex flex-1 items-center justify-center overflow-hidden" bind:this={mainElement}>
+				<button
+					onclick={readingDirection === 'rtl' ? nextPage : prevPage}
+					type="button"
+					class="panzoom-exclude absolute left-0 z-10 h-full hover:cursor-pointer"
+					aria-label="Previous Page"
+					style={`width: ${navZoneWidth}%`}
+				></button>
+				>
+				<div
+					class="relative flex h-full flex-1 items-center justify-center"
+					bind:this={panzoomElement}
+				>
+					{#each currentPages as page (page.img_path)}
+						<div
+							class="relative flex-shrink-0"
+							style={`aspect-ratio: ${page.img_width} / ${page.img_height}; max-height: 100%; max-width: 100%;`}
+						>
+							<CachedImage src={`/api/files/volume/${params.id}/image/${page.img_path}`} />
+							<OcrOverlay
+								{page}
+								{panzoomInstance}
+								{isEditMode}
+								{isBoxEditMode}
+								{isSmartResizeMode}
+								{showTriggerOutline}
+								{isSliderHovered}
+								{onOcrChange}
+								{onLineFocus}
+							/>
+						</div>
+					{/each}
+				</div>
 
-			<button
-				onclick={readingDirection === 'rtl' ? prevPage : nextPage}
-				type="button"
-				class="panzoom-exclude absolute right-0 z-10 h-full hover:cursor-pointer"
-				aria-label="Next Page"
-				style={`width: ${navZoneWidth}%`}
-			></button>
-		</main>
+				<button
+					onclick={readingDirection === 'rtl' ? prevPage : nextPage}
+					type="button"
+					class="panzoom-exclude absolute right-0 z-10 h-full hover:cursor-pointer"
+					aria-label="Next Page"
+					style={`width: ${navZoneWidth}%`}
+				></button>
+			</main>
+		{/if}
 	{:else}
 		<div class="flex h-screen items-center justify-center">
 			<p class="text-gray-700 dark:text-gray-300">Redirecting to login...</p>
@@ -787,7 +921,7 @@
 		{currentPages}
 		{navZoneWidth}
 		volumeTitle={mokuroData?.volume ?? ''}
-		onToggleLayout={toggleDoubleLayout}
+		onSetLayout={setLayout}
 		onToggleDirection={toggleReadingDirection}
 		onToggleOffset={toggleEvenOddOffset}
 		onToggleZoom={toggleRetainZoom}

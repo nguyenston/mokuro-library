@@ -3,7 +3,7 @@ import { apiFetch } from './api';
 
 // Define the shape of user settings
 export interface ReaderSettingsData {
-  layoutMode?: 'single' | 'double';
+  layoutMode?: 'single' | 'double' | 'vertical';
   readingDirection?: 'ltr' | 'rtl';
   doublePageOffset?: 'even' | 'odd';
   retainZoom?: boolean;
