@@ -7,6 +7,7 @@
 	import ReaderSettings from '$lib/components/ReaderSettings.svelte';
 	import OcrOverlay from '$lib/components/OcrOverlay.svelte';
 	import CachedImage from '$lib/components/CachedImage.svelte';
+	import { imageStore } from '$lib/cachedImageStore';
 	import { goto, beforeNavigate } from '$app/navigation';
 	import { confirmation } from '$lib/confirmationStore';
 	import { tick, onMount } from 'svelte';
@@ -379,7 +380,10 @@
 		if (!to) return;
 
 		// If no unsaved changes at all, just save progress and allow navigation
-		if (!hasUnsavedChanges) return;
+		if (!hasUnsavedChanges) {
+			imageStore.clear();
+			return;
+		}
 
 		// Stop the navigation from happening automatically
 		cancel();
@@ -622,6 +626,7 @@
 			// 1. --- Define handlers in the outer scope ---
 			const onWheel = (e: WheelEvent) => {
 				// ALWAYS zoom if Ctrl is held
+				// In vertical mode zoom keeps the top of the view frame fixed
 				if (e.ctrlKey && layoutMode === 'vertical') {
 					e.preventDefault();
 					if (!pz || !verticalScrollerElement || !panzoomElement || !panzoomWrapper) return;
@@ -639,7 +644,6 @@
 				}
 
 				if (layoutMode === 'vertical') {
-					const currentScroll = verticalScrollerElement?.scrollTop;
 					return;
 				}
 
@@ -900,12 +904,7 @@
 									data-page-index={i}
 								>
 									{#if visiblePages[i]}
-										<img
-											src={`/api/files/volume/${params.id}/image/${page.img_path}`}
-											alt={`Page ${page.img_path}`}
-											class="h-full w-full object-contain"
-											draggable="false"
-										/>
+										<CachedImage src={`/api/files/volume/${params.id}/image/${page.img_path}`} />
 										<OcrOverlay
 											{page}
 											{panzoomInstance}
@@ -941,12 +940,7 @@
 							class="relative flex-shrink-0"
 							style={`aspect-ratio: ${page.img_width} / ${page.img_height}; max-height: 100%; max-width: 100%;`}
 						>
-							<img
-								src={`/api/files/volume/${params.id}/image/${page.img_path}`}
-								alt={`Page ${page.img_path}`}
-								class="h-full w-full object-contain"
-								draggable="false"
-							/>
+							<CachedImage src={`/api/files/volume/${params.id}/image/${page.img_path}`} />
 							<OcrOverlay
 								{page}
 								{panzoomInstance}
