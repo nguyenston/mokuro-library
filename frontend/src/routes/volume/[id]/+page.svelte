@@ -6,8 +6,8 @@
 	import type { VolumeResponse, MokuroData, MokuroPage, MokuroBlock } from '$lib/types';
 	import ReaderSettings from '$lib/components/ReaderSettings.svelte';
 	import OcrOverlay from '$lib/components/OcrOverlay.svelte';
-	import { goto } from '$app/navigation';
 	import CachedImage from '$lib/components/CachedImage.svelte';
+	import { goto, beforeNavigate, afterNavigate } from '$app/navigation';
 	import { confirmation } from '$lib/confirmationStore';
 	import { tick, onMount } from 'svelte';
 
@@ -26,7 +26,7 @@
 	// --- Reader settings state ---
 	let settingsOpen = $state(false);
 	let settingsInitialized = $state(false);
-	let layoutMode = $state<'single' | 'double'>('single');
+	let layoutMode = $state<'single' | 'double' | 'vertical'>('single');
 	let readingDirection = $state<'ltr' | 'rtl'>('rtl'); // Default 'rtl' for manga
 	let doublePageOffset = $state<'even' | 'odd'>('odd'); // Default 'odd' (starts on page 1)
 	let retainZoom = $state(true);
@@ -55,7 +55,7 @@
 	let verticalScrollerElement = $state<HTMLDivElement | null>(null); // for vertical mode
 
 	// --- Progress Tracking State ---
-	let initialPage = $state(0); // The page number we loaded with
+	let initialPage = 0; // The page number we loaded with
 	let progressSaveTimer: ReturnType<typeof setTimeout> | null = null;
 	let isSavingProgress = $state(false);
 
@@ -67,6 +67,25 @@
 
 	// --- Data Fetching Effects ---
 	// This effect fetches volume data on load
+	const fetchVolumeAndProgressData = async (volumeId: string) => {
+		try {
+			// Fetch volume data
+			const data = await apiFetch(`/api/library/volume/${volumeId}`);
+			volumeResponse = data as VolumeResponse;
+
+			// Fetch progress data
+			const progressData = await apiFetch(`/api/progress/volume/${volumeId}`);
+			if (progressData.page) {
+				currentPageIndex = progressData.page - 1; // 1-based to 0-based
+				initialPage = progressData.page - 1;
+			}
+		} catch (e) {
+			error = (e as Error).message;
+		} finally {
+			isLoading = false;
+		}
+	};
+
 	const currentUserId = $derived($user?.id);
 	$effect(() => {
 		if (currentUserId && params.id) {
@@ -78,9 +97,51 @@
 		}
 	});
 
-	// This effiect initializes settings when the user loads
+	// setup keyboard navigation presses
+	onMount(() => {
+		const handleKeydown = (e: KeyboardEvent) => {
+			if (layoutMode === 'vertical') return;
+
+			if (e.key === 'ArrowRight') {
+				readingDirection === 'rtl' ? prevPage() : nextPage();
+			}
+			if (e.key === 'ArrowLeft') {
+				readingDirection === 'rtl' ? nextPage() : prevPage();
+			}
+		};
+
+		window.addEventListener('keydown', handleKeydown);
+
+		// This return function is now only called on unmount
+		return () => {
+			window.removeEventListener('keydown', handleKeydown);
+		};
+	});
+
+	// check for hover capability
+	onMount(() => {
+		if (!browser) return;
+		const mediaQuery = window.matchMedia('(hover: none)');
+
+		// Set the initial value
+		hasHover = !mediaQuery.matches;
+
+		// Update the value if it changes
+		const listener = (e: MediaQueryListEvent) => {
+			hasHover = !e.matches;
+		};
+		mediaQuery.addEventListener('change', listener);
+
+		// Cleanup listener
+		return () => {
+			mediaQuery.removeEventListener('change', listener);
+		};
+	});
+
+	// This effect initializes settings when the user loads
 	$effect(() => {
 		if ($user && !settingsInitialized) {
+			console.log(`Loading settings...`);
 			const saved = $user.settings;
 
 			// Set local state from the store, using defaults
@@ -93,7 +154,13 @@
 
 			// Mark as initialized
 			settingsInitialized = true;
+			console.log(`Settings loaded!`);
 		}
+	});
+
+	// initial setup for vertical layout when page first load
+	$effect(() => {
+		if (settingsInitialized && !isLoading) setLayout(layoutMode);
 	});
 
 	// This effect watches all local settings and saves them
@@ -114,86 +181,60 @@
 
 		// Start new timer
 		settingsSaveTimer = setTimeout(() => {
+			settingsSaveTimer = null;
 			saveSettings(currentSettings);
 		}, 2000);
-
-		// Cleanup function
-		return () => {
-			if (settingsSaveTimer) {
-				console.log('Saving settings on unmount...');
-				saveSettings(currentSettings);
-			}
-		};
 	});
 
-	// This effect watches for page change and save progress ---
+	// immediately execute pending timer on leave
+	beforeNavigate(() => {
+		if (settingsSaveTimer) {
+			console.log('Saving settings on unmount...');
+			const currentSettings: ReaderSettingsData = {
+				layoutMode,
+				readingDirection,
+				doublePageOffset,
+				retainZoom,
+				navZoneWidth,
+				showTriggerOutline
+			};
+			saveSettings(currentSettings);
+		}
+	});
+
+	// This effect watches for page change and save progress
 	$effect(() => {
 		if (currentPageIndex !== initialPage) {
 			// User has turned the page
+			// Clear previous timer using short-circuit
 			progressSaveTimer && clearTimeout(progressSaveTimer);
+			// Start new timer
 			progressSaveTimer = setTimeout(() => {
+				progressSaveTimer = null;
 				saveProgress();
+				initialPage = currentPageIndex;
 			}, 2000); // 2-second buffer
 		}
-
-		// Cleanup function for component unmount
-		return () => {
-			progressSaveTimer && clearTimeout(progressSaveTimer);
-			// If page has changed from its initial loaded state, save immediately
-			if (currentPageIndex !== initialPage) {
-				console.log('Saving progress on unmount...');
-				saveProgress();
-			}
-		};
 	});
 
-	// --- Effect to check for hover capability ---
-	$effect(() => {
-		if (browser) {
-			const mediaQuery = window.matchMedia('(hover: none)');
-
-			// Set the initial value
-			hasHover = !mediaQuery.matches;
-
-			// Update the value if it changes
-			const listener = (e: MediaQueryListEvent) => {
-				hasHover = !e.matches;
-			};
-			mediaQuery.addEventListener('change', listener);
-
-			// Cleanup listener
-			return () => {
-				mediaQuery.removeEventListener('change', listener);
-			};
+	// immediately execute pending timer on leave
+	beforeNavigate(() => {
+		if (currentPageIndex !== initialPage && progressSaveTimer) {
+			console.log('Saving progress on unmount...');
+			clearTimeout(progressSaveTimer);
+			progressSaveTimer = null;
+			saveProgress();
+			initialPage = currentPageIndex;
 		}
 	});
 
-	// --- Effect to disable box edit mode if hover is lost ---
+	// Effect to disable box edit mode if hover is lost
 	$effect(() => {
 		if (!hasHover && isBoxEditMode) {
 			// If user loses hover (e.g., tablet mode) while edit is on, force it off
 			isBoxEditMode = false;
 		}
 	});
-
-	const fetchVolumeAndProgressData = async (volumeId: string) => {
-		try {
-			// Fetch volume data
-			const data = await apiFetch(`/api/library/volume/${volumeId}`);
-			volumeResponse = data as VolumeResponse;
-
-			// Fetch progress data
-			const progressData = await apiFetch(`/api/progress/volume/${volumeId}`);
-			if (progressData.page) {
-				currentPageIndex = progressData.page - 1; // 1-based to 0-based
-				initialPage = progressData.page - 1;
-			}
-		} catch (e) {
-			error = (e as Error).message;
-		} finally {
-			isLoading = false;
-		}
-	};
 
 	// --- Saves the current page progress to the backend ---
 	const saveProgress = async () => {
@@ -330,25 +371,39 @@
 	const handleGoBack = () => {
 		const seriesId = volumeResponse?.seriesId;
 		if (!seriesId) return; // Safety check
+		goto(`/series/${seriesId}`);
+	};
 
-		// If no changes, just go back
-		if (!hasUnsavedChanges) {
-			goto(`/series/${seriesId}`);
-			return;
-		}
+	beforeNavigate(async ({ from, to, cancel }) => {
+		if (!to) return;
 
-		// If there ARE changes, show a confirmation modal
+		// If no unsaved changes at all, just save progress and allow navigation
+		if (!hasUnsavedChanges) return;
+
+		// Stop the navigation from happening automatically
+		cancel();
+
+		// Open the confirmation modal
 		confirmation.open(
 			'Discard Unsaved Changes?',
 			'You have unsaved OCR edits. Are you sure you want to discard them and exit?',
 			async () => {
-				// onConfirm: Just navigate, discarding changes
-				goto(`/series/${seriesId}`);
+				// --- This is the 'onConfirm' callback ---
+				// User clicked "Discard & Exit"
+
+				// Manually clear the 'dirty' flag so we don't get asked again
+				hasUnsavedChanges = false;
+
+				// Re-trigger the navigation
+				// TODO: Maybe fix back button behavior?
+				// Currently clicking back still move the history forward
+				const url = to.url;
+				if (url) goto(url);
 			},
-			'Discard & Exit', // confirmLabel
-			'Exiting...' // processingLabel
+			'Discard & Exit',
+			'Exiting...'
 		);
-	};
+	});
 
 	const setupDoublePageMode = () => {
 		if (layoutMode !== 'double') return;
@@ -614,27 +669,6 @@
 			}
 		}
 		currentPageIndex;
-	});
-
-	// Keyboard navigation
-	$effect(() => {
-		if (!browser) return; // Only run in browser
-
-		const handleKeydown = (e: KeyboardEvent) => {
-			if (e.key === 'ArrowRight') {
-				// If RTL, ArrowRight goes "back" (prev)
-				readingDirection === 'rtl' ? prevPage() : nextPage();
-			}
-			if (e.key === 'ArrowLeft') {
-				// If RTL, ArrowLeft goes "forward" (next)
-				readingDirection === 'rtl' ? nextPage() : prevPage();
-			}
-		};
-
-		window.addEventListener('keydown', handleKeydown);
-		return () => {
-			window.removeEventListener('keydown', handleKeydown);
-		};
 	});
 </script>
 
