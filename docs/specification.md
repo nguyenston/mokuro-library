@@ -66,10 +66,10 @@ The system will be a decoupled client-server application.
 
 ### Nice-to-Haves (Post-MVP)
 
-* [ ] Optional Reader features
+* [x] Optional Reader features
   * [x] Smart resize mode that auto fit the text content to the bounding box.
   * [x] Per user persistent reader settings.
-  * [ ] A single, long-scrolling vertical layout (webtoon mode).
+  * [x] A single, long-scrolling vertical layout (webtoon mode).
   * [ ] Caching: Pre-loading the next and previous page images.
 * [ ] The ability to export the library in different format (e.g. pdf, cbz, ...)
   * [x] zip

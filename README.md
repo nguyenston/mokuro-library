@@ -126,9 +126,9 @@ The original [ZXY101/mokuro-reader](https://github.com/ZXY101/mokuro-reader) is 
 * You need **multi-user** support for family or friends (by running it on a NAS/Server).
 
 ### 2. Non-essential stretch features:
-* [ ] Optional Reader features
+* [x] Optional Reader features
   * [x] Per user persistent reader settings
-  * [ ] A single, long-scrolling vertical layout.
+  * [x] A single, long-scrolling vertical layout.
   * [ ] Caching: Pre-loading the next and previous page images.
 * [ ] Reading Statistics: Implement the UI to display reading stats (time, characters read), which will be tracked in the database.
 * [ ] AnkiConnect Integration: Focuses on sentence mining, as dictionary extensions like Yomi-tan already have word mining down.
