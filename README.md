@@ -204,14 +204,14 @@ The recommended workflow is the full-stack, containerized dev environment. For d
 1.  **First-Time Build (or when `package.json` changes):**
     You must build the dev images once to install all dependencies.
     ```bash
-    docker compose -f docker-compose.yml -f docker-compose.dev.yml build
+    docker compose -f docker-compose.dev.yml build
     ```
    
 
 2.  **Start the Dev Environment:**
     This command starts both the backend and frontend services with hot-reloading.
     ```bash
-    docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+    docker compose -f docker-compose.dev.yml up
     ```
    
 

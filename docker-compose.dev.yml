@@ -1,7 +1,7 @@
 version: '3.8'
 services:
-  mokuro:
-    container_name: mokuro-library-dev
+  backend:
+    container_name: mokuro-library-backend-dev
 
     # Target the 'backend-builder' stage from Dockerfile.
     # This stage has 'npm ci' run, so it includes all
@@ -17,7 +17,7 @@ services:
     command: npm run dev
 
     volumes:
-      # Mount your 'backend' folder to '/app/backend'
+      # Mount 'backend' folder to '/app/backend'
       # This lets ts-node-dev see code changes in real-time.
       - ./backend:/app/backend
       # Use the container's
@@ -54,6 +54,6 @@ services:
         - "5173:5173" # Exposes the Vite dev server port
       environment:
         - CHOKIDAR_USEPOLLING=true # Fixes file watching in Docker
-        - VITE_PROXY_TARGET=http://mokuro:3001
+        - VITE_PROXY_TARGET=http://backend:3001
       depends_on:
-        - mokuro # Tells Docker to start the backend first
+        - backend # Tells Docker to start the backend first

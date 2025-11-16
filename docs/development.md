@@ -4,29 +4,27 @@ This project is configured for a full-stack, containerized development environme
 
 ## How It Works
 
-The `docker compose -f docker-compose.yml -f docker-compose.dev.yml ...` command merges two files:
-1.  `docker-compose.yml`: Provides the base configuration (like service names and data volumes).
-2.  `docker-compose.dev.yml`: Overrides and adds services for development:
-    * **`mokuro` (Backend):** The `mokuro` service is overridden to target the `backend-builder` stage, mount local `./backend` folder, and run the `npm run dev` script. `ts-node-dev` watches your `src` files and restarts the Node.js server on changes.
-    * **`frontend` (Frontend):** A new `frontend` service is added. It targets the `frontend-builder` stage, mounts local `./frontend` folder, and runs the Vite dev server (`npm run dev -- --host`).
+`docker-compose.dev.yml`: adds services for development:
+  * **`mokuro` (Backend):** The `backend` service targets the `backend-builder` stage, mount local `./backend` folder, and run the `npm run dev` script. `ts-node-dev` watches your `src` files and restarts the Node.js server on changes.
+  * **`frontend` (Frontend):** The `frontend` service targets the `frontend-builder` stage, mounts local `./frontend` folder, and runs the Vite dev server (`npm run dev -- --host`).
 
 ## Running the Dev Environment
 
 1.  **First-Time Build (or when `package.json` changes):**
     You must build the dev images once to install all dependencies (including `devDependencies`).
     ```bash
-    docker compose -f docker-compose.yml -f docker-compose.dev.yml build
+    docker compose -f docker-compose.dev.yml build
     ```
 
 2.  **Start the Dev Environment:**
     This command starts both the backend and frontend services.
     ```bash
-    docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+    docker compose -f docker-compose.dev.yml up
     ```
 
 3.  **Access the app:**
     * Open `http://localhost:5173` in your browser.
-    * The SvelteKit app will load and automatically proxy all `/api` requests to the `mokuro` backend container, thanks to the `VITE_PROXY_TARGET` environment variable.
+    * The SvelteKit app will load and automatically proxy all `/api` requests to the `backend` container, thanks to the `VITE_PROXY_TARGET` environment variable.
 
 ## Development Workflow
 
@@ -34,7 +32,7 @@ Once the containers are running.
 
 ### Changing `backend/src` or `frontend/src` Code
 This is the most common case.
-* **Backend:** Save a file in `backend/src`. The `mokuro` container's log will show `ts-node-dev` restarting the server.
+* **Backend:** Save a file in `backend/src`. The `backend` container's log will show `ts-node-dev` restarting the server.
 * **Frontend:** Save a file in `frontend/src`. Your browser will instantly hot-reload with the changes.
 
 ### Changing `package.json` (Adding a Package)
@@ -42,11 +40,11 @@ This requires a **rebuild** to install the new dependencies in the image's `node
 1.  Stop the server (`Ctrl+C`).
 2.  Run the `build` command:
     ```bash
-    docker compose -f docker-compose.yml -f docker-compose.dev.yml build
+    docker compose -f docker-compose.dev.yml build
     ```
 3.  Restart the server:
     ```bash
-    docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+    docker compose -f docker-compose.dev.yml up
     ```
 
 #### Changing `backend/prisma/schema.prisma` (Database Schema)
@@ -58,9 +56,9 @@ This requires a **restart** to run the migration, plus a manual client generatio
     ```
 3.  **Restart the server:**
     ```bash
-    docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+    docker compose -f docker-compose.dev.yml up
     ```
-    On startup, the `mokuro` service's `npm run dev` script automatically executes `npx prisma db push`, which reads your mounted `schema.prisma` file and updates your persistent database in `./data`.
+    On startup, the `backend` service's `npm run dev` script automatically executes `npx prisma db push`, which reads your mounted `schema.prisma` file and updates your persistent database in `./data`.
 
 ## Alternate: Hybrid Development (Frontend on Host)
 
