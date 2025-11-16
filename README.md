@@ -16,6 +16,25 @@ For more details, read [the specification](docs/specification.md):
 * **Dockerized Deployment:** A single Docker container runs the entire application, making setup and maintenance simple.
 * **Volume & Series Management:** Upload series covers, delete individual volumes, or remove entire series from your library.
 
+## 📸 Screenshots
+<table>
+  <tr>
+    <td align="center">
+      <strong>The Library View</strong>
+      <br><br>
+      <img src="docs-wiki/public/library.webp" alt="Mokuro Library main bookshelf view" width="400">
+    </td>
+    <td align="center">
+      <strong>The Series View</strong>
+      <br><br>
+      <img src="docs-wiki/public/series.webp" alt="Mokuro Library series view" width="400">
+    </td>
+  </tr>
+</table>
+
+*Live OCR editing in action:*
+![Live OCR editing demonstration](docs-wiki/public/edit-demo.webp)
+
 ## 💻 Technology Stack
 
 This project is a monorepo containing a decoupled frontend and backend.
