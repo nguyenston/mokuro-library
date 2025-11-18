@@ -23,7 +23,7 @@ fi
 echo "Running database schema push to ensure schema is up to date..."
 # This command connects to the persistent database and applies
 # any pending schema changes from schema.prisma.
-npx prisma db push
+npx prisma migrate deploy
 echo "Schema is up to date."
 # ---
 

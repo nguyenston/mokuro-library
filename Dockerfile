@@ -40,6 +40,7 @@ COPY --from=backend-builder /app/backend/dist ./dist
 # Copy Prisma schema and sample database
 COPY --from=backend-builder /app/backend/prisma/schema.prisma ./prisma/
 COPY --from=backend-builder /app/backend/prisma/library.db ./prisma/
+COPY --from=backend-builder /app/backend/prisma/migrations ./prisma/migrations
 
 # Copy Prisma client
 COPY --from=backend-builder /app/backend/src/generated/prisma ./dist/generated/prisma
