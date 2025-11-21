@@ -11,8 +11,8 @@ const pump = util.promisify(pipeline);
 
 // Helper type for organizing uploaded files
 type UploadedVolume = {
-  seriesTitle: string;
-  volumeTitle: string;
+  seriesFolder: string;
+  volumeFolder: string;
   mokuroFile: { originalPath: string; tempPath: string } | null; // Store paths
   imageFiles: { originalPath: string; tempPath: string }[]; // Store paths
 };
@@ -24,6 +24,35 @@ interface VolumeParams {
 
 interface SeriesParams {
   id: string; // This 'id' is the seriesId
+}
+interface UpdateEntityParams {
+  id: string;
+}
+
+// Interface for API body (used for PATCH rename)
+interface UpdateEntityBody {
+  title?: string | null; // Allow setting a string or explicitly nulling it
+}
+
+// Interface for Mokuro Metadata JSON (for portable titles/progress)
+interface MokuroSeriesMetadata {
+  version: string;
+  series: {
+    title: string | null;
+    originalFolderName: string; // Used for safety/validation
+    coverImage?: string;
+  };
+  volumes: {
+    [folderName: string]: {
+      displayTitle: string | null;
+      progress?: {
+        page: number;
+        isCompleted: boolean;
+        timeRead: number;
+        charsRead: number;
+      };
+    }
+  };
 }
 
 interface MokuroPage { }
@@ -67,15 +96,15 @@ const libraryRoutes: FastifyPluginAsync = async (
         // Include all related Volume records for each Series
         include: {
           volumes: {
-            // Optional: Order volumes by title
+            // Optional: Order volumes by folderName
             orderBy: {
-              title: 'asc',
+              folderName: 'asc',
             },
           },
         },
-        // Optional: Order the series by title
+        // Optional: Order the series by folderName
         orderBy: {
-          title: 'asc',
+          folderName: 'asc',
         },
       });
 
@@ -100,6 +129,9 @@ const libraryRoutes: FastifyPluginAsync = async (
     const userId = request.user.id;
     const parts = request.parts();
     const volumesMap = new Map<string, UploadedVolume>();
+
+    // Track library json
+    const seriesJsonMap = new Map<string, { originalPath: string; tempPath: string }>();
 
     // Track series cover
     const seriesCoverMap = new Map<string, { originalPath: string; tempPath: string }>();
@@ -135,39 +167,52 @@ const libraryRoutes: FastifyPluginAsync = async (
           // Rule 2: Only allow known types
           const isMokuro = ext === '.mokuro';
           const isImage = ['.jpg', '.jpeg', '.png', '.webp'].includes(ext);
+          const isJson = ext === '.json';
 
-          if (!isMokuro && !isImage) {
+          if (!isMokuro && !isImage && !isJson) {
             await drainStream(part.file);
             continue;
           }
 
           // 4. Parser logic
           const pathParts = parsedPath.dir.split(path.sep).filter((p) => p);
-          let seriesTitle: string, volumeTitle: string;
+          let seriesFolder: string, volumeFolder: string;
 
           // A file is a series cover if:
           // 1. It's an image
-          // 3. Its filename matches its folder name (e.g., "Series Title.jpg")
-          const isSeriesCover =
-            isImage &&
+          // 3. Its filename matches its folder name (e.g., "series_folder_name/series_folder_name.jpg")
+          const isSeriesCoverOrJson =
             pathParts.length > 0 &&
             parsedPath.name === pathParts[pathParts.length - 1];
 
-          if (isSeriesCover) {
-            seriesTitle = pathParts[pathParts.length - 1];
+          if (isJson && isSeriesCoverOrJson) {
+            seriesFolder = pathParts[pathParts.length - 1];
 
             // Save to a special subfolder in the temp dir
-            const tempPathDir = path.join(
-              tempUploadDir,
-              seriesTitle,
-              '_series_cover_'
-            );
+            const tempPathDir = path.join(tempUploadDir, seriesFolder, '_series_metadata_');
+            const tempPath = path.join(tempPathDir, parsedPath.base);
+            await fs.promises.mkdir(tempPathDir, { recursive: true });
+            await pump(part.file, fs.createWriteStream(tempPath));
+
+            seriesJsonMap.set(seriesFolder, {
+              originalPath: part.filename,
+              tempPath
+            });
+
+            continue; // Skip the volume logic below
+          }
+
+          if (isImage && isSeriesCoverOrJson) {
+            seriesFolder = pathParts[pathParts.length - 1];
+
+            // Save to a special subfolder in the temp dir
+            const tempPathDir = path.join(tempUploadDir, seriesFolder, '_series_cover_');
             const tempPath = path.join(tempPathDir, parsedPath.base);
             await fs.promises.mkdir(tempPathDir, { recursive: true });
             await pump(part.file, fs.createWriteStream(tempPath));
 
             // Store in our new map
-            seriesCoverMap.set(seriesTitle, {
+            seriesCoverMap.set(seriesFolder, {
               originalPath: part.filename,
               tempPath
             });
@@ -176,28 +221,28 @@ const libraryRoutes: FastifyPluginAsync = async (
           }
 
           if (isMokuro && pathParts.length > 0) {
-            volumeTitle = parsedPath.name;
-            seriesTitle = pathParts[pathParts.length - 1];
+            volumeFolder = parsedPath.name;
+            seriesFolder = pathParts[pathParts.length - 1];
           } else if (isImage && pathParts.length > 1) {
-            volumeTitle = pathParts[pathParts.length - 1];
-            seriesTitle = pathParts[pathParts.length - 2];
+            volumeFolder = pathParts[pathParts.length - 1];
+            seriesFolder = pathParts[pathParts.length - 2];
           } else {
             await drainStream(part.file);
             continue;
           }
 
           // 4. Save file to temp dir immediately to consume stream
-          const tempPathDir = path.join(tempUploadDir, seriesTitle, volumeTitle);
+          const tempPathDir = path.join(tempUploadDir, seriesFolder, volumeFolder);
           const tempPath = path.join(tempPathDir, parsedPath.base);
           await fs.promises.mkdir(tempPathDir, { recursive: true });
           await pump(part.file, fs.createWriteStream(tempPath));
 
           // 6. Store paths in the map
-          const volumeKey = `${seriesTitle}/${volumeTitle}`;
+          const volumeKey = `${seriesFolder}/${volumeFolder}`;
           if (!volumesMap.has(volumeKey)) {
             volumesMap.set(volumeKey, {
-              seriesTitle,
-              volumeTitle,
+              seriesFolder: seriesFolder,
+              volumeFolder: volumeFolder,
               mokuroFile: null,
               imageFiles: [],
             });
@@ -212,6 +257,20 @@ const libraryRoutes: FastifyPluginAsync = async (
         }
       }
       fastify.log.info(`File iteration complete. Found ${volumesMap.size} volumes.`);
+
+      // 1.5 --- Optimization Pass: Pre-load Metadata JSONs ---
+      // Instead of reading the file from disk for every volume, read it ONCE per series.
+      const metadataCache = new Map<string, MokuroSeriesMetadata>();
+
+      for (const [seriesFolder, jsonFile] of seriesJsonMap.entries()) {
+        try {
+          const jsonContent = await fs.promises.readFile(jsonFile.tempPath, 'utf-8');
+          const metadata = JSON.parse(jsonContent) as MokuroSeriesMetadata;
+          metadataCache.set(seriesFolder, metadata);
+        } catch (e) {
+          fastify.log.warn({ err: e }, `Failed to parse metadata JSON for series ${seriesFolder}`);
+        }
+      }
 
       // 2. --- Second Pass: Process and MOVE files ---
       let processedCount = 0;
@@ -228,16 +287,21 @@ const libraryRoutes: FastifyPluginAsync = async (
           continue;
         }
 
+        // Get cached metadata
+        const jsonMetadata = metadataCache.get(volume.seriesFolder) ?? null;
+        const jsonSeriesTitle = jsonMetadata?.series?.title ?? null;
+
         // --- DB Collision Check ---
         // 1. Find or create the series
         let series = await fastify.prisma.series.findFirst({
-          where: { title: volume.seriesTitle, ownerId: userId }
+          where: { folderName: volume.seriesFolder, ownerId: userId }
         });
 
         if (!series) {
           series = await fastify.prisma.series.create({
             data: {
-              title: volume.seriesTitle,
+              folderName: volume.seriesFolder,
+              title: jsonSeriesTitle,
               ownerId: userId,
               coverPath: null // Always create with null cover
             }
@@ -246,16 +310,16 @@ const libraryRoutes: FastifyPluginAsync = async (
 
         // 2. Check for and process a cover, regardless of whether
         // the series is new or existing.
-        if (seriesCoverMap.has(volume.seriesTitle)) {
-          const coverFile = seriesCoverMap.get(volume.seriesTitle)!;
+        if (seriesCoverMap.has(volume.seriesFolder)) {
+          const coverFile = seriesCoverMap.get(volume.seriesFolder)!;
           const seriesDir = path.join(
             fastify.projectRoot,
             'uploads',
             userId,
-            series.title
+            series.folderName
           );
           const ext = path.extname(coverFile.originalPath);
-          const newCoverName = `${volume.seriesTitle}${ext}`;
+          const newCoverName = `${volume.seriesFolder}${ext}`;
           const newCoverPath = path.join(seriesDir, newCoverName);
 
           // Ensure directory exists and move the file
@@ -263,11 +327,11 @@ const libraryRoutes: FastifyPluginAsync = async (
           await fs.promises.rename(coverFile.tempPath, newCoverPath);
 
           // remove cover from the map
-          seriesCoverMap.delete(volume.seriesTitle);
+          seriesCoverMap.delete(volume.seriesFolder);
 
           // 3. Update the series in the DB if the path is new
           const relativeCoverPath = path
-            .join('uploads', userId, series.title, newCoverName)
+            .join('uploads', userId, series.folderName, newCoverName)
             .replace(/\\/g, '/');
           if (series.coverPath !== relativeCoverPath) {
             // use 'series.id' to update the record we just found or created
@@ -281,7 +345,7 @@ const libraryRoutes: FastifyPluginAsync = async (
         }
 
         const existingVolume = await fastify.prisma.volume.findFirst({
-          where: { title: volume.volumeTitle, seriesId: series.id },
+          where: { folderName: volume.volumeFolder, seriesId: series.id },
         });
 
         if (existingVolume) {
@@ -295,22 +359,24 @@ const libraryRoutes: FastifyPluginAsync = async (
           continue;
         }
 
+        // --- Find Volume Display Title from Cached) ---
+        let jsonVolumeTitle: string | null = null;
+        if (jsonMetadata && jsonMetadata.volumes) {
+          const targetFileName = `${volume.volumeFolder}`;
+          const volumeMeta = jsonMetadata.volumes[targetFileName];
+          if (volumeMeta && typeof volumeMeta.displayTitle === 'string') {
+            jsonVolumeTitle = volumeMeta.displayTitle;
+          }
+        }
+
         // --- 7. Move Files from Temp to Permanent Storage ---
-        const seriesDirRelative = path.join('uploads', userId, series.title);
-        const seriesDirAbsolute = path.join(
-          fastify.projectRoot,
-          seriesDirRelative
+        const seriesDirRelative = path.join('uploads', userId, series.folderName);
+        const seriesDirAbsolute = path.join(fastify.projectRoot, seriesDirRelative
         );
-        const volumeDirRelative = path.join(seriesDirRelative, volume.volumeTitle);
-        const volumeDirAbsolute = path.join(seriesDirAbsolute, volume.volumeTitle);
-        const mokuroPathRelative = path.join(
-          seriesDirRelative,
-          `${volume.volumeTitle}.mokuro`
-        );
-        const mokuroPathAbsolute = path.join(
-          seriesDirAbsolute,
-          `${volume.volumeTitle}.mokuro`
-        );
+        const volumeDirRelative = path.join(seriesDirRelative, volume.volumeFolder);
+        const volumeDirAbsolute = path.join(seriesDirAbsolute, volume.volumeFolder);
+        const mokuroPathRelative = path.join(seriesDirRelative, `${volume.volumeFolder}.mokuro`);
+        const mokuroPathAbsolute = path.join(seriesDirAbsolute, `${volume.volumeFolder}.mokuro`);
 
         await fs.promises.mkdir(volumeDirAbsolute, { recursive: true });
 
@@ -335,10 +401,12 @@ const libraryRoutes: FastifyPluginAsync = async (
           coverName = path.basename(firstImage.originalPath);
         }
 
+
         // --- Create DB Entry ---
         await fastify.prisma.volume.create({
           data: {
-            title: volume.volumeTitle,
+            folderName: volume.volumeFolder,
+            title: jsonVolumeTitle,
             seriesId: series.id,
             pageCount: volume.imageFiles.length,
             filePath: volumeDirRelative.replace(/\\/g, '/'),
@@ -402,8 +470,8 @@ const libraryRoutes: FastifyPluginAsync = async (
 
         // 2. Determine paths
         // We need to find the series root directory. We can infer it.
-        // Based on upload logic, it's 'uploads/<userId>/<seriesTitle>/'
-        const seriesDirRelative = path.join('uploads', userId, series.title);
+        // Based on upload logic, it's 'uploads/<userId>/<seriesFolderName>/'
+        const seriesDirRelative = path.join('uploads', userId, series.folderName);
         const seriesDirAbsolute = path.join(
           fastify.projectRoot,
           seriesDirRelative
@@ -412,9 +480,9 @@ const libraryRoutes: FastifyPluginAsync = async (
         // Ensure directory exists (it should, but good practice)
         await fs.promises.mkdir(seriesDirAbsolute, { recursive: true });
 
-        // 3. Construct new filename: <seriesTitle>.<ext>
+        // 3. Construct new filename: <seriesFolderName>.<ext>
         const ext = path.extname(data.filename).toLowerCase() || '.jpg';
-        const newFileName = `${series.title}${ext}`;
+        const newFileName = `${series.folderName}${ext}`;
         const filePathAbsolute = path.join(seriesDirAbsolute, newFileName);
         const filePathRelative = path.join(seriesDirRelative, newFileName);
 
@@ -455,7 +523,7 @@ const libraryRoutes: FastifyPluginAsync = async (
           include: {
             volumes: {
               orderBy: {
-                title: 'asc', // Or by a 'volumeNumber' if we add one later
+                folderName: 'asc', // Or by a 'volumeNumber' if we add one later
               },
               include: {
                 progress: {
@@ -598,7 +666,7 @@ const libraryRoutes: FastifyPluginAsync = async (
         // Case 4: Success. create and send reply.
         const responseData = {
           id: volume.id,
-          title: volume.title,
+          title: volume.title ?? volume.folderName,
           seriesId: volume.seriesId,
           pageCount: volume.pageCount,
           coverImageName: volume.coverImageName,
@@ -735,6 +803,57 @@ const libraryRoutes: FastifyPluginAsync = async (
     }
   );
 
+  // --- PATCH /api/library/series/:id ---
+  // Update series metadata, for now it's just title
+  fastify.patch<{ Params: UpdateEntityParams; Body: UpdateEntityBody }>(
+    '/series/:id',
+    async (request, reply) => {
+      const { id } = request.params;
+      const { title } = request.body;
+
+      try {
+        const series = await fastify.prisma.series.updateMany({
+          where: { id, ownerId: request.user.id },
+          data: { title }
+        });
+
+        if (series.count === 0) return reply.status(404).send({ message: 'Series not found or access denied.' });
+        return reply.status(200).send({ message: 'Series display title updated.' });
+      } catch (e) {
+        fastify.log.error(e);
+        return reply.status(500).send({ message: 'Update failed.' });
+      }
+    }
+  );
+
+  // --- PATCH /api/library/volume/:id ---
+  // Update volume metadata, for now it's just title
+  fastify.patch<{ Params: UpdateEntityParams; Body: UpdateEntityBody }>(
+    '/volume/:id',
+    async (request, reply) => {
+      const { id } = request.params;
+      const { title } = request.body;
+
+      try {
+        const vol = await fastify.prisma.volume.findFirst({
+          where: { id, series: { ownerId: request.user.id } }
+        });
+
+        if (!vol) return reply.status(404).send({ message: 'Volume not found or access denied.' });
+
+        await fastify.prisma.volume.update({
+          where: { id },
+          data: { title }
+        });
+
+        return reply.status(200).send({ message: 'Volume display title updated.' });
+      } catch (e) {
+        fastify.log.error(e);
+        return reply.status(500).send({ message: 'Update failed.' });
+      }
+    }
+  );
+
   /**
      * DELETE /api/library/series/:id
      * Deletes an entire series, all its volumes, and all associated files.
@@ -773,7 +892,7 @@ const libraryRoutes: FastifyPluginAsync = async (
         // 2. Delete all files from disk
         if (series.volumes.length > 0) {
           // All volumes share the same parent (series) directory.
-          // mokuroPath is 'uploads/userId/seriesTitle/volume.mokuro'
+          // mokuroPath is 'uploads/userId/seriesFolderName/volume.mokuro'
           seriesDirRelative = path.dirname(series.volumes[0].mokuroPath);
         } else if (series.coverPath) {
           seriesDirRelative = path.dirname(series.coverPath);
@@ -854,7 +973,7 @@ const libraryRoutes: FastifyPluginAsync = async (
         }
 
         // 2. Delete volume files from disk
-        // filePath is 'uploads/userId/seriesTitle/volumeTitle'
+        // filePath is 'uploads/userId/seriesFolderName/volumeFolderName'
         const absoluteVolumePath = path.join(
           fastify.projectRoot,
           volume.filePath
@@ -863,7 +982,7 @@ const libraryRoutes: FastifyPluginAsync = async (
           recursive: true,
           force: true
         });
-        // mokuroPath is 'uploads/userId/seriesTitle/volume.mokuro'
+        // mokuroPath is 'uploads/userId/seriesFolderName/volume.mokuro'
         const absoluteMokuroPath = path.join(
           fastify.projectRoot,
           volume.mokuroPath

@@ -158,6 +158,95 @@ const metadataRoutes: FastifyPluginAsync = async (
       }
     }
   );
+
+  /**
+     * DELETE /api/metadata/volume/:id/progress
+     * Resets progress (Wipe).
+     */
+  fastify.delete<{ Params: IdParams }>(
+    '/volume/:id/progress',
+    async (request, reply) => {
+      const { id: volumeId } = request.params;
+      const userId = request.user.id;
+
+      try {
+        await fastify.prisma.userProgress.delete({
+          where: { userId_volumeId: { userId, volumeId } },
+        });
+        return reply.send({ message: 'Progress reset successfully.' });
+      } catch (error) {
+        // P2025 = Record not found (already empty)
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
+          return reply.send({ message: 'Progress was already empty.' });
+        }
+        fastify.log.error(error);
+        return reply.status(500).send({ message: 'Could not reset progress.' });
+      }
+    }
+  );
+
+  // ===========================================================================
+  // RENAMING ENDPOINTS
+  // Namespace: /series/:id and /volume/:id
+  // ===========================================================================
+
+  /**
+   * PATCH /api/metadata/series/:id
+   * Renames the Display Title of a Series.
+   */
+  fastify.patch<{ Params: IdParams; Body: { title: string } }>(
+    '/series/:id',
+    { schema: { body: renameBodySchema } },
+    async (request, reply) => {
+      const { id } = request.params;
+      const { title } = request.body;
+
+      try {
+        const result = await fastify.prisma.series.updateMany({
+          where: { id, ownerId: request.user.id },
+          data: { title }
+        });
+
+        if (result.count === 0) return reply.status(404).send({ message: 'Series not found.' });
+        return reply.send({ message: 'Series title updated.' });
+      } catch (error) {
+        fastify.log.error(error);
+        return reply.status(500).send({ message: 'Update failed.' });
+      }
+    }
+  );
+
+  /**
+   * PATCH /api/metadata/volume/:id
+   * Renames the Display Title of a Volume.
+   */
+  fastify.patch<{ Params: IdParams; Body: { title: string } }>(
+    '/volume/:id',
+    { schema: { body: renameBodySchema } },
+    async (request, reply) => {
+      const { id } = request.params;
+      const { title } = request.body;
+
+      try {
+        // Verify ownership via series relation
+        const vol = await fastify.prisma.volume.findFirst({
+          where: { id, series: { ownerId: request.user.id } }
+        });
+
+        if (!vol) return reply.status(404).send({ message: 'Volume not found.' });
+
+        await fastify.prisma.volume.update({
+          where: { id },
+          data: { title }
+        });
+
+        return reply.send({ message: 'Volume title updated.' });
+      } catch (error) {
+        fastify.log.error(error);
+        return reply.status(500).send({ message: 'Update failed.' });
+      }
+    }
+  );
 };
 
 export default metadataRoutes;

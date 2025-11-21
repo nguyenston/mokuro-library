@@ -16,21 +16,23 @@ datasource db {
 
 // Stores metadata about a manga series
 model Series {
-  id        String    @id @default(cuid())
-  title     String    // e.g., "Yotsuba&!"
-  coverPath String?   // Path to the cover image
+  id          String    @id @default(cuid())
+  title       String?   // defaults to folderName
+  folderName  String
+  coverPath   String?   // Path to the cover image
 
-  volumes   Volume[]
-  owner     User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  ownerId   String    // Which user uploaded this
+  volumes     Volume[]
+  owner       User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  ownerId     String    // Which user uploaded this
 
-  @@unique([title, ownerId]) // A user can't have two series with the same title
+  @@unique([folderName, ownerId]) // A user can't have two series with the same title
 }
 
 // Stores metadata about a single volume
 model Volume {
   id          String   @id @default(cuid())
-  title       String   // e.g., "Volume 1"
+  title       String?  // defaults to folderName
+  folderName  String
   pageCount   Int
 
   // File paths on the NAS
@@ -44,7 +46,7 @@ model Volume {
 
   progress    UserProgress[]
 
-  @@unique([seriesId, title]) // Prevent duplicate volumes within a series
+  @@unique([seriesId, folderName]) // Prevent duplicate volumes within a series
 }
 
 // Stores user accounts and their settings
