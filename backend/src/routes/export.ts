@@ -83,7 +83,7 @@ const generateVolumePdf = async (
   log: FastifyBaseLogger,
   doc: PDFKit.PDFDocument
 ) => {
-  log.info(`Generating PDF pages for: ${volume.series.title} - ${volume.title}`);
+  log.info(`Generating PDF pages for: ${volume.series.folderName} - ${volume.folderName}`);
 
   const absoluteMokuroPath = path.join(
     projectRoot,
@@ -207,7 +207,7 @@ const exportRoutes: FastifyPluginAsync = async (
 
       reply.header('Content-Type', 'application/zip');
       // Safely encode the filename to handle spaces and special characters
-      const safeFileName = encodeURIComponent(`${volume.series.title} - ${volume.title}`);
+      const safeFileName = encodeURIComponent(`${volume.series.folderName} - ${volume.folderName}`);
       reply.header('Content-Disposition', `attachment; filename="${safeFileName}.zip"`);
 
       archive.on('error', (err) => {
@@ -219,14 +219,14 @@ const exportRoutes: FastifyPluginAsync = async (
 
       // Add the volume directory (images)
       const absoluteVolumePath = path.join(fastify.projectRoot, volume.filePath);
-      archive.directory(absoluteVolumePath, volume.title);
+      archive.directory(absoluteVolumePath, volume.folderName);
 
       // Add the .mokuro file
       const absoluteMokuroPath = path.join(
         fastify.projectRoot,
         volume.mokuroPath
       );
-      archive.file(absoluteMokuroPath, { name: `${volume.title}.mokuro` });
+      archive.file(absoluteMokuroPath, { name: `${volume.folderName}.mokuro` });
 
       archive.finalize();
       return reply.send(archive);
@@ -260,7 +260,7 @@ const exportRoutes: FastifyPluginAsync = async (
 
       try {
         const safeFileName = encodeURIComponent(
-          `${volume.series.title} - ${volume.title}`
+          `${volume.series.folderName} - ${volume.folderName}`
         );
         // Trigger save dialog instead of inline
         reply.header('Content-Type', 'application/pdf');
@@ -321,7 +321,7 @@ const exportRoutes: FastifyPluginAsync = async (
         seriesDirRelative
       );
 
-      return streamZip(seriesDirAbsolute, series.title, reply);
+      return streamZip(seriesDirAbsolute, series.folderName, reply);
     }
   );
 
@@ -346,14 +346,14 @@ const exportRoutes: FastifyPluginAsync = async (
       const volumes = await fastify.prisma.volume.findMany({
         where: { seriesId: series.id },
         include: { series: true },
-        orderBy: { title: 'asc' }
+        orderBy: { folderName: 'asc' }
       });
 
       if (volumes.length === 0) {
         return reply.status(400).send('Series is empty');
       }
 
-      const safeFileName = encodeURIComponent(series.title);
+      const safeFileName = encodeURIComponent(series.folderName);
       reply.header('Content-Type', 'application/zip');
       reply.header(
         'Content-Disposition',
@@ -379,7 +379,7 @@ const exportRoutes: FastifyPluginAsync = async (
           );
           doc.end();
 
-          const pdfFileName = `${volume.title}.pdf`;
+          const pdfFileName = `${volume.folderName}.pdf`;
           archive.append(doc as unknown as Readable, { name: pdfFileName });
         }
 
@@ -432,8 +432,8 @@ const exportRoutes: FastifyPluginAsync = async (
       where: { series: { ownerId: userId } },
       include: { series: true },
       orderBy: [
-        { series: { title: 'asc' } },
-        { title: 'asc' }
+        { series: { folderName: 'asc' } },
+        { folderName: 'asc' }
       ]
     });
 
@@ -467,7 +467,7 @@ const exportRoutes: FastifyPluginAsync = async (
         );
         doc.end();
 
-        const pdfFileName = `${volume.series.title}/${volume.title}.pdf`;
+        const pdfFileName = `${volume.series.folderName}/${volume.folderName}.pdf`;
         archive.append(doc as unknown as Readable, { name: pdfFileName });
       }
 
