@@ -939,7 +939,7 @@
 					{#each currentPages as page (page.img_path)}
 						<div
 							class="relative flex-shrink-0"
-							style={`aspect-ratio: ${page.img_width} / ${page.img_height}; max-height: 100%; max-width: 100%;`}
+							style={`aspect-ratio: ${page.img_width} / ${page.img_height}; height: 100%;`}
 						>
 							<CachedImage src={`/api/files/volume/${params.id}/image/${page.img_path}`} />
 							<OcrOverlay

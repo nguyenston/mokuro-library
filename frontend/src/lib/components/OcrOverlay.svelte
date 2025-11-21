@@ -44,9 +44,11 @@
 	let viewportWidth = $state(0);
 	let viewportHeight = $state(0);
 
-	let fontScale = $derived(
-		Math.min(viewportWidth / page.img_width, viewportHeight / page.img_height)
-	);
+	let fontScale = $derived.by(() => {
+		const rect = overlayRootElement?.getBoundingClientRect();
+		if (!rect?.height) return 1;
+		return rect.height / page.img_height;
+	});
 
 	/**
 	 * Replaces predetermined sequences with their combined character
