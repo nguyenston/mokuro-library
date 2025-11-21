@@ -76,7 +76,7 @@
 			volumeResponse = data as VolumeResponse;
 
 			// Fetch progress data
-			const progressData = await apiFetch(`/api/progress/volume/${volumeId}`);
+			const progressData = await apiFetch(`/api/metadata/volume/${volumeId}/progress`);
 			if (progressData.page) {
 				currentPageIndex = progressData.page - 1; // 1-based to 0-based
 				initialPage = progressData.page - 1;
@@ -250,8 +250,8 @@
 		}
 
 		try {
-			await apiFetch(`/api/progress/volume/${params.id}`, {
-				method: 'PUT',
+			await apiFetch(`/api/metadata/volume/${params.id}/progress`, {
+				method: 'PATCH',
 				body: {
 					page: currentPageIndex + 1 // Convert 0-based to 1-based for DB
 				}
@@ -931,7 +931,6 @@
 					aria-label="Previous Page"
 					style={`width: ${navZoneWidth}%`}
 				></button>
-				>
 				<div
 					class="relative flex h-full flex-1 items-center justify-center"
 					bind:this={panzoomElement}

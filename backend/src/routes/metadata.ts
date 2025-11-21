@@ -14,6 +14,14 @@ const progressBodySchema = {
   // No required fields, as this is a partial update
 };
 
+// Schema for Renaming (Series/Volume)
+const renameBodySchema = {
+  type: 'object',
+  properties: {
+    title: { type: ['string', 'null'] } // Allow string or explicit null
+  }
+};
+
 // Define an interface for our type-safe params
 interface ProgressParams {
   id: string; // This 'id' is the volumeId
@@ -27,19 +35,29 @@ interface ProgressBody {
   completed?: boolean;
 }
 
-const progressRoutes: FastifyPluginAsync = async (
+// For Volume or Series id
+interface IdParams {
+  id: string;
+}
+
+const metadataRoutes: FastifyPluginAsync = async (
   fastify,
   opts
 ): Promise<void> => {
   // Protect all routes in this file
   fastify.addHook('preHandler', fastify.authenticate);
 
+  // ===========================================================================
+  // PROGRESS ENDPOINTS
+  // Namespace: /volume/:id/progress
+  // ===========================================================================
+
   /**
-   * GET /api/progress/volume/:id
+   * GET /api/metadata/volume/:id/progress
    * Gets the progress for a specific volume for the current user.
    */
   fastify.get<{ Params: ProgressParams }>(
-    '/volume/:id',
+    '/volume/:id/progress',
     async (request, reply) => {
       const { id: volumeId } = request.params;
       const userId = request.user.id; // we know request has user thanks to the auth hook
@@ -85,11 +103,11 @@ const progressRoutes: FastifyPluginAsync = async (
   );
 
   /**
-   * PUT /api/progress/volume/:id
+   * PATCH /api/metadata/volume/:id/progress
    * Saves or updates the progress for a volume for the current user.
    */
-  fastify.put<{ Params: ProgressParams; Body: ProgressBody }>(
-    '/volume/:id',
+  fastify.patch<{ Params: ProgressParams; Body: ProgressBody }>(
+    '/volume/:id/progress',
     { schema: { body: progressBodySchema } }, // Apply schema validation
     async (request, reply) => {
       const { id: volumeId } = request.params;
@@ -142,4 +160,4 @@ const progressRoutes: FastifyPluginAsync = async (
   );
 };
 
-export default progressRoutes;
+export default metadataRoutes;

@@ -13,7 +13,7 @@ import authPlugin from './plugins/auth';
 // Import Routes
 import authRoutes from './routes/auth';
 import settingsRoutes from './routes/settings';
-import progressRoutes from './routes/progress';
+import metadataRoutes from './routes/metadata';
 import libraryRoutes from './routes/library';
 import filesRoutes from './routes/files';
 import exportRoutes from './routes/export';
@@ -66,7 +66,7 @@ fastify.decorate('projectRoot', projectRoot);
 // Register auth routes with a prefix
 fastify.register(authRoutes, { prefix: '/api/auth' });
 fastify.register(settingsRoutes, { prefix: '/api/settings' });
-fastify.register(progressRoutes, { prefix: '/api/progress' });
+fastify.register(metadataRoutes, { prefix: '/api/metadata' });
 fastify.register(libraryRoutes, { prefix: '/api/library' });
 fastify.register(filesRoutes, { prefix: '/api/files' });
 fastify.register(exportRoutes, { prefix: '/api/export' });

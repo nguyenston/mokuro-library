@@ -187,8 +187,8 @@
 			pendingToggleComplete.delete(volumeId); // Clean up the map entry
 
 			try {
-				await apiFetch(`/api/progress/volume/${volumeId}`, {
-					method: 'PUT',
+				await apiFetch(`/api/metadata/volume/${volumeId}/progress`, {
+					method: 'PATCH',
 					body: { completed: newStatus }
 				});
 			} catch (e) {
@@ -221,8 +221,8 @@
 			}
 
 			try {
-				apiFetch(`/api/progress/volume/${volumeId}`, {
-					method: 'PUT',
+				apiFetch(`/api/metadata/volume/${volumeId}/progress`, {
+					method: 'PATCH',
 					body: { completed: status }
 				});
 			} catch (e) {
