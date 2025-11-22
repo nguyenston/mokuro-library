@@ -40,7 +40,6 @@ interface MokuroSeriesMetadata {
   series: {
     title: string | null;
     originalFolderName: string; // Used for safety/validation
-    coverImage?: string;
   };
   volumes: {
     [folderName: string]: {
@@ -178,9 +177,9 @@ const libraryRoutes: FastifyPluginAsync = async (
           const pathParts = parsedPath.dir.split(path.sep).filter((p) => p);
           let seriesFolder: string, volumeFolder: string;
 
-          // A file is a series cover if:
-          // 1. It's an image
-          // 3. Its filename matches its folder name (e.g., "series_folder_name/series_folder_name.jpg")
+          // A file is a series cover/metadata if:
+          // 1. It's an image/json
+          // 3. Its filename matches its folder name (e.g., "series_folder_name/series_folder_name.<ext>")
           const isSeriesCoverOrJson =
             pathParts.length > 0 &&
             parsedPath.name === pathParts[pathParts.length - 1];
