@@ -1,6 +1,8 @@
 import 'dotenv/config'; // important to make environment variables available to the server
 import Fastify from 'fastify';
 import { PrismaClient } from './generated/prisma/client'
+import { PrismaBetterSqlite3 } from '@prisma/adapter-better-sqlite3';
+
 import fastifyCookie from '@fastify/cookie';
 import fastifyMultipart from '@fastify/multipart';
 import fastifyStatic from '@fastify/static';
@@ -18,6 +20,13 @@ import libraryRoutes from './routes/library';
 import filesRoutes from './routes/files';
 import exportRoutes from './routes/export';
 
+
+// Initialize Fastify server
+const fastify = Fastify({
+  logger: true,
+});
+
+
 // Define the absolute project root, /app, in both environments:
 // In dev: __dirname is /app/backend/src. Root is two levels up.
 // In prod: __dirname is /app/dist. Root is one level up.
@@ -26,13 +35,16 @@ const projectRoot = path.resolve(
   process.env.NODE_ENV === 'production' ? '..' : '../..'
 );
 
+const dbUrl = process.env.DATABASE_URL;
 // Initialize the Prisma Client
-const prisma = new PrismaClient();
 
-// Initialize Fastify server
-const fastify = Fastify({
-  logger: true,
+fastify.log.info(dbUrl);
+const adapter = new PrismaBetterSqlite3({
+  url: dbUrl
+}, {
+  timestampFormat: 'iso8601'
 });
+const prisma = new PrismaClient({ adapter });
 
 // Register the cookie plugin
 fastify.register(fastifyCookie, {

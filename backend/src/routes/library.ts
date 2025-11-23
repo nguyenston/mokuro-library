@@ -54,6 +54,15 @@ interface MokuroSeriesMetadata {
   };
 }
 
+// get request query
+interface LibraryQuery {
+  page?: number;
+  limit?: number;
+  q?: string;
+  sort?: 'title' | 'created' | 'updated' | 'recent';
+  order?: 'asc' | 'desc';
+}
+
 interface MokuroPage { }
 
 interface MokuroData {
@@ -83,34 +92,78 @@ const libraryRoutes: FastifyPluginAsync = async (
    * GET /api/library
    * Gets a list of all Series and Volume metadata owned by the current user.
    */
-  fastify.get('/', async (request, reply) => {
+  fastify.get<{ Querystring: LibraryQuery }>('/', async (request, reply) => {
     const userId = request.user.id; // provided by the authenticate hook
 
+    // 1. Parse Query Params with Defaults
+    const page = Math.max(1, request.query.page ?? 1);
+    const limit = Math.max(1, Math.min(100, request.query.limit ?? 20)); // Max 100 per page
+    const q = request.query.q?.trim() ?? '';
+    const sort = request.query.sort ?? 'title';
+    const order = request.query.order ?? 'asc';
+
+    // 2. Build Where Clause (Search)
+    const where: Prisma.SeriesWhereInput = {
+      ownerId: userId,
+    };
+
+    if (q) {
+      where.OR = [
+        { title: { contains: q } }, // Search Title
+        { folderName: { contains: q } } // Fallback Search Folder
+      ];
+    }
+    // 3. Build OrderBy Clause
+    let orderBy: Prisma.SeriesOrderByWithRelationInput | Prisma.SeriesOrderByWithRelationInput[];
+
+    switch (sort) {
+      case 'created':
+        orderBy = { createdAt: order };
+        break;
+      case 'updated':
+        orderBy = { updatedAt: order };
+        break;
+      case 'recent':
+        // Sort by the denormalized lastReadAt field on Series
+        orderBy = { lastReadAt: order };
+        break;
+      case 'title':
+      default:
+        // Secondary sort by folderName ensures stable sorting if titles are null/identical
+        orderBy = [{ title: order }, { folderName: order }];
+        break;
+    }
+
     try {
-      const series = await fastify.prisma.series.findMany({
-        // Find all series owned by the logged-in user
-        where: {
-          ownerId: userId,
-        },
-        // Include all related Volume records for each Series
-        include: {
-          volumes: {
-            // Optional: Order volumes by folderName
-            orderBy: {
-              folderName: 'asc',
+      // 4. Execute Transaction for Data + Count
+      const [total, series] = await fastify.prisma.$transaction([
+        fastify.prisma.series.count({ where }),
+        fastify.prisma.series.findMany({
+          where,
+          orderBy,
+          take: limit,
+          skip: (page - 1) * limit,
+          include: {
+            volumes: {
+              orderBy: { title: 'asc' },
+              // We can still fetch progress preview if needed, but it's heavy
+              // For the main library view, we usually just need covers/titles
             },
           },
-        },
-        // Optional: Order the series by folderName
-        orderBy: {
-          folderName: 'asc',
-        },
+        }),
+      ]);
+
+      // 5. Return Paginated Response
+      return reply.status(200).send({
+        data: series,
+        meta: {
+          total,
+          page,
+          limit,
+          totalPages: Math.ceil(total / limit)
+        }
       });
 
-      // Return the list of series.
-      // This will be an empty array ([]) if the user has no uploads,
-      // which is the correct response.
-      return reply.status(200).send(series);
     } catch (error) {
       fastify.log.error(error);
       return reply.status(500).send({
@@ -305,6 +358,23 @@ const libraryRoutes: FastifyPluginAsync = async (
               coverPath: null // Always create with null cover
             }
           });
+        } else {
+          // If series exists, check if we need to update metadata
+          // AND touch the updatedAt timestamp to bubble it to the top of "Recently Updated"
+          const dataToUpdate: Prisma.SeriesUpdateInput = {
+            updatedAt: new Date(), // Always touch on new upload
+          };
+
+          if (series.title === null) {
+            dataToUpdate.title = jsonSeriesTitle;
+          }
+
+          await fastify.prisma.series.update({
+            where: { id: series.id },
+            data: dataToUpdate
+          });
+          // Update local object for seriesId reference below
+          if (dataToUpdate.title) series.title = dataToUpdate.title as string;
         }
 
         // 2. Check for and process a cover, regardless of whether
@@ -512,6 +582,7 @@ const libraryRoutes: FastifyPluginAsync = async (
     async (request, reply) => {
       const { id: seriesId } = request.params;
       const userId = request.user.id;
+      fastify.log.info(seriesId);
 
       try {
         const series = await fastify.prisma.series.findFirst({
