@@ -203,12 +203,23 @@ const metadataRoutes: FastifyPluginAsync = async (
       const { title } = request.body;
 
       try {
-        const result = await fastify.prisma.series.updateMany({
-          where: { id, ownerId: request.user.id },
-          data: { title }
+        const series = await fastify.prisma.series.findFirst({
+          where: {
+            id,
+            ownerId: request.user.id, // Security check
+          },
+          select: {
+            folderName: true,
+          },
         });
 
-        if (result.count === 0) return reply.status(404).send({ message: 'Series not found.' });
+        if (!series) return reply.status(404).send({ message: 'Series not found.' });
+
+        await fastify.prisma.series.update({
+          where: { id, ownerId: request.user.id },
+          data: { title, sortTitle: title ?? series.folderName },
+        });
+
         return reply.send({ message: 'Series title updated.' });
       } catch (error) {
         fastify.log.error(error);
@@ -231,14 +242,15 @@ const metadataRoutes: FastifyPluginAsync = async (
       try {
         // Verify ownership via series relation
         const vol = await fastify.prisma.volume.findFirst({
-          where: { id, series: { ownerId: request.user.id } }
+          where: { id, series: { ownerId: request.user.id } },
+          select: { folderName: true },
         });
 
         if (!vol) return reply.status(404).send({ message: 'Volume not found.' });
 
         await fastify.prisma.volume.update({
           where: { id },
-          data: { title }
+          data: { title, sortTitle: title ?? vol.folderName },
         });
 
         return reply.send({ message: 'Volume title updated.' });

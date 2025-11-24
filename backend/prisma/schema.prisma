@@ -21,12 +21,15 @@ model Series {
   folderName  String
   coverPath   String?   // Path to the cover image
 
+  // Always contains either 'title' or 'folderName'
+  sortTitle   String
+
   createdAt   DateTime  @default(now()) // "Date Added"
   updatedAt   DateTime  @updatedAt @default(now())     // "Recently Updated" (Refreshed on new volume)
 
   // Updated manually when a child volume's progress is updated.
   // Default is Epoch (1970) so unread items appear at the bottom of "Recently Read".
-  lastReadAt  DateTime  @default("1970-01-01T00:00:00.000Z")
+  lastReadAt  DateTime  @default(dbgenerated("'1970-01-01T00:00:00.000Z'"))
 
   volumes     Volume[]
   owner       User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
@@ -41,6 +44,9 @@ model Volume {
   title       String?  // defaults to folderName
   folderName  String
   pageCount   Int
+
+  // Always contains either 'title' or 'folderName'
+  sortTitle   String
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt @default(now())
@@ -79,10 +85,10 @@ model UserProgress {
   charsRead  Int       @default(0)
   completed  Boolean   @default(false)
 
-// --- RECENTLY READ ---
+  // --- RECENTLY READ ---
   // 1. @updatedAt: Automatically updates to NOW() whenever you save progress.
   // 2. @default("1970..."): Forces existing database rows to have an "ancient" date 
-  lastReadAt DateTime @updatedAt @default("1970-01-01T00:00:00.000Z")
+  lastReadAt DateTime @updatedAt @default(dbgenerated("'1970-01-01T00:00:00.000Z'"))
 
   user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId     String

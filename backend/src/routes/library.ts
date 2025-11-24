@@ -108,10 +108,7 @@ const libraryRoutes: FastifyPluginAsync = async (
     };
 
     if (q) {
-      where.OR = [
-        { title: { contains: q } }, // Search Title
-        { folderName: { contains: q } } // Fallback Search Folder
-      ];
+      where.sortTitle = { contains: q };
     }
     // 3. Build OrderBy Clause
     let orderBy: Prisma.SeriesOrderByWithRelationInput | Prisma.SeriesOrderByWithRelationInput[];
@@ -130,7 +127,7 @@ const libraryRoutes: FastifyPluginAsync = async (
       case 'title':
       default:
         // Secondary sort by folderName ensures stable sorting if titles are null/identical
-        orderBy = [{ title: order }, { folderName: order }];
+        orderBy = { sortTitle: order };
         break;
     }
 
@@ -354,6 +351,7 @@ const libraryRoutes: FastifyPluginAsync = async (
             data: {
               folderName: volume.seriesFolder,
               title: jsonSeriesTitle,
+              sortTitle: jsonSeriesTitle ?? volume.seriesFolder,
               ownerId: userId,
               coverPath: null // Always create with null cover
             }
@@ -476,6 +474,7 @@ const libraryRoutes: FastifyPluginAsync = async (
           data: {
             folderName: volume.volumeFolder,
             title: jsonVolumeTitle,
+            sortTitle: jsonVolumeTitle ?? volume.volumeFolder,
             seriesId: series.id,
             pageCount: volume.imageFiles.length,
             filePath: volumeDirRelative.replace(/\\/g, '/'),
@@ -593,7 +592,7 @@ const libraryRoutes: FastifyPluginAsync = async (
           include: {
             volumes: {
               orderBy: {
-                folderName: 'asc', // Or by a 'volumeNumber' if we add one later
+                sortTitle: 'asc', // Or by a 'volumeNumber' if we add one later
               },
               include: {
                 progress: {
@@ -717,7 +716,7 @@ const libraryRoutes: FastifyPluginAsync = async (
             message: 'Failed to parse volume data. The file may be corrupted.',
           });
         }
-        // --- THIS IS THE NEW SANITY CHECK ---
+        // --- SANITY CHECK ---
         if (
           !mokuroJson.pages ||
           !Array.isArray(mokuroJson.pages) ||
