@@ -20,8 +20,16 @@ CREATE TABLE "new_Series" (
     "ownerId" TEXT NOT NULL,
     CONSTRAINT "Series_ownerId_fkey" FOREIGN KEY ("ownerId") REFERENCES "User" ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
-INSERT INTO "new_Series" ("coverPath", "createdAt", "folderName", "id", "lastReadAt", "ownerId", "title", "updatedAt") SELECT "coverPath", "createdAt", "folderName", "id", "lastReadAt", "ownerId", "title", "updatedAt" FROM "Series";
-UPDATE "new_Series" SET "sortTitle" = COALESCE("title", "folderName"); -- Set sortTitle to title. If title is NULL, use folderName.
+INSERT INTO "new_Series" (
+    "id", "title", "folderName", "coverPath", "ownerId", 
+    "createdAt", "updatedAt", "lastReadAt", 
+    "sortTitle"
+)
+SELECT 
+    "id", "title", "folderName", "coverPath", "ownerId", 
+    "createdAt", "updatedAt", "lastReadAt", 
+    COALESCE("title", "folderName") -- Set sortTitle to title. If title is NULL, use folderName.
+FROM "Series";
 DROP TABLE "Series";
 ALTER TABLE "new_Series" RENAME TO "Series";
 CREATE UNIQUE INDEX "Series_folderName_ownerId_key" ON "Series"("folderName", "ownerId");
@@ -39,8 +47,18 @@ CREATE TABLE "new_Volume" (
     "seriesId" TEXT NOT NULL,
     CONSTRAINT "Volume_seriesId_fkey" FOREIGN KEY ("seriesId") REFERENCES "Series" ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
-INSERT INTO "new_Volume" ("coverImageName", "createdAt", "filePath", "folderName", "id", "mokuroPath", "pageCount", "seriesId", "title", "updatedAt") SELECT "coverImageName", "createdAt", "filePath", "folderName", "id", "mokuroPath", "pageCount", "seriesId", "title", "updatedAt" FROM "Volume";
-UPDATE "new_Volume" SET "sortTitle" = COALESCE("title", "folderName");
+INSERT INTO "new_Volume" (
+    "id", "title", "folderName", "pageCount", 
+    "filePath", "mokuroPath", "coverImageName", "seriesId", 
+    "createdAt", "updatedAt", 
+    "sortTitle"
+) 
+SELECT 
+    "id", "title", "folderName", "pageCount", 
+    "filePath", "mokuroPath", "coverImageName", "seriesId", 
+    "createdAt", "updatedAt", 
+    COALESCE("title", "folderName") -- Set sortTitle to title. If title is NULL, use folderName.
+FROM "Volume";
 DROP TABLE "Volume";
 ALTER TABLE "new_Volume" RENAME TO "Volume";
 CREATE UNIQUE INDEX "Volume_filePath_key" ON "Volume"("filePath");
