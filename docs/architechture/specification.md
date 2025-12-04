@@ -7,9 +7,8 @@
 To create a self-hosted, multi-user Mokuro reader application that runs on a NAS. This application will solve the primary limitation of existing client-side readers by storing all library files and user data on the server's filesystem, bypassing browser storage quotas. This is also a project for me to get into web development.
 
 ### Target Use Case
-
-A casual NAS owner who wants to host a manga library for a small, trusted group of users (family, friends) over a private network (LAN or VPN). 
-People into self-hosting. Or just prefer to have access of mokuro files via filesystem.
+1.  **Home Server (NAS):** A casual NAS owner hosting a manga library for a trusted group over LAN/VPN.
+2.  **Local User (Windows):** A user who wants a "double-click to run" portable library on their PC without managing containers or databases.
 
 ### Core Architecture
 
@@ -18,7 +17,7 @@ The system will be a decoupled client-server application.
 * Backend: A Node.js server (Fastify) handles all logic, database interactions, and file storage.
 * Frontend: A SvelteKit application (refactored from zxy101/mokuro-reader) provides the web UI.
 * Database: A server-side SQLite file will store all metadata.
-* Deployment: The frontend and backend will be packaged to run together, ideally in a single Docker container.
+* Deployment: The frontend and backend will be packaged to run together, either in a Docker container or a bundled Node exe.
 
 ## Feature Set
 

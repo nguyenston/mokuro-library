@@ -45,7 +45,7 @@ This project is a monorepo containing a decoupled frontend and backend.
 * **ORM:** **Prisma** for type-safe database access and migrations.
 * **Containerization:** **Docker** and **Docker Compose**.
 
-## 🚀 Installation
+## 🐳 Installation (Docker / NAS)
 
 The recommended way to run Mokuro Library is with Docker Compose, which handles the database, backend, and frontend in one managed container.
 
@@ -97,6 +97,17 @@ When you pull new changes from Git or modify the schema:
     docker compose up -d --force-recreate
     ```
     Your data in the `./data` folder will be preserved.
+
+## 📥 Download & Run (Windows Portable)
+
+For users who want to run the library locally on their PC without Docker:
+
+1.  **Download** the latest `MokuroLibrary-Windows.zip` from the **[Releases Page](../../releases)**.
+2.  **Extract** the ZIP file to a folder.
+3.  If you are updating, copy the `data` and `uploads` folders into the new version
+4.  **Run** `mokuro-library.exe`.
+    * A command window will open (don't close it, this is the server).
+    * Your library is accessible at `http://localhost:3001`.
 
 ## 📖 Usage & Getting Started
 
