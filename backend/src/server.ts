@@ -30,7 +30,10 @@ const fastify = Fastify({
 // Define the absolute project root, /app, in both environments:
 // In dev: __dirname is /app/backend/src. Root is two levels up.
 // In prod: __dirname is /app/dist. Root is one level up.
-const projectRoot = path.resolve(
+//
+// Check for an explicit environment variable first (Used by Windows Exe)
+// Fallback to the standard directory calculation (Used by Docker/Dev)
+const projectRoot = process.env.MOKURO_DATA_DIR || path.resolve(
   __dirname,
   process.env.NODE_ENV === 'production' ? '..' : '../..'
 );
