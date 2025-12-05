@@ -9,13 +9,45 @@ import { Prisma } from '../generated/prisma/client';
 // Promisify pipeline for async/await
 const pump = util.promisify(pipeline);
 
-// Helper type for organizing uploaded files
-type UploadedVolume = {
-  seriesFolder: string;
-  volumeFolder: string;
-  mokuroFile: { originalPath: string; tempPath: string } | null; // Store paths
-  imageFiles: { originalPath: string; tempPath: string }[]; // Store paths
-};
+// --- Helpers ---
+
+// 1. Safe Filename (Security)
+// Prevents directory traversal (../../) and illegal chars
+function safeFilename(str: string): string {
+  // Replace illegal chars with underscore, trim whitespace
+  return str.replace(/[<>:"/\\|?*\x00-\x1F]/g, '_').trim();
+}
+
+// 2. Cleanup Helper (Rollback)
+async function deleteFolder(pathStr: string) {
+  try {
+    await fs.promises.rm(pathStr, { recursive: true, force: true });
+  } catch (e) {
+    console.error(`Failed to cleanup folder: ${pathStr}`, e);
+  }
+}
+
+// 3. File consume
+// Drains a readable stream completely by resuming it and waiting for the 'end' event.
+// This is used to discard file contents we don't want to save.
+
+function drainStream(stream: Readable): Promise<void> {
+  return new Promise((resolve, reject) => {
+    stream.on('end', resolve);
+    stream.on('error', reject);
+    stream.resume(); // Start the flow
+  });
+}
+
+interface UploadMetadata {
+  series_title?: string;
+  volume_title?: string;
+  // ADDED: Progress Interface
+  volume_progress?: {
+    page: number;
+    completed: boolean;
+  };
+}
 
 // an interface for the route parameters
 interface VolumeParams {
@@ -34,26 +66,6 @@ interface UpdateEntityBody {
   title?: string | null; // Allow setting a string or explicitly nulling it
 }
 
-// Interface for Mokuro Metadata JSON (for portable titles/progress)
-interface MokuroSeriesMetadata {
-  version: string;
-  series: {
-    title: string | null;
-    originalFolderName: string; // Used for safety/validation
-  };
-  volumes: {
-    [folderName: string]: {
-      displayTitle: string | null;
-      progress?: {
-        page: number;
-        isCompleted: boolean;
-        timeRead: number;
-        charsRead: number;
-      };
-    }
-  };
-}
-
 // get request query
 interface LibraryQuery {
   page?: number;
@@ -67,18 +79,6 @@ interface MokuroPage { }
 
 interface MokuroData {
   pages: MokuroPage[];
-}
-
-/**
- * Drains a readable stream completely by resuming it and waiting for the 'end' event.
- * This is used to discard file contents we don't want to save.
- */
-function drainStream(stream: Readable): Promise<void> {
-  return new Promise((resolve, reject) => {
-    stream.on('end', resolve);
-    stream.on('error', reject);
-    stream.resume(); // Start the flow
-  });
 }
 
 const libraryRoutes: FastifyPluginAsync = async (
@@ -172,340 +172,234 @@ const libraryRoutes: FastifyPluginAsync = async (
   });
 
   /**
+   * POST /api/library/check
+   * Quick check to see if a Series/Volume pair already exists.
+   * Prevents "EPIPE" errors by avoiding redundant uploads.
+   */
+  fastify.post<{ Body: { series_folder_name: string; volume_folder_name: string } }>(
+    '/check',
+    async (request, reply) => {
+      const { series_folder_name, volume_folder_name } = request.body;
+      const userId = request.user.id;
+
+      if (!series_folder_name || !volume_folder_name) {
+        return reply.status(400).send({ message: 'Missing identifiers' });
+      }
+
+      const exists = await fastify.prisma.volume.findFirst({
+        where: {
+          folderName: volume_folder_name,
+          series: {
+            folderName: series_folder_name,
+            ownerId: userId
+          }
+        },
+        select: { id: true } // Select minimal data
+      });
+
+      return reply.send({ exists: !!exists });
+    }
+  );
+
+  /**
    * POST /api/library/upload
+   * Smart Pipeline Upload: Receives one volume at a time.
+   * STRICT ORDER: Fields (Identifiers) MUST come before Files.
    */
   fastify.post('/upload', async (request, reply) => {
     const userId = request.user.id;
-    const parts = request.parts();
-    const volumesMap = new Map<string, UploadedVolume>();
 
-    // Track library json
-    const seriesJsonMap = new Map<string, { originalPath: string; tempPath: string }>();
+    // Context State
+    let seriesFolder = '';
+    let volumeFolder = '';
+    let metadata: UploadMetadata = {};
 
-    // Track series cover
-    const seriesCoverMap = new Map<string, { originalPath: string; tempPath: string }>();
+    let targetDir = '';
+    let pageCount = 0;
 
-    // 3. Create a unique temp directory for this upload
-    let tempUploadDir: string | undefined = undefined;
+    // Track specific files for DB updates
+    let mokuroPathRelative = '';
+    let coverImageName: string | null = null;
+    let potentialSeriesCoverPath: string | null = null;
 
     try {
-      // Define the base temp path relative to permanent storage root
-      const tempBaseDir = path.join(fastify.projectRoot, 'uploads', '.tmp');
+      for await (const part of request.parts()) {
 
-      // Ensure the base temporary directory exists before making a unique one
-      await fs.promises.mkdir(tempBaseDir, { recursive: true });
+        // --- PHASE 1: Metadata Fields (Must come first) ---
+        if (part.type === 'field') {
+          const value = typeof part.value === 'string' ? part.value.trim() : '';
 
-      tempUploadDir = await fs.promises.mkdtemp(
-        path.join(tempBaseDir, 'mokuro-upload-')
-      );
-      fastify.log.info(`Created temp dir: ${tempUploadDir}`);
+          if (part.fieldname === 'series_folder_name') seriesFolder = safeFilename(value);
+          if (part.fieldname === 'volume_folder_name') volumeFolder = safeFilename(value);
 
-      // 1. --- First Pass: Parse and SAVE all files ---
-      for await (const part of parts) {
-        if (part.type === 'file') {
-          const normalizedPath = path.normalize(part.filename);
-          const parsedPath = path.parse(normalizedPath);
-          const ext = parsedPath.ext.toLowerCase();
-
-          // Rule 1: Skip cache/legacy
-          if (normalizedPath.includes('_ocr') || ext === '.html') {
-            await drainStream(part.file);
-            continue;
-          }
-
-          // Rule 2: Only allow known types
-          const isMokuro = ext === '.mokuro';
-          const isImage = ['.jpg', '.jpeg', '.png', '.webp'].includes(ext);
-          const isJson = ext === '.json';
-
-          if (!isMokuro && !isImage && !isJson) {
-            await drainStream(part.file);
-            continue;
-          }
-
-          // 4. Parser logic
-          const pathParts = parsedPath.dir.split(path.sep).filter((p) => p);
-          let seriesFolder: string, volumeFolder: string;
-
-          // A file is a series cover/metadata if:
-          // 1. It's an image/json
-          // 3. Its filename matches its folder name (e.g., "series_folder_name/series_folder_name.<ext>")
-          const isSeriesCoverOrJson =
-            pathParts.length > 0 &&
-            parsedPath.name === pathParts[pathParts.length - 1];
-
-          if (isJson && isSeriesCoverOrJson) {
-            seriesFolder = pathParts[pathParts.length - 1];
-
-            // Save to a special subfolder in the temp dir
-            const tempPathDir = path.join(tempUploadDir, seriesFolder, '_series_metadata_');
-            const tempPath = path.join(tempPathDir, parsedPath.base);
-            await fs.promises.mkdir(tempPathDir, { recursive: true });
-            await pump(part.file, fs.createWriteStream(tempPath));
-
-            seriesJsonMap.set(seriesFolder, {
-              originalPath: part.filename,
-              tempPath
-            });
-
-            continue; // Skip the volume logic below
-          }
-
-          if (isImage && isSeriesCoverOrJson) {
-            seriesFolder = pathParts[pathParts.length - 1];
-
-            // Save to a special subfolder in the temp dir
-            const tempPathDir = path.join(tempUploadDir, seriesFolder, '_series_cover_');
-            const tempPath = path.join(tempPathDir, parsedPath.base);
-            await fs.promises.mkdir(tempPathDir, { recursive: true });
-            await pump(part.file, fs.createWriteStream(tempPath));
-
-            // Store in our new map
-            seriesCoverMap.set(seriesFolder, {
-              originalPath: part.filename,
-              tempPath
-            });
-
-            continue; // Skip the volume logic below
-          }
-
-          if (isMokuro && pathParts.length > 0) {
-            volumeFolder = parsedPath.name;
-            seriesFolder = pathParts[pathParts.length - 1];
-          } else if (isImage && pathParts.length > 1) {
-            volumeFolder = pathParts[pathParts.length - 1];
-            seriesFolder = pathParts[pathParts.length - 2];
-          } else {
-            await drainStream(part.file);
-            continue;
-          }
-
-          // 4. Save file to temp dir immediately to consume stream
-          const tempPathDir = path.join(tempUploadDir, seriesFolder, volumeFolder);
-          const tempPath = path.join(tempPathDir, parsedPath.base);
-          await fs.promises.mkdir(tempPathDir, { recursive: true });
-          await pump(part.file, fs.createWriteStream(tempPath));
-
-          // 6. Store paths in the map
-          const volumeKey = `${seriesFolder}/${volumeFolder}`;
-          if (!volumesMap.has(volumeKey)) {
-            volumesMap.set(volumeKey, {
-              seriesFolder: seriesFolder,
-              volumeFolder: volumeFolder,
-              mokuroFile: null,
-              imageFiles: [],
-            });
-          }
-          const vol = volumesMap.get(volumeKey)!;
-
-          if (isMokuro) {
-            vol.mokuroFile = { originalPath: part.filename, tempPath };
-          } else {
-            vol.imageFiles.push({ originalPath: part.filename, tempPath });
-          }
-        }
-      }
-      fastify.log.info(`File iteration complete. Found ${volumesMap.size} volumes.`);
-
-      // 1.5 --- Optimization Pass: Pre-load Metadata JSONs ---
-      // Instead of reading the file from disk for every volume, read it ONCE per series.
-      const metadataCache = new Map<string, MokuroSeriesMetadata>();
-
-      for (const [seriesFolder, jsonFile] of seriesJsonMap.entries()) {
-        try {
-          const jsonContent = await fs.promises.readFile(jsonFile.tempPath, 'utf-8');
-          const metadata = JSON.parse(jsonContent) as MokuroSeriesMetadata;
-          metadataCache.set(seriesFolder, metadata);
-        } catch (e) {
-          fastify.log.warn({ err: e }, `Failed to parse metadata JSON for series ${seriesFolder}`);
-        }
-      }
-
-      // 2. --- Second Pass: Process and MOVE files ---
-      let processedCount = 0;
-      let skippedCount = 0;
-
-      for (const [key, volume] of volumesMap.entries()) {
-        if (!volume.mokuroFile) {
-          fastify.log.warn(`Skipping volume ${key}: Missing .mokuro file.`);
-          // Delete orphaned temp images
-          for (const img of volume.imageFiles) {
-            await fs.promises.rm(img.tempPath);
-          }
-          skippedCount++;
-          continue;
-        }
-
-        // Get cached metadata
-        const jsonMetadata = metadataCache.get(volume.seriesFolder) ?? null;
-        const jsonSeriesTitle = jsonMetadata?.series?.title ?? null;
-
-        // --- DB Collision Check ---
-        // 1. Find or create the series
-        let series = await fastify.prisma.series.findFirst({
-          where: { folderName: volume.seriesFolder, ownerId: userId }
-        });
-
-        if (!series) {
-          series = await fastify.prisma.series.create({
-            data: {
-              folderName: volume.seriesFolder,
-              title: jsonSeriesTitle,
-              sortTitle: jsonSeriesTitle ?? volume.seriesFolder,
-              ownerId: userId,
-              coverPath: null // Always create with null cover
+          if (part.fieldname === 'metadata') {
+            try {
+              metadata = JSON.parse(value);
+            } catch (e) {
+              fastify.log.warn('Invalid metadata JSON provided in upload.');
             }
-          });
-        } else {
-          // If series exists, check if we need to update metadata
-          // AND touch the updatedAt timestamp to bubble it to the top of "Recently Updated"
-          const dataToUpdate: Prisma.SeriesUpdateInput = {
-            updatedAt: new Date(), // Always touch on new upload
-          };
+          }
+        }
 
-          if (series.title === null) {
-            dataToUpdate.title = jsonSeriesTitle;
+        // --- PHASE 2: File Stream ---
+        if (part.type === 'file') {
+          // 1. Validation: Ensure we have folders before accepting files
+          if (!seriesFolder || !volumeFolder) {
+            // Consume stream to prevent hanging, then throw
+            await drainStream(part.file);
+            throw new Error('Missing folder identifiers. Metadata must be sent before files.');
           }
 
+          // 2. Prepare Directory (Once)
+          if (!targetDir) {
+            // Check DB for duplicates BEFORE writing to disk (Fail Fast)
+            const exists = await fastify.prisma.volume.findFirst({
+              where: {
+                folderName: volumeFolder,
+                series: { folderName: seriesFolder, ownerId: userId }
+              }
+            });
+
+            if (exists) {
+              // Consume stream to prevent hanging, then throw
+              await drainStream(part.file);
+              return reply.status(409).send({ message: `Volume '${volumeFolder}' already exists.` });
+            }
+
+            // Create Directory: uploads/UserId/Series/Volume
+            const relativeDir = path.join('uploads', userId, seriesFolder, volumeFolder);
+            targetDir = path.join(fastify.projectRoot, relativeDir);
+            await fs.promises.mkdir(targetDir, { recursive: true });
+          }
+
+          // We flatten the filename (ignore client paths like "Naruto/Vol 1/001.jpg")
+          const safeName = safeFilename(path.basename(part.filename));
+          const absPath = path.join(targetDir, safeName);
+
+          // 3. Identify Special Files
+          if (safeName.endsWith('.mokuro')) {
+            mokuroPathRelative = path.join('uploads', userId, seriesFolder, volumeFolder, safeName).replace(/\\/g, '/');
+          } else if (/\.(jpg|jpeg|png|webp)$/i.test(safeName)) {
+            const nameWithoutExt = path.parse(safeName).name;
+            const isSeriesCover = nameWithoutExt === seriesFolder;
+
+            if (isSeriesCover) {
+              potentialSeriesCoverPath = path.join('uploads', userId, seriesFolder, volumeFolder, safeName).replace(/\\/g, '/');
+            } else {
+              // Only use as Volume Cover if it's NOT the series cover
+              // and if we haven't found any other image yet
+              if (!coverImageName) coverImageName = safeName;
+              // increment page count
+              pageCount++;
+            }
+          } else {
+            // invalid file, skip
+            await drainStream(part.file);
+          }
+
+          // 4. Save File
+          await pump(part.file, fs.createWriteStream(absPath));
+        }
+      }
+
+      // --- PHASE 3: Database Update ---
+      if (pageCount === 0) {
+        throw new Error('No files received.');
+      }
+      if (!mokuroPathRelative) {
+        throw new Error('Mokuro file missing.');
+      }
+
+      // 1. Upsert Series
+      // We use the folder name as the ID. Title comes from metadata if available.
+      let series = await fastify.prisma.series.findFirst({
+        where: { folderName: seriesFolder, ownerId: userId }
+      });
+
+      if (!series) {
+        series = await fastify.prisma.series.create({
+          data: {
+            ownerId: userId,
+            folderName: seriesFolder,
+            title: metadata.series_title || null,
+            sortTitle: metadata.series_title || seriesFolder,
+            // If we found a file matching "SeriesName.jpg", use it as cover
+            coverPath: potentialSeriesCoverPath
+          }
+        });
+      } else {
+        // Update title if provided and missing
+        if (metadata.series_title && !series.title) {
           await fastify.prisma.series.update({
             where: { id: series.id },
-            data: dataToUpdate
+            data: {
+              title: metadata.series_title,
+              sortTitle: metadata.series_title
+            }
           });
-          // Update local object for seriesId reference below
-          if (dataToUpdate.title) series.title = dataToUpdate.title as string;
         }
-
-        // 2. Check for and process a cover, regardless of whether
-        // the series is new or existing.
-        if (seriesCoverMap.has(volume.seriesFolder)) {
-          const coverFile = seriesCoverMap.get(volume.seriesFolder)!;
-          const seriesDir = path.join(
-            fastify.projectRoot,
-            'uploads',
-            userId,
-            series.folderName
-          );
-          const ext = path.extname(coverFile.originalPath);
-          const newCoverName = `${volume.seriesFolder}${ext}`;
-          const newCoverPath = path.join(seriesDir, newCoverName);
-
-          // Ensure directory exists and move the file
-          await fs.promises.mkdir(seriesDir, { recursive: true });
-          await fs.promises.rename(coverFile.tempPath, newCoverPath);
-
-          // remove cover from the map
-          seriesCoverMap.delete(volume.seriesFolder);
-
-          // 3. Update the series in the DB if the path is new
-          const relativeCoverPath = path
-            .join('uploads', userId, series.folderName, newCoverName)
-            .replace(/\\/g, '/');
-          if (series.coverPath !== relativeCoverPath) {
-            // use 'series.id' to update the record we just found or created
-            await fastify.prisma.series.update({
-              where: { id: series.id },
-              data: { coverPath: relativeCoverPath }
-            });
-            // Update local 'series' object
-            series.coverPath = relativeCoverPath;
-          }
-        }
-
-        const existingVolume = await fastify.prisma.volume.findFirst({
-          where: { folderName: volume.volumeFolder, seriesId: series.id },
-        });
-
-        if (existingVolume) {
-          fastify.log.info(`Skipping volume ${key}: Already exists.`);
-          // Delete all temp files for this volume
-          await fs.promises.rm(volume.mokuroFile.tempPath);
-          for (const img of volume.imageFiles) {
-            await fs.promises.rm(img.tempPath);
-          }
-          skippedCount++;
-          continue;
-        }
-
-        // --- Find Volume Display Title from Cached) ---
-        let jsonVolumeTitle: string | null = null;
-        if (jsonMetadata && jsonMetadata.volumes) {
-          const targetFileName = `${volume.volumeFolder}`;
-          const volumeMeta = jsonMetadata.volumes[targetFileName];
-          if (volumeMeta && typeof volumeMeta.displayTitle === 'string') {
-            jsonVolumeTitle = volumeMeta.displayTitle;
-          }
-        }
-
-        // --- 7. Move Files from Temp to Permanent Storage ---
-        const seriesDirRelative = path.join('uploads', userId, series.folderName);
-        const seriesDirAbsolute = path.join(fastify.projectRoot, seriesDirRelative
-        );
-        const volumeDirRelative = path.join(seriesDirRelative, volume.volumeFolder);
-        const volumeDirAbsolute = path.join(seriesDirAbsolute, volume.volumeFolder);
-        const mokuroPathRelative = path.join(seriesDirRelative, `${volume.volumeFolder}.mokuro`);
-        const mokuroPathAbsolute = path.join(seriesDirAbsolute, `${volume.volumeFolder}.mokuro`);
-
-        await fs.promises.mkdir(volumeDirAbsolute, { recursive: true });
-
-        // Move .mokuro file
-        await fs.promises.rename(volume.mokuroFile.tempPath, mokuroPathAbsolute);
-
-        // Move all image files
-        for (const imageFile of volume.imageFiles) {
-          const imageName = path.basename(imageFile.originalPath); // Get 001.jpg
-          const imagePathAbsolute = path.join(volumeDirAbsolute, imageName);
-          await fs.promises.rename(imageFile.tempPath, imagePathAbsolute);
-        }
-
-        // --- Find the cover image name ---
-        let coverName: string | null = null;
-        if (volume.imageFiles.length > 0) {
-          // Use reduce to find the file with the lexicographically smallest path
-          const firstImage = volume.imageFiles.reduce((min, current) => {
-            return min.originalPath.localeCompare(current.originalPath) < 0 ? min : current;
+        // Update cover if we found a better candidate and one didn't exist
+        if (potentialSeriesCoverPath && !series.coverPath) {
+          await fastify.prisma.series.update({
+            where: { id: series.id },
+            data: { coverPath: potentialSeriesCoverPath }
           });
-          // Get just the filename (e.g., "001.jpg")
-          coverName = path.basename(firstImage.originalPath);
         }
+      }
 
+      // 2. Create Volume
+      const volumePathRelative = path.join('uploads', userId, seriesFolder, volumeFolder).replace(/\\/g, '/');
 
-        // --- Create DB Entry ---
-        await fastify.prisma.volume.create({
-          data: {
-            folderName: volume.volumeFolder,
-            title: jsonVolumeTitle,
-            sortTitle: jsonVolumeTitle ?? volume.volumeFolder,
-            seriesId: series.id,
-            pageCount: volume.imageFiles.length,
-            filePath: volumeDirRelative.replace(/\\/g, '/'),
-            mokuroPath: mokuroPathRelative.replace(/\\/g, '/'),
-            coverImageName: coverName,
+      const volume = await fastify.prisma.volume.create({
+        data: {
+          seriesId: series.id,
+          folderName: volumeFolder,
+          title: metadata.volume_title || null,
+          sortTitle: metadata.volume_title || volumeFolder,
+          pageCount: pageCount,
+          filePath: volumePathRelative,
+          mokuroPath: mokuroPathRelative || '', // Might be empty if user uploaded raw images
+          coverImageName: coverImageName
+        }
+      });
+
+      // 3. Update Progress (if provided)
+      if (metadata.volume_progress) {
+        // We upsert progress for the *current uploading user*
+        await fastify.prisma.userProgress.upsert({
+          where: {
+            userId_volumeId: {
+              userId: userId,
+              volumeId: volume.id
+            }
           },
+          update: {
+            page: metadata.volume_progress.page,
+            completed: metadata.volume_progress.completed
+          },
+          create: {
+            userId: userId,
+            volumeId: volume.id,
+            page: metadata.volume_progress.page,
+            completed: metadata.volume_progress.completed
+          }
         });
-
-        processedCount++;
       }
-
-      fastify.log.info('Volume processing complete. Sending response.');
-      return reply.status(201).send({
+      return reply.status(200).send({
         message: 'Upload processed.',
-        processed: processedCount,
-        skipped: skippedCount,
+        processed: 1,
+        volumeId: volume.id
       });
 
-    } catch (error) {
-      fastify.log.error({ err: error }, 'Upload failed with an error.');
-      return reply.status(500).send({
-        statusCode: 500,
-        error: 'Internal Server Error',
-        message: 'An error occurred during file upload.',
-      });
-    } finally {
-      // 8. Always clean up the temp directory
-      if (tempUploadDir) {
-        fastify.log.info(`Cleaning up temp dir: ${tempUploadDir}`);
-        await fs.promises.rm(tempUploadDir, { recursive: true, force: true });
+    } catch (err) {
+      // ROLLBACK: If anything failed, delete the half-written folder
+      if (targetDir) {
+        await deleteFolder(targetDir);
       }
+      fastify.log.error(err);
+      return reply.status(500).send({
+        message: (err as Error).message || 'Upload failed.'
+      });
     }
   });
 
