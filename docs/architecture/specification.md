@@ -91,10 +91,6 @@ The system will be a decoupled client-server application.
 * Backend: Node.js + Fastify + TypeScript.
 * Database: SQLite (managed via Prisma ORM).
 
-## API endpoints
-
-All endpoints (except /auth) are protected and require an authenticated session cookie. All library-related endpoints are implicitly scoped to the logged-in user.
-
 ### Auth API (Public)
 
 * **POST /api/auth/register**
@@ -112,8 +108,18 @@ All endpoints (except /auth) are protected and require an authenticated session 
     * Gets a list of all Series and Volume metadata owned by the current user.
 * **GET /api/library/series/:id**
     * Gets a specific Series and associated Volume metadata owned by the current user.
+* **POST /api/library/check**
+    * **(New)** Checks if a Series/Volume pair already exists to prevent redundant uploads.
+    * Body: `{ "series_folder_name": "...", "volume_folder_name": "..." }`
+    * Returns: `{ "exists": boolean }`
 * **POST /api/library/upload**
-    * Uploads new manga (~~zip~~ or directory) and associates it with the current user's ownerId.
+    * Uploads a single volume (Pipeline Mode).
+    * **Format:** `multipart/form-data` with **Strict Ordering**.
+    * **Required Fields (Must appear before files):**
+        * `series_folder_name`: The root series directory name (ID).
+        * `volume_folder_name`: The volume directory name (ID).
+        * `metadata`: (Optional) JSON string containing display titles (`series_title`, `volume_title`) and progress.
+    * **Files:** The stream of images and the `.mokuro` file.
 * **POST /api/library/series/:id/cover**
     * Uploads and sets the cover image for a series.
 * **GET /api/library/volume/:id**
@@ -122,9 +128,10 @@ All endpoints (except /auth) are protected and require an authenticated session 
 * **PUT /api/library/volume/:id/ocr**
     * Saves modified OCR data.
     * Fails if the volume does not belong to the current user.
-* **DELETE /api/library/volume/:id or DELETE /api/library/series/:id**
-    * Deletes a volume or entire series.
-    * Fails if the resource does not belong to the current user.
+* **DELETE /api/library/volume/:id**
+    * Deletes a volume. If it is the last volume, the series is also deleted.
+* **DELETE /api/library/series/:id**
+    * Deletes an entire series and all its volumes.
 
 ### User Data API (User-Scoped)
 
@@ -158,19 +165,20 @@ All endpoints (except /auth) are protected and require an authenticated session 
 * **GET /api/files/series/:id/cover**
     * Securely serves the cover image for a series.
     * Fails if the series does not belong to the current user.
+
 ### Export API (User-Scoped)
 
-* GET /api/export/volume/:id/zip
+* **GET /api/export/volume/:id/zip**
     * Downloads a single volume as a ZIP.
-* GET /api/export/series/:id/zip
+* **GET /api/export/series/:id/zip**
     * Downloads an entire series as a ZIP.
-* GET /api/export/zip
+* **GET /api/export/zip**
     * Downloads the entire user library as a ZIP.
-* GET /api/export/volume/:id/pdf
+* **GET /api/export/volume/:id/pdf**
     * Downloads a single volume as a pdf with selectable text.
-* GET /api/export/series/:id/pdf
+* **GET /api/export/series/:id/pdf**
     * Downloads an entire series as a ZIP of pdfs.
-* GET /api/export/pdf
+* **GET /api/export/pdf**
     * Downloads the entire user library as a ZIP of pdfs.
 
 ## Draft Database Schema (Prisma)
