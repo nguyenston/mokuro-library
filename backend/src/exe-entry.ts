@@ -1,6 +1,6 @@
 import path from 'path';
 import fs from 'fs';
-
+import { exec } from 'child_process';
 // 1. Determine Paths
 const executableDir = process.cwd();
 const dataDir = path.join(executableDir, 'data');
@@ -12,7 +12,9 @@ process.env.MOKURO_DATA_DIR = executableDir;
 process.env.NODE_ENV = 'production';
 process.env.DATABASE_URL = `file:${dbPath.replace(/\\/g, '/')}`;
 
-if (!process.env.PORT) process.env.PORT = '3001';
+// Default port
+const PORT = process.env.PORT || '3001';
+if (!process.env.PORT) process.env.PORT = PORT;
 
 console.log('-------------------------------------------');
 console.log(' Mokuro Library - Portable Mode');
@@ -28,17 +30,11 @@ function runMigrations() {
     fs.mkdirSync(dataDir, { recursive: true });
   }
 
-  // Load better-sqlite3 dynamically
   const Database = require('better-sqlite3');
   const db = new Database(dbPath);
 
   try {
-    // --- DEBUG: Print all existing tables ---
-    const tables = db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all();
-    console.log('📊 Current Tables in DB:', tables.map((t: any) => t.name));
-    // ----------------------------------------
-
-    // A. Create the migrations table if it doesn't exist
+    // A. Create table
     db.exec(`
       CREATE TABLE IF NOT EXISTS _app_migrations (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -47,12 +43,12 @@ function runMigrations() {
       );
     `);
 
-    // B. Get applied migrations
+    // B. Check history
     const applied = new Set(
       db.prepare('SELECT name FROM _app_migrations').all().map((row: any) => row.name)
     );
 
-    // C. Read migration folders
+    // C. Read folder
     if (!fs.existsSync(migrationsDir)) {
       console.warn('⚠️  No migrations folder found. Skipping.');
       return;
@@ -63,7 +59,7 @@ function runMigrations() {
       .filter(f => f !== 'migration_lock.toml')
       .sort();
 
-    // D. Apply pending migrations transactionally
+    // D. Apply
     let count = 0;
     const insertStmt = db.prepare('INSERT INTO _app_migrations (name) VALUES (?)');
 
@@ -89,7 +85,6 @@ function runMigrations() {
 
   } catch (error) {
     console.error('❌ Migration Failed:', error);
-    // process.exit(1); // Optional: Comment out to let server try starting anyway for debugging
     process.exit(1);
   } finally {
     db.close();
@@ -102,5 +97,12 @@ runMigrations();
 console.log('🚀 Starting Server...');
 console.log('-------------------------------------------');
 
-// 4. Start the Server (Must be require() to avoid hoisting)
+// 4. Start the Server
 require('./server');
+
+// 5. Launch Browser (Windows specific)
+// We wait 1.5 seconds to ensure Fastify is listening before opening the tab
+setTimeout(() => {
+  console.log(`🌐 Launching browser at http://localhost:${PORT}`);
+  exec(`start http://localhost:${PORT}`);
+}, 1500);
