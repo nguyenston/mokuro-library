@@ -2,6 +2,7 @@
 
 ## 1. Overview & Goal
 **Goal:** To distribute Mokuro Library as a standalone, "portable" Windows application.
+
 **User Story:** A Windows user can download a single ZIP file, extract it, and run `MokuroLibrary.exe`. The app starts a local server and opens their browser automatically, without needing Docker, Node.js installed, or complex setup.
 
 ## 2. Technical Architecture

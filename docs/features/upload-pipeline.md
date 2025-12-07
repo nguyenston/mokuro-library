@@ -2,6 +2,7 @@
 
 ## 1. Overview
 **Goal:** To implement a robust, "Smart Client" upload system where the browser organizes files into atomic Volumes and extracts metadata (if available) before transmission.
+
 **Philosophy:** The backend receives explicit instructions. The frontend identifies the content structure, looks up metadata from the sidecar, and sends specific attributes to the server.
 
 ## 2. Data Logic & Identifiers

@@ -2,7 +2,8 @@
 
 ## 1. Overview
 **Goal:** To transform the library view from a simple list into a robust, scalable browsing interface capable of handling thousands of series efficiently.
-**Core Philosophy:** "Server-Side Source of Truth." The database performs the heavy lifting (filtering, sorting, slicing), ensuring the frontend remains lightweight and responsive regardless of library size.
+
+**Philosophy:** "Server-Side Source of Truth." The database performs the heavy lifting (filtering, sorting, slicing), ensuring the frontend remains lightweight and responsive regardless of library size.
 
 ## 2. User Stories
 * **As a user,** I want to search for "Naruto" and see results appear as I type, without manually clicking a search button.
