@@ -132,6 +132,7 @@
 	};
 
 	const handleInput = () => {
+		if (ocrState.isSmartResizeMode && textHoldingElement) onSmartResizeRequest(textHoldingElement);
 		// Sync local -> parent (upsync)
 		onLineChange(localText);
 		ocrState.markDirty();
@@ -299,6 +300,10 @@
 				lineElement.style.top = `${y_min}%`;
 				lineElement.style.width = `${x_max - x_min}%`;
 				lineElement.style.height = `${y_max - y_min}%`;
+			}
+
+			if (ocrState.isSmartResizeMode && textHoldingElement) {
+				onSmartResizeRequest(textHoldingElement);
 			}
 		};
 
