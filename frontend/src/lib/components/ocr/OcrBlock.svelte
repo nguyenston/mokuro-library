@@ -9,6 +9,7 @@
 	import OcrLine from './OcrLine.svelte';
 	import ResizeHandles from './ResizeHandles.svelte';
 	import TouchToggle from '$lib/components/TouchToggle.svelte';
+	import { preventDefault } from 'svelte/legacy';
 
 	// --- Props ---
 	let { block, ocrState, onDelete } = $props<{
@@ -226,7 +227,12 @@
 		}
 	};
 
-	const handleNavigate = (index: number, dir: 'up' | 'down' | 'left' | 'right', offset: number) => {
+	const handleNavigate = (
+		e: KeyboardEvent,
+		index: number,
+		dir: 'up' | 'down' | 'left' | 'right',
+		offset: number
+	) => {
 		let targetIndex = -1;
 
 		// Map visual direction to logical index based on writing mode
@@ -242,9 +248,13 @@
 			// We ignore Up/Down for line switching in vertical mode (it moves cursor within line)
 		}
 
-		if (targetIndex >= 0 && targetIndex < block.lines.length) {
-			lineComponents[targetIndex]?.focus();
-		}
+		if (targetIndex < 0 || targetIndex >= block.lines.length) return;
+		e.preventDefault();
+		const targetComponent = lineComponents[targetIndex];
+		const targetLineLength = block.lines[targetIndex].length;
+		const clampedOffset = Math.min(offset, targetLineLength);
+		// Set the caret position within the element, this also focuses the element
+		targetComponent?.setCaret(clampedOffset);
 	};
 
 	const handleSmartResize = (targetElement: HTMLElement) => {

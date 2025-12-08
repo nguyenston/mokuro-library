@@ -37,6 +37,7 @@
 		onSplit: (index: number, textBefore: string, textAfter: string) => void;
 		onMerge: (index: number, text: string) => void;
 		onNavigate: (
+			event: KeyboardEvent,
 			index: number,
 			direction: 'up' | 'down' | 'left' | 'right',
 			offset: number
@@ -53,7 +54,6 @@
 	// --- Local Text State (for ContentEditable) ---
 	// We need a local state to bind to contenteditable to prevent cursor jumping,
 	// while keeping the upstream data flow via callback.
-	let localText = $state(line);
 	let lineElement: HTMLElement | undefined = $state();
 	let textHoldingElement: HTMLElement | undefined = $state();
 
@@ -74,7 +74,6 @@
 				selection.deleteFromDocument();
 
 				// Manually trigger input to update state
-				localText = target.innerText;
 				handleInput();
 			} else if (command === 'paste') {
 				const text = await navigator.clipboard.readText();
@@ -88,7 +87,6 @@
 					selection.addRange(range);
 
 					// Manually trigger input to update state
-					localText = target.innerText;
 					handleInput();
 				}
 			}
@@ -133,18 +131,12 @@
 
 	const handleInput = () => {
 		if (ocrState.isSmartResizeMode && textHoldingElement) onSmartResizeRequest(textHoldingElement);
+
 		// Sync local -> parent (upsync)
-		onLineChange(localText);
+		let innerText = textHoldingElement?.innerText;
+		onLineChange(innerText);
 		ocrState.markDirty();
 	};
-
-	// Sync prop -> local (downsync)
-	// NOTE: This won't cause an infinite loop since upsync is triggered first
-	$effect(() => {
-		if (line !== localText) {
-			localText = line;
-		}
-	});
 
 	// --- Derived Geometry ---
 	let relativeStyles = $derived.by(() => {
@@ -338,7 +330,7 @@
 			if (e.key === 'ArrowRight') dir = 'right';
 
 			if (dir) {
-				onNavigate(lineIndex, dir, offset);
+				onNavigate(e, lineIndex, dir, offset);
 			}
 			return;
 		}
@@ -428,11 +420,11 @@
 			class:vertical-text={isVertical}
 			style:cursor={isVertical ? 'vertical-text' : 'text'}
 			style:font-size="{ocrState.fontScale * fontSize}px"
-			bind:innerText={localText}
+			bind:innerText={line}
 			onkeydown={handleKeyDown}
 			oninput={handleInput}
-			onfocus={(e) => onFocusRequest(e.currentTarget)}
-			onblur={() => {
+			onfocus={(e) => {
+				onFocusRequest(e.currentTarget);
 				if (ocrState.isSmartResizeMode && textHoldingElement)
 					onSmartResizeRequest(textHoldingElement);
 			}}
