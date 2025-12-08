@@ -6,15 +6,29 @@ It provides a centralized, persistent library for your Mokuro-processed manga, d
 
 ## 🌟 Core Features
 
-For more details, read [the specification](docs/architecture/specification.md):
-* **Multi-User Authentication:** Separate accounts for different users, with progress and settings saved per-user.
+For more details, read [the specification](docs/architecture/specification.md).
+
+### 📚 Library Management
 * **Server-Side Library:** Upload entire Mokuro-processed directories. All files are managed by the server.
-* **Persistent, Per-User Progress:** Reading progress, page, and completion status are saved to the database for each user.
-* **Persistent Reader Settings:** All reader preferences (layout, direction, etc.) are saved to your account.
-* **Live OCR Editing:** Edit and correct OCR text blocks directly in the reader UI. Changes are saved back to the `.mokuro` file on the server.
-* **Smart Resize Mode:** Automatically adjusts font size to fit text within its bounding box during editing.
-* **Dockerized Deployment:** A single Docker container runs the entire application, making setup and maintenance simple.
-* **Volume & Series Management:** Upload series covers, delete individual volumes, or remove entire series from your library.
+* **Multi-User Authentication:** Support for multiple users with separate databases for progress, settings, and history.
+* **Organization:** Search, sort, and paginate through your collection.
+* **Metadata Management:** User-defined titles and reading progress is exported as a json sidecar.
+* **Export:** Download volumes as **ZIP** archives or **PDFs** (with selectable text) for offline reading.
+
+### 📖 Reading Experience
+* **Persistent Tracking:** Reading progress and page completion status are saved automatically to the database.
+* **View Modes:** Supports **Single Page**, **Double Page**, and **Vertical Scroll** layouts.
+* **Performance:** Smart image caching to minimize server requests and ensure smooth page turns.
+* **Customizable:** Per-user reader settings (layout, reading direction, scaling) are persistent across sessions.
+
+### ✏️ Live OCR Editing
+* **Edit & Write-Back:** Correct text and bounding boxes in the browser. Changes are saved directly to the source `.mokuro` file on the server.
+* **Smart Resize:** Automatically calculates the optimal font size to fit text within its box.
+* **Japanese Text Support:** Specialized handlers for vertical text input, including proper line-splitting (Enter) and merging (Backspace), plus ligature cleaning.
+
+### ⚙️ System
+* **Dockerized Deployment:** A single container runs the database (SQLite), backend (Node/Fastify), and frontend (SvelteKit).
+* **Data Integrity:** Ensures all edits align with the Mokuro format specifications to prevent data drift.
 
 ## 📸 Screenshots
 <table>
@@ -128,9 +142,17 @@ After installing and starting the container, here are your first steps:
 
     
 
+## 🗺️ Roadmap
+
+* [ ] **AnkiConnect Integration:** Support for sentence mining directly to Anki.
+* [ ] **Reading Stats:** UI to visualize reading time and characters read (data is already being tracked).
+* [ ] **CBZ Export:** Support for standard comic book archives.
+* [ ] **Customization:** Custom keymappings and user-defined ligatures.
+* [ ] Version Control: History/undo/redo for OCR edits
+
 ## 📚 FAQ
 
-### 1. Mokuro Library vs. Mokuro Reader
+### Mokuro Library vs. Mokuro Reader
 
 While both projects serve the same `.mokuro` processed content, they are built on fundamentally different architectures.
 
@@ -141,36 +163,15 @@ The original **[ZXY101/mokuro-reader](https://github.com/ZXY101/mokuro-reader)**
 #### Which One Should You Use?
 
 **Use the original [ZXY101/mokuro-reader](https://github.com/ZXY101/mokuro-reader) if:**
-* **You want an Offline-First experience:** You want to read content on the go (e.g., on a plane) without a connection to a home server.
 * **You prefer a Zero-Infrastructure setup:** You do not want to manage Docker containers or host your own server.
 * **You rely on Cloud Storage:** You prefer syncing your library and progress via Google Drive, MEGA, or WebDAV.
 * **You import volumes on demand:** You are comfortable importing specific volumes into the browser as needed.
 
 **Use Mokuro Library (this project) if:**
-* **You Self-Host on a NAS/Server:** You want a centralized "Source of Truth" that streams images directly from your hard drive without duplicating data into browser storage.
-* **You want centralized OCR edits (Write-Back):** You want your text corrections saved directly back to the source `.mokuro` files on your disk, ensuring your library remains portable and platform-agnostic.
+* **You Self-Host on a NAS/Server:** You want a centralized location that streams images directly from your hard drive without duplicating data into browser storage.
+* **You want a desktop app:** You just want a manager application that store your files in an open and accessible location.
 * **You require Multi-User separation:** You want to host a private library for multiple users (family/friends) with completely separate accounts, progress tracking, and settings databases.
-
-### 2. Non-essential stretch features:
-* [x] Optional Reader features
-  * [x] Smart resize mode that auto fit the text content to the bounding box.
-  * [x] Per user persistent reader settings.
-  * [x] A single, long-scrolling vertical layout (webtoon mode).
-  * [x] Caching images to avoid unnecessary server calls.
-  * [ ] Customization
-    * [ ] Custom keymapping
-    * [ ] Custom ligatures
-* [ ] The ability to export the library in different format (e.g. pdf, cbz, ...)
-  * [x] zip
-  * [x] pdf with selectable text
-  * [ ] cbz (low priority)
-* [ ] Library features
-  * [ ] More secure cookie implementation for more public use cases.
-  * [x] The ability to rename series and volume.
-  * [x] Search, sort, and paginate.
-  * [ ] Implement the UI to display reading stats (time, characters read), which will be tracked in the database.
-* [ ] AnkiConnect Integration: Focuses on sentence mining, as dictionary extensions like Yomi-tan already have word mining down.
-
+* **You have a truly gigantic collection:** You somehow managed to exhaust the 2000+ volume limit of the client-side reader.
 
 ## 🔧 Troubleshooting
 
@@ -239,4 +240,4 @@ see [the development doc](docs/architecture/development.md).
 
 ## Acknowledgements
 
-The UX/UI flow in this project is a heavily inspired by the original **[ZXY101/mokuro-reader](https://github.com/ZXY101/mokuro-reader)**.
+The UX/UI flow in this project is heavily inspired by the original **[ZXY101/mokuro-reader](https://github.com/ZXY101/mokuro-reader)**.
