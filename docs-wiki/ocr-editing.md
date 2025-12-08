@@ -23,6 +23,7 @@ These modes are mutually exclusive (except for Smart Resize, which can be combin
 When this mode is active:
 * Click on any line of text to place your cursor and begin typing.
 * Pressing `Enter` in the middle of a line will split it into two new lines.
+* Pressing `Backspace` in the beginning of a line will merge it into the previous line.
 * Use your arrow keys to navigate between adjacent lines.
     * **Horizontal Blocks:** Use `ArrowUp` and `ArrowDown`.
     * **Vertical Blocks:** Use `ArrowLeft` and `ArrowRight`.
@@ -45,8 +46,8 @@ When this mode is active, you can manipulate the bounding boxes.
 This is a powerful helper mode that **automatically adjusts font size to fit text within its bounding box**.
 
 You can activate this *at the same time* as the other modes. It will automatically run when you:
-1.  **Finish resizing** a line (in Box Edit Mode).
-2.  **Finish editing text** (when you click off a line in Text Edit Mode).
+1.  Dragging one of the resize handles.
+2.  Typing in a text box.
 
 You can also manually trigger it by activating **only** Smart Resize Mode (with the other two modes off) and double-clicking a line.
 
