@@ -57,7 +57,8 @@
 	let finalFontSize = $derived((ocrState.fontScale / (DPR ?? 1)) * fontSize);
 
 	// Clipboard Logic
-	const execCommand = async (command: 'cut' | 'copy' | 'paste') => {
+	const handleClipboardAction = async (command: 'cut' | 'copy' | 'paste') => {
+		// Early returns for validation
 		if (!lineElement && !textHoldingElement) return;
 		const target = (lineElement ?? textHoldingElement) as HTMLElement;
 		target.focus();
@@ -65,32 +66,52 @@
 		const selection = window.getSelection();
 		if (!selection || selection.rangeCount === 0) return;
 
-		try {
-			if (command === 'copy') {
-				await navigator.clipboard.writeText(selection.toString());
-			} else if (command === 'cut') {
-				await navigator.clipboard.writeText(selection.toString());
-				selection.deleteFromDocument();
+		const selectedText = selection.toString();
 
-				// Manually trigger input to update state
-				handleInput();
-			} else if (command === 'paste') {
-				const text = await navigator.clipboard.readText();
-				if (text) {
+		// Try modern Clipboard API first
+		if (navigator.clipboard) {
+			try {
+				if (command === 'copy') {
+					await navigator.clipboard.writeText(selectedText);
+				} else if (command === 'cut') {
+					await navigator.clipboard.writeText(selectedText);
+					selection.deleteFromDocument();
+					// manually trigger input handling
+					handleInput();
+				} else if (command === 'paste') {
+					const text = await navigator.clipboard.readText();
+					if (!text) return;
+
 					const range = selection.getRangeAt(0);
 					range.deleteContents();
 					range.insertNode(document.createTextNode(text));
-					// Move caret to end of inserted text
+
+					// move carat to end
 					range.collapse(false);
 					selection.removeAllRanges();
 					selection.addRange(range);
-
-					// Manually trigger input to update state
+					// manually trigger input handling
 					handleInput();
 				}
+			} catch (err) {
+				console.warn(`Clipboard API failed, trying execCommand:`, err);
+				// Fall through to execCommand
 			}
+			return;
+		}
+
+		// Fallback to execCommand (HTTP contexts only)
+		if (command === 'paste') {
+			console.warn('Paste requires HTTPS/localhost. Use Ctrl+V.');
+			return;
+		}
+
+		try {
+			const success = document.execCommand(command);
+			if (success && command === 'cut') handleInput();
+			if (!success) console.error(`execCommand ${command} failed`);
 		} catch (err) {
-			console.error(`Clipboard ${command} failed:`, err);
+			console.error(`execCommand ${command} error:`, err);
 		}
 	};
 
@@ -105,10 +126,21 @@
 		// 1. Text Edit Actions (Edit Mode Only)
 		if (ocrState.isEditMode) {
 			if (!isTouch) {
-				options.push({ label: 'Cut', action: () => execCommand('cut') });
-				options.push({ label: 'Copy', action: () => execCommand('copy') });
-				options.push({ label: 'Paste', action: () => execCommand('paste') });
-				options.push({ separator: true });
+				// Check if clipboard is available (HTTPS/localhost)
+				const hasClipboard = !!navigator.clipboard;
+
+				if (hasClipboard) {
+					// Clipboard API available - show working buttons
+					options.push({ label: 'Cut', action: () => handleClipboardAction('cut') });
+					options.push({ label: 'Copy', action: () => handleClipboardAction('copy') });
+					options.push({ label: 'Paste', action: () => handleClipboardAction('paste') });
+				} else {
+					// No Clipboard API - show disabled with keyboard hints
+					// Copy/cut still work via execCommand fallback
+					options.push({ label: 'Cut (Ctrl+X)', action: () => handleClipboardAction('cut') });
+					options.push({ label: 'Copy (Ctrl+C)', action: () => handleClipboardAction('copy') });
+					options.push({ label: 'Paste (Ctrl+V)', action: () => {}, disabled: true });
+				}
 			}
 		}
 
