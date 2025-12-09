@@ -13,6 +13,8 @@ export class ReaderState {
   layoutMode = $state<LayoutMode>('single');
   readingDirection = $state<ReadingDirection>('rtl');
   doublePageOffset = $state<PageOffset>('odd');
+  ocrMode = $state<'READ' | 'BOX' | 'TEXT'>('READ');
+  isSmartResizeMode = $state(false);
 
   constructor() { }
 
@@ -161,6 +163,14 @@ export class ReaderState {
       const pageIsEven = this.currentPageIndex % 2 === 0;
       if (hasOddOffset === pageIsEven) this.currentPageIndex -= 1;
     }
+  }
+
+  setOcrMode(mode: 'READ' | 'BOX' | 'TEXT') {
+    this.ocrMode = mode;
+  }
+
+  toggleSmartResizeMode() {
+    this.isSmartResizeMode = !this.isSmartResizeMode;
   }
 
   toggleOffset() {

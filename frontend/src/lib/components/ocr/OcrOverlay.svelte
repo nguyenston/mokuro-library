@@ -11,23 +11,23 @@
 	let {
 		page,
 		panzoomInstance,
-		isEditMode,
-		isBoxEditMode,
+		ocrMode,
 		isSmartResizeMode,
 		showTriggerOutline,
 		readingDirection,
 		onOcrChange,
-		onLineFocus
+		onLineFocus,
+		onChangeMode
 	} = $props<{
 		page: MokuroPage;
 		panzoomInstance: PanzoomObject | null;
-		isEditMode: boolean;
-		isBoxEditMode: boolean;
+		ocrMode: 'READ' | 'BOX' | 'TEXT';
 		isSmartResizeMode: boolean;
 		showTriggerOutline: boolean;
 		readingDirection: string;
 		onOcrChange: () => void;
 		onLineFocus: (block: MokuroBlock | null, page: MokuroPage | null) => void;
+		onChangeMode: (state: 'READ' | 'BOX' | 'TEXT') => void;
 	}>();
 
 	// --- State Initialization ---
@@ -37,19 +37,23 @@
 
 	const ocrState = new OcrState({
 		onOcrChange: () => onOcrChange(),
-		onLineFocus: (b, p) => onLineFocus(b, p)
+		onLineFocus: (b, p) => onLineFocus(b, p),
+		onChangeMode: (m) => onChangeMode(m)
 	});
 
 	// Sync props to state (One-way flow mainly)
 	$effect(() => {
 		ocrState.page = page;
 		ocrState.panzoomInstance = panzoomInstance;
-		ocrState.isEditMode = isEditMode;
-		ocrState.isBoxEditMode = isBoxEditMode;
 		ocrState.isSmartResizeMode = isSmartResizeMode;
 		ocrState.showTriggerOutline = showTriggerOutline;
 		ocrState.readingDirection = readingDirection;
 		// Callbacks are stable, no need to sync usually, but handled in constructor
+	});
+
+	// Sync prop, isolated because this is affected by onChangeMode
+	$effect(() => {
+		ocrState.ocrMode = ocrMode;
 	});
 
 	// --- Actions ---
@@ -59,8 +63,9 @@
 		if (e.target !== e.currentTarget) return;
 
 		// Blur focus if clicking empty space
-		if (isEditMode) {
+		if (ocrMode === 'TEXT') {
 			ocrState.setFocus(null);
+			ocrState.setMode('BOX');
 		}
 
 		// Clear Selection
@@ -138,7 +143,7 @@
 		// Only on empty background
 		if (event.target !== event.currentTarget) return;
 
-		if (isBoxEditMode) {
+		if (ocrMode !== 'NONE') {
 			event.preventDefault();
 			event.stopPropagation();
 

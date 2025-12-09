@@ -8,8 +8,7 @@ export class OcrState {
   overlayElement = $state<HTMLElement | null>(null);
 
   // --- Modes ---
-  isEditMode = $state(false);
-  isBoxEditMode = $state(false);
+  ocrMode = $state<'READ' | 'BOX' | 'TEXT'>('READ');
   isSmartResizeMode = $state(false);
   showTriggerOutline = $state(false);
   readingDirection = $state('rtl');
@@ -20,6 +19,7 @@ export class OcrState {
   // --- Callbacks (Injected) ---
   onOcrChange = $state<() => void>(() => { });
   onLineFocus = $state<(block: MokuroBlock | null, page: MokuroPage | null) => void>(() => { });
+  onChangeMode = $state<(state: 'READ' | 'BOX' | 'TEXT') => void>(() => { });
 
   constructor(init?: Partial<OcrState>) {
     Object.assign(this, init);
@@ -49,6 +49,10 @@ export class OcrState {
 
   markDirty() {
     this.onOcrChange();
+  }
+
+  setMode(mode: 'READ' | 'BOX' | 'TEXT') {
+    this.onChangeMode(mode);
   }
 
   setFocus(block: MokuroBlock | null) {

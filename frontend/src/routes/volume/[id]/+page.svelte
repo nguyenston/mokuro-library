@@ -37,10 +37,6 @@
 	let retainZoom = $state(true);
 
 	// OCR Editing State
-	let isEditMode = $state(false);
-	let isBoxEditMode = $state(false);
-	let isSmartResizeMode = $state(false);
-	let isSliderHovered = $state(false);
 	let focusedBlock = $state<MokuroBlock | null>(null);
 	let focusedPage = $state<MokuroPage | null>(null);
 
@@ -167,6 +163,7 @@
 		}
 	};
 
+	// Debounced progress saving
 	$effect(() => {
 		// Watch page index changes
 		if (reader.currentPageIndex !== initialPageIndex) {
@@ -247,9 +244,11 @@
 		}
 	};
 
+	// --- Callbacks ---
 	const onOcrChange = () => {
 		hasUnsavedChanges = true;
 	};
+
 	const onLineFocus = (block: MokuroBlock | null, page: MokuroPage | null) => {
 		focusedBlock = block;
 		focusedPage = page;
@@ -337,14 +336,12 @@
 
 			<!-- Center: Status / Font Slider -->
 			<div class="flex-1 text-center">
-				{#if isEditMode && focusedBlock}
+				{#if reader.ocrMode === 'TEXT' && focusedBlock}
 					<!-- Font Size Slider (Only visible when a block is focused in edit mode) -->
 					<div
 						class="mx-auto flex w-48 items-center gap-2"
 						role="toolbar"
 						tabindex="-1"
-						onmouseenter={() => (isSliderHovered = true)}
-						onmouseleave={() => (isSliderHovered = false)}
 						onmousedown={(e) => {
 							// Prevent drag/selection on the container, but allow it on the input
 							if ((e.target as HTMLElement).id !== 'headerFontSizeSlider') {
@@ -425,12 +422,12 @@
 
 				<!-- Toggle Smart Resize Mode -->
 				<button
-					onclick={() => (isSmartResizeMode = !isSmartResizeMode)}
+					onclick={() => reader.toggleSmartResizeMode()}
 					class="flex justify-center items-center rounded p-1 transition-colors aspect-square w-8 cursor-pointer"
-					class:bg-amber-300={isSmartResizeMode}
-					class:hover:bg-gray-700={!isSmartResizeMode}
-					class:text-gray-800={isSmartResizeMode}
-					class:text-gray-400={!isSmartResizeMode}
+					class:bg-amber-300={reader.isSmartResizeMode}
+					class:hover:bg-gray-700={!reader.isSmartResizeMode}
+					class:text-gray-800={reader.isSmartResizeMode}
+					class:text-gray-400={!reader.isSmartResizeMode}
 					title="Smart Resize Mode"
 				>
 					<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 256 256"
@@ -441,49 +438,38 @@
 					>
 				</button>
 
-				<!-- Toggle Text Edit Mode -->
+				<!-- Toggle Edit Mode -->
 				<button
 					onclick={() => {
-						isEditMode = !isEditMode;
+						reader.ocrMode = reader.ocrMode === 'BOX' ? 'READ' : 'BOX';
 						focusedBlock = null;
-						isBoxEditMode = false;
 					}}
 					class="flex justify-center items-center rounded p-1 transition-colors aspect-square w-8 cursor-pointer"
-					class:bg-indigo-600={isEditMode}
-					class:hover:bg-gray-700={!isEditMode}
-					class:text-white={isEditMode}
-					class:text-gray-400={!isEditMode}
-					title="Text Edit Mode"
-				>
-					<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
-						><path
-							fill="currentColor"
-							d="M2.5 4v3h5v12h3V7h5V4h-13zm19 5h-9v3h3v7h3v-7h3V9z"
-						/></svg
-					>
-				</button>
-
-				<!-- Toggle Box Edit Mode -->
-				<button
-					onclick={() => {
-						isBoxEditMode = !isBoxEditMode;
-						focusedBlock = null;
-						isEditMode = false;
-					}}
-					disabled={!hasHover}
-					class="flex justify-center items-center rounded p-1 transition-colors aspect-square w-8 cursor-pointer disabled:opacity-50 disabled:text-gray-600"
-					class:bg-indigo-600={isBoxEditMode}
-					class:hover:bg-gray-700={!isBoxEditMode}
-					class:text-white={isBoxEditMode}
-					class:text-gray-400={!isBoxEditMode}
+					class:bg-indigo-600={reader.ocrMode !== 'READ'}
+					class:hover:bg-gray-700={reader.ocrMode === 'READ'}
+					class:text-white={reader.ocrMode !== 'READ'}
+					class:text-gray-400={reader.ocrMode === 'READ'}
 					title={hasHover ? 'Box Edit Mode' : 'Disabled for non-mouse devices'}
 				>
-					<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
-						><path
-							fill="currentColor"
-							d="M23 15h-2v2h2v-2zm0-4h-2v2h2v-2zm0 8h-2v2c1 0 2-1 2-2zM15 3h-2v2h2V3zm8 4h-2v2h2V7zm-2-4v2h2c0-1-1-2-2-2zM3 21h8v-6H1v4c0 1.1.9 2 2 2zM3 7H1v2h2V7zm12 12h-2v2h2v-2zm4-16h-2v2h2V3zm0 16h-2v2h2v-2zM3 3C2 3 1 4 1 5h2V3zm0 8H1v2h2v-2zm8-8H9v2h2V3zM7 3H5v2h2V3z"
-						/></svg
-					>
+					{#if reader.ocrMode === 'BOX'}
+						<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
+							<path
+								fill="currentColor"
+								d="M23 15h-2v2h2v-2zm0-4h-2v2h2v-2zm0 8h-2v2c1 0 2-1 2-2zM15 3h-2v2h2V3zm8 4h-2v2h2V7zm-2-4v2h2c0-1-1-2-2-2zM3 21h8v-6H1v4c0 1.1.9 2 2 2zM3 7H1v2h2V7zm12 12h-2v2h2v-2zm4-16h-2v2h2V3zm0 16h-2v2h2v-2zM3 3C2 3 1 4 1 5h2V3zm0 8H1v2h2v-2zm8-8H9v2h2V3zM7 3H5v2h2V3z"
+							/>
+						</svg>
+					{:else if reader.ocrMode === 'TEXT'}
+						<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
+							<path fill="currentColor" d="M2.5 4v3h5v12h3V7h5V4h-13zm19 5h-9v3h3v7h3v-7h3V9z" />
+						</svg>
+					{:else}
+						<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
+							<path
+								fill="currentColor"
+								d="M3 17.46v3.04c0 .28.22.5.5.5h3.04c.13 0 .26-.05.35-.15L17.81 9.94l-3.75-3.75L3.15 17.1c-.1.1-.15.22-.15.36zM20.71 7.04a.996.996 0 0 0 0-1.41l-2.34-2.34a.996.996 0 0 0-1.41 0l-1.83 1.83l3.75 3.75l1.83-1.83z"
+							/>
+						</svg>
+					{/if}
 				</button>
 
 				<!-- Open Settings Button -->
@@ -516,13 +502,10 @@
 				<VerticalReader
 					{reader}
 					bind:panzoomInstance
-					{isEditMode}
-					{isBoxEditMode}
-					{isSmartResizeMode}
 					{showTriggerOutline}
-					{isSliderHovered}
 					{onOcrChange}
 					{onLineFocus}
+					onOcrChangeMode={(m) => reader.setOcrMode(m)}
 				/>
 			{:else if reader.layoutMode === 'double'}
 				<!-- Render Double Page Layout -->
@@ -530,13 +513,10 @@
 					{reader}
 					bind:panzoomInstance
 					{navZoneWidth}
-					{isEditMode}
-					{isBoxEditMode}
-					{isSmartResizeMode}
 					{showTriggerOutline}
-					{isSliderHovered}
 					{onOcrChange}
 					{onLineFocus}
+					onOcrChangeMode={(m) => reader.setOcrMode(m)}
 				/>
 			{:else}
 				<!-- Render Single Page Layout -->
@@ -544,13 +524,10 @@
 					{reader}
 					bind:panzoomInstance
 					{navZoneWidth}
-					{isEditMode}
-					{isBoxEditMode}
-					{isSmartResizeMode}
 					{showTriggerOutline}
-					{isSliderHovered}
 					{onOcrChange}
 					{onLineFocus}
+					onOcrChangeMode={(m) => reader.setOcrMode(m)}
 				/>
 			{/if}
 		</main>

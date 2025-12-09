@@ -3,6 +3,7 @@
 	import { getDeltas, ligaturize } from '$lib/utils/ocrMath';
 	import ResizeHandles from './ResizeHandles.svelte';
 	import type { OcrState } from '$lib/states/OcrState.svelte';
+	import { stopPropagation } from 'svelte/legacy';
 
 	// --- Props ---
 	let {
@@ -56,6 +57,10 @@
 	let isEmpty = $state(line === ''); // desync only happens on hot-reload
 	let DPR: number | undefined = $state();
 	let finalFontSize = $derived((ocrState.fontScale / (DPR ?? 1)) * fontSize);
+
+	// handle drag or double click
+	let doubleClickTimer: ReturnType<typeof setTimeout> | null = null;
+	let isPendingDoubleClick = false;
 
 	// Clipboard Logic
 	const handleClipboardAction = async (command: 'cut' | 'copy' | 'paste') => {
@@ -125,7 +130,7 @@
 		const isTouch = (e as PointerEvent).pointerType === 'touch';
 
 		// 1. Text Edit Actions (Edit Mode Only)
-		if (ocrState.isEditMode) {
+		if (ocrState.ocrMode === 'TEXT') {
 			if (!isTouch) {
 				// Check if clipboard is available (HTTPS/localhost)
 				const hasClipboard = !!navigator.clipboard;
@@ -146,7 +151,7 @@
 		}
 
 		// 2. Structural Actions (Edit OR Box Mode)
-		if (ocrState.isEditMode || ocrState.isBoxEditMode) {
+		if (ocrState.ocrMode !== 'READ') {
 			if (options.length > 0) options.push({ separator: true });
 			options.push({
 				label: isVertical ? 'Set Horizontal' : 'Set Vertical',
@@ -195,8 +200,50 @@
 
 	// --- Actions ---
 
+	const handleDoubleClick = (event: MouseEvent) => {
+		// 1. Prioritize DBLCLICK action
+		ocrState.setMode('TEXT');
+		onFocusRequest(event.currentTarget);
+
+		// 2. Crucial State Reset & Drag Prevention
+		if (doubleClickTimer) {
+			clearTimeout(doubleClickTimer);
+		}
+		isPendingDoubleClick = false;
+
+		// You must also prevent the immediately preceding drag attempt
+		// If you used a listener manager, you'd stop listeners here.
+		// In this model, the check below handles the prevention.
+
+		event.stopPropagation();
+	};
+
 	const handleDragStart = (startEvent: MouseEvent) => {
-		if (!ocrState.isBoxEditMode || !ocrState.overlayElement || !lineElement) return;
+		// Double click hybrid handling
+
+		// If we are in the middle of a potential double-click,
+		// we stop the drag sequence immediately.
+		if (isPendingDoubleClick) {
+			handleDoubleClick(startEvent);
+			startEvent.stopPropagation();
+			return;
+		}
+
+		// If this is the start of a new interaction,
+		// set the double-click timer.
+		isPendingDoubleClick = true;
+		if (doubleClickTimer) {
+			clearTimeout(doubleClickTimer); // Clear any old timer just in case
+		}
+		doubleClickTimer = setTimeout(() => {
+			// If the timer expires before a second click, it was a single click/drag
+			isPendingDoubleClick = false;
+			doubleClickTimer = null;
+		}, 300); // Standard double-click interval (e.g., 300ms)
+
+		// Actual handle drag start
+		if (ocrState.ocrMode === 'TEXT') ocrState.setMode('BOX');
+		if (!ocrState.overlayElement || !lineElement) return;
 		startEvent.preventDefault();
 		startEvent.stopPropagation();
 
@@ -234,6 +281,10 @@
 				lineElement.style.transform = '';
 			}
 
+			// If drag time is too short, it's probably a double click.
+			// Do not commit, do not mark dirty
+			if (isPendingDoubleClick) return;
+
 			// Commit
 			const localCoords = JSON.parse(JSON.stringify(coords));
 			for (const coord of localCoords) {
@@ -250,7 +301,7 @@
 	};
 
 	const handleResizeStart = (startEvent: MouseEvent, handleType: string) => {
-		if (!ocrState.isBoxEditMode || !ocrState.overlayElement) return;
+		if (ocrState.ocrMode !== 'BOX' || !ocrState.overlayElement) return;
 		startEvent.preventDefault();
 		startEvent.stopPropagation();
 
@@ -413,7 +464,7 @@
 </script>
 
 <svelte:window bind:devicePixelRatio={DPR} />
-{#if ocrState.isBoxEditMode}
+{#if ocrState.ocrMode === 'BOX'}
 	<div
 		bind:this={lineElement}
 		class="absolute border border-red-500/50 bg-[rgba(239,128,128,0.7)] transition-colors z-2 group/line"
@@ -436,7 +487,7 @@
 			{ligaturize(line)}
 		</div>
 	</div>
-{:else if ocrState.isEditMode}
+{:else if ocrState.ocrMode === 'TEXT'}
 	<div
 		bind:this={lineElement}
 		class="absolute border border-red-500/70 z-2 bg-[rgba(239,128,128,0.85)]"
@@ -444,6 +495,9 @@
 		style:top="{relativeStyles.top}%"
 		style:width="{relativeStyles.width}%"
 		style:height="{relativeStyles.height}%"
+		onmousedown={handleDragStart}
+		role="button"
+		tabindex="-1"
 	>
 		<div
 			bind:this={textHoldingElement}
@@ -457,6 +511,7 @@
 			style:cursor={isVertical ? 'vertical-text' : 'text'}
 			style:font-size="{finalFontSize}px"
 			bind:innerText={line}
+			onmousedown={(e) => e.stopPropagation()}
 			onkeydown={handleKeyDown}
 			oninput={handleInput}
 			onfocus={(e) => {

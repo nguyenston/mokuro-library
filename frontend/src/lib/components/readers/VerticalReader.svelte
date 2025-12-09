@@ -9,24 +9,19 @@
 
 	let {
 		reader,
+
 		panzoomInstance = $bindable(),
-		isEditMode,
-		isBoxEditMode,
-		isSmartResizeMode,
 		showTriggerOutline,
-		isSliderHovered,
 		onOcrChange,
-		onLineFocus
+		onLineFocus,
+		onOcrChangeMode
 	} = $props<{
 		reader: ReaderState;
 		panzoomInstance: PanzoomObject | null;
-		isEditMode: boolean;
-		isBoxEditMode: boolean;
-		isSmartResizeMode: boolean;
 		showTriggerOutline: boolean;
-		isSliderHovered: boolean;
 		onOcrChange: () => void;
 		onLineFocus: (block: MokuroBlock | null, page: MokuroPage | null) => void;
+		onOcrChangeMode: (state: 'READ' | 'BOX' | 'TEXT') => void;
 	}>();
 
 	let verticalScrollerElement = $state<HTMLElement | null>(null);
@@ -227,13 +222,13 @@
 							<OcrOverlay
 								{page}
 								{panzoomInstance}
-								{isEditMode}
-								{isBoxEditMode}
-								{isSmartResizeMode}
+								ocrMode={reader.ocrMode}
+								isSmartResizeMode={reader.isSmartResizeMode}
 								{showTriggerOutline}
 								readingDirection={reader.readingDirection}
 								{onOcrChange}
 								{onLineFocus}
+								onChangeMode={onOcrChangeMode}
 							/>
 						{/if}
 					</div>

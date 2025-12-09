@@ -45,7 +45,8 @@
 
 	// 1. Block Drag
 	const handleBlockDragStart = (startEvent: MouseEvent) => {
-		if (!ocrState.isBoxEditMode || !ocrState.overlayElement || !blockElement) return;
+		if (ocrState.ocrMode === 'TEXT') ocrState.setMode('BOX');
+		if (!ocrState.overlayElement || !blockElement) return;
 		startEvent.preventDefault();
 		startEvent.stopPropagation();
 
@@ -85,10 +86,11 @@
 			}
 
 			// Commit Data Changes
-			block.box[0] += totalImageDeltaX;
-			block.box[1] += totalImageDeltaY;
-			block.box[2] += totalImageDeltaX;
-			block.box[3] += totalImageDeltaY;
+			const box = block.box; // circumvent mutation warning
+			box[0] += totalImageDeltaX;
+			box[1] += totalImageDeltaY;
+			box[2] += totalImageDeltaX;
+			box[3] += totalImageDeltaY;
 
 			// Update Children
 			for (const lineCoords of block.lines_coords) {
@@ -107,7 +109,7 @@
 
 	// 2. Block Resize
 	const handleResizeStart = (startEvent: MouseEvent, handleType: string) => {
-		if (!ocrState.isBoxEditMode || !ocrState.overlayElement) return;
+		if (ocrState.ocrMode !== 'BOX' || !ocrState.overlayElement) return;
 		startEvent.preventDefault();
 		startEvent.stopPropagation();
 
@@ -119,34 +121,35 @@
 				ocrState.imgHeight
 			);
 
+			const box = block.box; // circumvent mutation warning
 			switch (handleType) {
 				case 'top-left':
-					block.box[0] += imageDeltaX;
-					block.box[1] += imageDeltaY;
+					box[0] += imageDeltaX;
+					box[1] += imageDeltaY;
 					break;
 				case 'top-center':
-					block.box[1] += imageDeltaY;
+					box[1] += imageDeltaY;
 					break;
 				case 'top-right':
-					block.box[2] += imageDeltaX;
-					block.box[1] += imageDeltaY;
+					box[2] += imageDeltaX;
+					box[1] += imageDeltaY;
 					break;
 				case 'middle-left':
-					block.box[0] += imageDeltaX;
+					box[0] += imageDeltaX;
 					break;
 				case 'middle-right':
-					block.box[2] += imageDeltaX;
+					box[2] += imageDeltaX;
 					break;
 				case 'bottom-left':
-					block.box[0] += imageDeltaX;
-					block.box[3] += imageDeltaY;
+					box[0] += imageDeltaX;
+					box[3] += imageDeltaY;
 					break;
 				case 'bottom-center':
-					block.box[3] += imageDeltaY;
+					box[3] += imageDeltaY;
 					break;
 				case 'bottom-right':
-					block.box[2] += imageDeltaX;
-					block.box[3] += imageDeltaY;
+					box[2] += imageDeltaX;
+					box[3] += imageDeltaY;
 					break;
 			}
 		};
@@ -282,7 +285,7 @@
 	// --- Keyboard Shortcuts (Ctrl+A) ---
 	const handleWindowKeydown = (e: KeyboardEvent) => {
 		if (!isHovered) return;
-		if (ocrState.isEditMode || ocrState.isBoxEditMode) return; // Only in Reader/Neutral mode
+		if (ocrState.ocrMode !== 'READ') return; // Only in Reader/Neutral mode
 
 		if (e.ctrlKey && e.key === 'a') {
 			e.preventDefault();
@@ -331,12 +334,10 @@
 		e.preventDefault();
 		e.stopPropagation();
 		const options = [] as MenuOption[];
-		if (ocrState.isBoxEditMode) {
+
+		if (ocrState.ocrMode !== 'READ') {
 			options.push({ label: 'Add Line', action: () => handleAddLine(e) });
-		}
-		// Add Delete Block option
-		if (ocrState.isBoxEditMode || ocrState.isEditMode) {
-			if (options.length > 0) options.push({ separator: true });
+			options.push({ separator: true });
 			options.push({
 				label: 'Re-order Lines...',
 				action: () => lineOrderStore.open(block, ocrState.onOcrChange)
@@ -371,14 +372,14 @@
 	role="textbox"
 	tabindex="-1"
 >
-	{#if ocrState.isBoxEditMode}
+	{#if ocrState.ocrMode === 'BOX'}
 		<ResizeHandles variant="block" onResizeStart={handleResizeStart} />
 	{/if}
 
 	<TouchToggle
 		class="relative h-full w-full"
-		forceVisible={ocrState.isBoxEditMode ||
-			(ocrState.isEditMode &&
+		forceVisible={ocrState.ocrMode === 'BOX' ||
+			(ocrState.ocrMode === 'TEXT' &&
 				(isHovered || ocrState.focusedBlock === block || $contextMenu.isOpen))}
 		mode="overlay"
 	>
@@ -393,8 +394,8 @@
 		<div
 			class="relative h-full w-full p-0"
 			class:vertical-text={block.vertical}
-			class:bg-transparent={ocrState.isBoxEditMode || ocrState.isEditMode}
-			class:bg-white={!ocrState.isBoxEditMode && !ocrState.isEditMode}
+			class:bg-transparent={ocrState.ocrMode !== 'READ'}
+			class:bg-white={ocrState.ocrMode !== 'BOX' && ocrState.ocrMode !== 'TEXT'}
 		>
 			{#each block.lines as line, i}
 				<OcrLine
