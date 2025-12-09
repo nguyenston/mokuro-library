@@ -26,10 +26,9 @@ For more details, read [the specification](docs/architecture/specification.md).
 * **Smart Resize:** Automatically calculates the optimal font size to fit text within its box.
 * **Japanese Text Support:** Specialized handlers for vertical text input, including proper line-splitting (Enter) and merging (Backspace), plus ligature cleaning.
 
-### ⚙️ System
-* **Dockerized Deployment:** A single container runs the database (SQLite), backend (Node/Fastify), and frontend (SvelteKit).
-* **Data Integrity:** Ensures all edits align with the Mokuro format specifications to prevent data drift.
-
+### ⚙️ Deployment
+* **Docker:** A single container runs the database (SQLite), backend (Node/Fastify), and frontend (SvelteKit).
+* **Windows Binary:** A portable Windows application that runs a local server for your library.
 ## 📸 Screenshots
 <table>
   <tr>
@@ -152,7 +151,7 @@ After installing and starting the container, here are your first steps:
 
 ## 📚 FAQ
 
-### Mokuro Library vs. Mokuro Reader
+### 1. Mokuro Library vs. Mokuro Reader
 
 While both projects serve the same `.mokuro` processed content, they are built on fundamentally different architectures.
 
@@ -169,9 +168,17 @@ The original **[ZXY101/mokuro-reader](https://github.com/ZXY101/mokuro-reader)**
 
 **Use Mokuro Library (this project) if:**
 * **You Self-Host on a NAS/Server:** You want a centralized location that streams images directly from your hard drive without duplicating data into browser storage.
-* **You want a desktop app:** You just want a manager application that store your files in an open and accessible location.
+* **Or you want a desktop app:** You just want a manager application that stores your files in an open and accessible location.
 * **You require Multi-User separation:** You want to host a private library for multiple users (family/friends) with completely separate accounts, progress tracking, and settings databases.
 * **You have a truly gigantic collection:** You somehow managed to exhaust the 2000+ volume limit of the client-side reader.
+
+### 2. Why did you choose absolute line coordinate rendering?
+
+While treating text as a simple paragraph block much simpler and more robust, this project prioritizes data completeness and visual precision.
+
+1. **Future Database Utility:** I have ideas of building a centralized database for user-submitted OCR edits. To ensure this shared data is useful and compatible across the ecosystem, it is essential to maintain complete and valid data. Preserving the exact file structure is necessary for this future synchronization.
+
+2. **Visual Adherence:** Manga text layouts sometimes don't follow standard horizontal flow (e.g., diagonal speech bubbles or scattered text). Absolute rendering guarantees perfect visual adherence to the original image geometry, which is my personal preference.
 
 ## 🔧 Troubleshooting
 
