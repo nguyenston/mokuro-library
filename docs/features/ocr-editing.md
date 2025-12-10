@@ -5,104 +5,236 @@
 
 **User Story:** A user notices incorrect Japanese text or a misaligned speech bubble while reading. They toggle "Edit Mode," fix the text, resize the box to fit, and save the changes directly back to the source `.mokuro` file on the server.
 
-**Philosophy:** Achieve full data parity with the source `.mokuro` file format and lay the groundwork for a future centralized, user-audited OCR database.
-1.  **Data Integrity:** It ensures that saved files match the exact schema of machine-generated files, preventing data loss or "drift" during the editing process.
-2.  **Future Infrastructure:** It standardizes the data format for human corrections, facilitating the creation of a shared, high-quality dataset that can eventually be used to train better OCR models or sync corrections across the community.
+**Design Philosophy:** 
+1.  **Data Integrity:** Maintain full transparency with the `.mokuro` file format to ensure WYSIWYG with respect to machine-generated files, preventing data invalidation during the editing process.
+2.  **Future Infrastructure:** Standardize the data format for human corrections, facilitating the creation of a shared, high-quality dataset that can eventually be used to train better OCR models or sync corrections across the community.
+3.  **Intuitive UX:** Use a single-mode state system that prevents conflicting editing states and enables intelligent mode switching based on natural user gestures (drag, double-click, keyboard shortcuts).
 
-## 2. Technical Architecture
+**Related Documentation:** For technical implementation details, see [OCR Overlay Architecture](../architecture/OcrOverlay.md).
 
-The editor uses a **Composition Pattern** backed by a dedicated **State Class** (`OcrState.svelte.ts`). This decouples the editor's logic and global state from the visual components. For full details, refer to the [architecture doc](../architecture/OcrOverlay.md).
+## 2. User Interface & Modes
 
+### 2.1. Mode System
 
-### 2.1. OcrState Management
-The `OcrState` class acts as the single source of truth, managing:
-* **Context:** References to the `page` data, `panzoomInstance`, and `overlayElement`.
-* **Calculations:** Automatically derives `fontScale` based on the rendered container dimensions and current zoom level.
-* **Modes:** Reactive boolean flags that determine interaction behavior (`isEditMode`, `isBoxEditMode`, `isSmartResizeMode`).
-* **View Options:**
-    * `showTriggerOutline`: Toggles the visibility of hover triggers for OCR blocks.
-    * `readingDirection`: Tracks the current reading direction (`rtl` vs `ltr`) to adjust arrow key navigation logic.
-* **Focus Tracking:** Uses `focusedBlock` to implement "Sticky Focus," ensuring the editing UI remains active even when interacting with external toolbars (like the font size slider).
+The editor operates in one of three mutually exclusive modes, managed by the `ocrMode` state property in both `OcrState` and `ReaderState`:
 
-### 2.2. Editor Modes
-* **`isEditMode` (Text Mode):** Enables `contenteditable` on text lines.
-    * *Interaction:* Click to type, Enter to split lines.
-    * *Constraint:* Mutually exclusive with `isBoxEditMode`.
-* **`isBoxEditMode` (Layout Mode):** Enables drag-and-drop and resize handles.
-    * *Interaction:* Drag blocks/lines, resize handles.
-    * *Constraint:* Mutually exclusive with `isEditMode`.
-* **`isSmartResizeMode` (Helper Mode):** A modifier state that runs the auto-sizing logic.
-    * *Behavior:* Can be active alongside either of the above modes.
-    * *Trigger:* Automatically recalculates font size when text content or box dimensions change.
+* **Reading Mode (`'READ'`):**
+    * OCR text overlays appear on hover for reference
+    * Text is selectable and copyable
+    * No editing capabilities active
+    * *User Action:* Default state; click edit button to enter BOX mode
 
-## 3. Implementation Details
+* **Box Edit Mode (`'BOX'`):**
+    * Visual indicators: Blocks and lines show colored borders and resize handles
+    * *Capabilities:*
+        - Drag blocks and lines to reposition them (via `handleBlockDragStart`, `handleDragStart`)
+        - Resize blocks and lines using corner/edge handles (`ResizeHandles.svelte`)
+        - Create new blocks (right-click background)
+        - Delete blocks and lines (context menu)
+    * *User Actions:*
+        - Click edit button from Reading mode to activate
+        - Double-click any line to switch to Text mode for that line
+        - Dragging automatically maintains Box mode
 
-### 3.1. Text Rendering & Ligatures
-Since mangaOCR doesn't seem to be able to output complex characters, text content is processed before rendering.
-* **Function:** `ligaturize(text)` in `src/lib/utils/ocrMath.ts`.
-* **Logic:** Replaces specific character sequences (like `...`, `!!`, `!?`) with their single-character Unicode equivalents (e.g., `\u2026`, `\u203C`, `\u2049`).
+* **Text Edit Mode (`'TEXT'`):**
+    * Visual indicators: Active text fields with editable highlighting
+    * *Capabilities:*
+        - Direct text editing with keyboard input (via `contenteditable` divs)
+        - Line splitting (Enter key → `handleSplit`)
+        - Line merging (Backspace at start → `handleMerge`)
+        - Arrow key navigation between lines (`handleNavigate`)
+    * *User Actions:*
+        - Double-click a line in Box mode to activate
+        - Click empty space to return to Box mode
+        - Starting a drag automatically switches to Box mode
 
-### 3.2. Box Manipulation (Box Edit Mode)
-* **Dragging:**
-    * **Visual:** Uses CSS `transform: translate(...)` for smooth rendering during the drag.
-    * **Commit:** On `mouseup`, the delta is calculated using `getDeltas()` (which accounts for zoom level), applied to the absolute coordinates in the data model, and the CSS transform is reset.
-* **Resize Handles:**
-    * **Component:** `ResizeHandles.svelte` renders 8 interactive control points (Corners: TL, TR, BL, BR; Edges: Top, Bottom, Left, Right).
-    * **Visual Feedback:**
-        * **Block Handles (Outer):** Blue squares (`bg-blue-500`, 8x8px) that appear on hover.
-        * **Line Handles (Inner):** Yellow squares (`bg-yellow-400`, 6x6px) that appear on hover.
-* **Resizing Logic:**
-    * **Outer Block:** Updates `block.box`. Does *not* affect inner lines (lines have absolute coordinates).
-    * **Inner Line:** Updates `block.lines_coords[i]`.
+### 2.2. Mode Transitions
 
-### 3.3. Text Manipulation (Text Edit Mode)
-* **DOM Structure:** Text is rendered inside a nested `div` with `contenteditable="true"`, isolated from the drag handlers to prevent event conflicts.
-* **Line Splitting:**
-    * **Trigger:** User presses `Enter` inside a line.
-    * **Logic:** The system intercepts the keystroke, splits the string at the cursor position, and creates a new entry in `block.lines`.
-    * **Placement:**
-        * *Horizontal:* New line appears below.
-        * *Vertical:* New line appears to the left (following Japanese reading order).
-* **Line Merging:**
-    * **Trigger:** User presses `Backspace` while the caret is at the **start** (offset 0) of a line.
-    * **Logic:**
-        1.  The current line's text is appended to the end of the **previous** line.
-        2.  The current line entry is removed from `block.lines`.
-        3.  The cursor focus is automatically moved to the merge point in the previous line.
-* **Navigation:** `Arrow` keys move focus between adjacent lines within the block, respecting the `readingDirection` state.
+The system intelligently switches modes based on user intent:
 
-### 3.4. Structural Management
-* **Context Menus:**
-    * **Create Block:** Right-click on empty background -> Creates new `MokuroBlock`.
-    * **Create Line:** Right-click on Block -> Adds new line entry.
-    * **Delete:** Right-click on Line -> Removes line. (If it is the last line, removes the entire Block).
-* **Re-ordering:**
-    * **Problem:** Text selection order relies on the `block.lines` array order. Visual position does not always match array index.
-    * **Solution:** A dedicated "Re-order Lines" modal allows users to swap array indices manually.
+```
+READ Mode ←→ BOX Mode ←→ TEXT Mode
+              ↓
+    [drag gesture] → maintains BOX mode
+    [double-click line] → switches to TEXT mode
+    [click empty space] → returns to BOX mode
+```
 
-## 4. Feature Detail: Smart Resize Logic
+**Design Benefits:**
+- Users can't accidentally activate conflicting editing modes
+- Natural gestures (drag, double-click) trigger appropriate modes
+- Clear visual feedback for current mode
+- Simple toggle button cycles through modes
 
-This feature automatically calculates the maximum font size that fits a line of text within its bounding box.
+### 2.3. Smart Resize Feature
 
-### 4.1. Algorithm (`smartResizeFont`)
-* **Location:** `src/lib/utils/ocrMath.ts`
-* **Input:**
-    * `block`: The mutable `MokuroBlock` data.
-    * `lineElement`: The actual DOM element containing the text (for measurement).
-    * `imgWidth`: The original width of the image (defines max bounds).
-    * `fontScale`: The current visual scale ratio derived from `OcrState`.
-* **Logic:**
-    1.  Determines the **Primary Axis** based on block orientation (Vertical = Height, Horizontal = Width).
-    2.  Reads the target dimension (in pixels) from the parent container's bounding box.
-    3.  Performs a **Binary Search** (usually ends in a few iterations) on the `font-size` CSS property.
-    4.  Checks the rendered `rect` of the DOM element until it fits the target dimension.
-* **Scope:** The `.mokuro` format defines `font_size` at the **Block Level**. Therefore, resizing *one* line triggers a recalculation that applies the new font size to the *entire* block.
+A toggleable helper mode (`isSmartResizeMode` in `ReaderState`) that can work alongside any editing mode:
 
-## 5. Persistence Strategy
+* **Purpose:** Automatically calculate optimal font size for text within bounding boxes
+* **Implementation:** Calls `smartResizeFont()` utility function from `src/lib/utils/ocrMath.ts`
+* **Activation:** Independent toolbar button toggle
+* **Behavior:** When active, text resizing triggers automatic font size recalculation
+* **Scope:** Font size applies to entire block (per .mokuro format specification, `block.font_size`)
 
-* **State Management:** All edits mutate the local Svelte reactive state (`mokuroData`).
-* **Dirty Checking:** Any change triggers the `onOcrChange` callback in `OcrState`, which sets a `unsavedChanges` flag in the UI.
-* **Write-Back:**
-    * **Endpoint:** `PUT /api/library/volume/:id/ocr`
-    * **Payload:** The backend expects an **Array** of page data (`MokuroPage[]`), not the full `.mokuro` JSON object.
-    * **Process:** The backend reads the existing file, replaces the `pages` property with the incoming array, and writes the file back to disk.
+## 3. Editing Capabilities
+
+### 3.1. Text Editing Features
+
+**Character Processing:**
+- Certain character sequences (e.g., `...`, `!!`, `!?`) are automatically converted to their Unicode equivalents via `ligaturize()` function
+- Ensures consistent display across horizontal and vertical text layouts
+- Applied during rendering for proper vertical text display
+
+**Line Operations:**
+- **Splitting:** Press Enter at cursor position to create new line below (horizontal) or left (vertical, following Japanese reading order)
+    - Handled by `handleSplit(index, textBefore, textAfter)` 
+    - Updates both `block.lines` array and `block.lines_coords` geometry
+- **Merging:** Press Backspace at line start to merge with previous line; cursor automatically positions at merge point
+    - Handled by `handleMerge(index, text)`
+    - Removes line from arrays and refocuses using `setCaret()`
+- **Navigation:** Arrow keys move between lines within a block, respecting reading direction (RTL/LTR)
+    - Handled by `handleNavigate(e, index, direction, offset)`
+    - Direction mapping adjusts for vertical text orientation
+
+### 3.2. Box Editing Features
+
+**Positioning:**
+- Drag blocks to reposition; all child lines move with the block
+- Drag individual lines to adjust placement within or outside parent block
+- Visual feedback during drag with smooth CSS transforms
+- Delta calculation uses `getDeltas()` utility which accounts for zoom level and device pixel ratio
+
+**Resizing:**
+- **Handles:** 8 resize points per box (4 corners, 4 edges)
+    - Rendered by `ResizeHandles.svelte` component
+- **Visual Distinction:**
+    - Block-level handles: Blue (`bg-blue-500`), larger (8x8px)
+    - Line-level handles: Yellow (`bg-yellow-400`), smaller (6x6px)
+- **Behavior:**
+    - Block resize: Changes `block.box` coordinates only; lines maintain absolute positions
+    - Line resize: Adjusts individual `block.lines_coords[i]` bounding box
+
+**Mode Intelligence:**
+- Dragging a line in TEXT mode automatically calls `ocrState.setMode('BOX')`
+- Double-clicking a line in BOX mode switches to TEXT mode via `handleDoubleClick`
+- 300ms timer distinguishes double-click from drag gesture
+
+### 3.3. Structural Management
+
+**Block Operations:**
+- Create new block via context menu (right-click empty background → `handleCreateBlock`)
+- Delete block via context menu or by deleting its last line (`handleDeleteBlock`)
+- Add new line to existing block via context menu (`handleAddLine`)
+- All operations mutate the `MokuroBlock` structure and trigger `ocrState.markDirty()`
+
+**Line Reordering:**
+- Dedicated modal interface (`LineOrderModal.svelte`) for changing line order within blocks
+- Necessary because text selection order depends on `block.lines` array order, not visual position
+- Uses array swap operations to reorder both `block.lines` and `block.lines_coords` in sync
+- Preserves all text and geometry data during reordering
+
+## 4. Smart Resize Algorithm
+
+**Purpose:** Automatically determine maximum font size that fits text within its bounding box.
+
+**Implementation:** `smartResizeFont()` in `src/lib/utils/ocrMath.ts`
+
+**Parameters:**
+- `block`: The mutable `MokuroBlock` data object
+- `lineElement`: DOM element containing the text (for measurement)
+- `imgWidth`: Original image width (defines max bounds)
+- `fontScale`: Current visual scale ratio from `OcrState.fontScale`
+
+**User Experience:**
+- Toggle Smart Resize mode ON (`reader.isSmartResizeMode`)
+- Edit text or resize boxes normally
+- Font size automatically recalculates to fit container
+- Works for both horizontal and vertical text layouts
+
+**Technical Constraints:**
+- Font size is block-level property (per .mokuro format: `block.font_size`)
+- Resizing one line affects all lines in the block
+- Uses binary search algorithm for performance (fast convergence, ~10 iterations)
+- Respects image dimensions as upper bound
+- Accounts for `devicePixelRatio` and zoom level via `fontScale`
+
+**Use Cases:**
+- Correcting text that overflows/underflows after editing
+- Adjusting boxes to better fit speech bubbles
+- Maintaining visual consistency across multiple edits
+
+## 5. Data Persistence
+
+**Save Strategy:**
+- All edits mutate local Svelte reactive state (`reader.mokuroData.pages`)
+- "Unsaved changes" indicator tracks dirty state (via `hasUnsavedChanges` flag)
+- Manual save button commits changes to server (`handleSaveOcr`)
+- Navigation guard (`beforeNavigate`) prevents accidental data loss
+
+**API Endpoint:**
+- `PUT /api/library/volume/:id/ocr`
+- Payload: Array of `MokuroPage[]` objects (not the full `.mokuro` structure)
+- Backend merges pages into existing file and writes back to disk
+
+**File Format:**
+- Maintains 100% compatibility with `.mokuro` file schema
+- Only the `pages` array is modified
+- Original file structure preserved (title, metadata, etc.)
+- Server-side write combines new pages with existing file structure
+
+**Conflict Prevention:**
+- Single-user editing model (no concurrent editing support)
+- Clear unsaved changes indicator in UI
+- Explicit save action required (no auto-save)
+
+## 6. Context Menus
+
+**Background Menu (Edit Modes):**
+- Add Block
+
+**Block/Line Menu (Edit Modes):**
+- Set Horizontal/Vertical orientation
+- Re-order Lines (opens modal)
+- Delete Line/Block
+
+**Text Menu (Text Mode):**
+- Cut (keyboard or menu)
+- Copy (keyboard or menu)
+- Paste (keyboard only on non-HTTPS, menu on HTTPS)
+
+## 7. Keyboard Shortcuts
+
+**Reading Mode:**
+- `Ctrl+A` (on hovered block): Select all text in block
+
+**Text Edit Mode:**
+- `Enter`: Split line at cursor
+- `Backspace` (at line start): Merge with previous line
+- `Arrow Keys`: Navigate between lines
+
+**Box Edit Mode:**
+- Mouse drag: Move block/line
+- Mouse drag handles: Resize block/line
+- Double-click line: Switch to Text mode
+
+## 8. Design Rationale
+
+**Single Mode State:**
+- Prevents impossible states (both text and box editing active)
+- Makes current capability clear to user
+- Simplifies mental model
+
+**Automatic Mode Switching:**
+- Drag gesture maintains structural editing (Box mode)
+- Double-click gesture enables text editing (Text mode)
+- Reduces clicks for common workflows
+
+**Visual Feedback:**
+- Colored borders indicate active mode
+- Resize handles appear only when relevant
+- Hover states provide affordances
+
+**Data Format Compatibility:**
+- Preserves ability to process files with original Mokuro tools
+- Enables future community database of corrections
+- Maintains upgrade path for format changes
