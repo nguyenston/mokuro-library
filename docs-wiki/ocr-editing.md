@@ -6,17 +6,26 @@ One of Mokuro Library's core features is the ability to correct OCR text and sav
 Your changes are **not** saved automatically. You must click the **Save** button in the top toolbar to make your edits permanent.
 :::
 
-## The Editing Buttons
+## The Editing Button
 
-To begin, click on one of the editing buttons in the header (next to the settings button).
+To begin editing, click the **Edit Mode** button in the header (next to the settings button).
 
-![The OCR editing buttons](/editing-buttons.webp)
+![The OCR editing buttons](/activate-edit-mode.webp)
 
-* **Text Edit Mode:** Allows you to change the text content inside a line.
-* **Box Edit Mode:** Allows you to move and resize text blocks and lines.
-* **Smart Resize:** An optional mode that automatically adjusts font size to fit the text inside its box.
+This single button cycles through three editing modes:
 
-These modes are mutually exclusive (except for Smart Resize, which can be combined with the other two).
+* **📖 Read Mode (Default):** Normal reading with selectable OCR text overlays on hover.
+* **📦 Box Edit Mode:** Move and resize text blocks and lines. Double-click any line to switch to Text mode.
+* **✏️ Text Edit Mode:** Edit text content directly. Click empty space or start dragging to return to Box mode.
+
+Additionally, there's a separate **Smart Resize** button (⭐) that can be toggled independently to automatically adjust font sizes.
+
+:::tip MODE SWITCHING
+The editor intelligently switches modes based on your actions:
+- **Double-click a line** in Box mode → switches to Text mode for that line
+- **Start dragging a line** in Text mode → automatically switches to Box mode
+- **Click empty space** in Text mode → returns to Box mode
+:::
 
 ## 1. Text Edit Mode
 
@@ -28,7 +37,11 @@ When this mode is active:
     * **Horizontal Blocks:** Use `ArrowUp` and `ArrowDown`.
     * **Vertical Blocks:** Use `ArrowLeft` and `ArrowRight`.
 
-![Editing text inside a line](/text-edit-mode.webp)
+:::info QUICK TIP
+**Double-click any line in Box mode** to instantly switch to Text mode and start editing that line.
+:::
+
+![Editing text inside a line](/using-text-edit-mode.webp)
 
 ## 2. Box Edit Mode
 
@@ -36,27 +49,34 @@ When this mode is active, you can manipulate the bounding boxes.
 
 * **Move:** Click and drag the body of a box to move it.
     * **Outer Box (Blue):** Drags the entire block (including all lines inside it).
-    * **Inner Box (Yellow):** Drags just that specific line.
+    * **Inner Box (Red/Yellow):** Drags just that specific line.
 * **Resize:** Click and drag the 8 handles on any box to resize it.
 
-![Resizing a text block using handles](/box-edit-mode.webp)
+:::info QUICK TIP
+**Double-click any line** to instantly switch to Text mode and start editing the text content.
+:::
+
+![Resizing a text block using handles](/using-box-edit-mode.webp)
 
 ## 3. Smart Resize Mode
 
 This is a powerful helper mode that **automatically adjusts font size to fit text within its bounding box**.
 
-You can activate this *at the same time* as the other modes. It will automatically run when you:
-1.  Dragging one of the resize handles.
-2.  Typing in a text box.
+You can activate this **independently of Read/Box/Text modes**. It will automatically run when you:
+1. Resize a box using the drag handles.
+2. Type or edit text content.
 
-You can also manually trigger it by activating **only** Smart Resize Mode (with the other two modes off) and double-clicking a line.
+You can also manually trigger it by:
+* Activating **only** Smart Resize Mode (keeping the editor in Read mode)
+* Double-clicking any line to recalculate its font size
 
+![Smart resize mode](/using-smart-edit-mode.webp)
 ## 4. Adding & Deleting Content
 
-You can add and delete blocks using the right-click context menu.
+You can add and delete blocks using the right-click context menu (available in both Box and Text modes).
 
-* **Add New Block:** In **Box Edit Mode**, right-click on an empty area of the page and select "Add Block".
-* **Add New Line:** In **Box Edit Mode**, right-click on an existing block (the blue box) and select "Add Line".
+* **Add New Block:** Right-click on an empty area of the page and select "Add Block".
+* **Add New Line:** Right-click on an existing block (the blue box) and select "Add Line".
 * **Delete Line:** Right-click on any line and select "Delete Line".
     * *Note: If you delete the **last** line in a block, the entire block will be deleted*.
 

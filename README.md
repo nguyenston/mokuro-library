@@ -46,7 +46,7 @@ For more details, read [the specification](docs/architecture/specification.md).
 </table>
 
 *Live OCR editing in action:*
-![Live OCR editing demonstration](docs-wiki/public/edit-demo.webp)
+![Live OCR editing demonstration](docs-wiki/public/using-smart-edit-mode.webp)
 
 ## 💻 Technology Stack
 
