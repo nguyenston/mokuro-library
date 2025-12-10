@@ -45,6 +45,7 @@
 
 	// 1. Block Drag
 	const handleBlockDragStart = (startEvent: MouseEvent) => {
+		if (ocrState.ocrMode === 'READ') return;
 		if (ocrState.ocrMode === 'TEXT') ocrState.setMode('BOX');
 		if (!ocrState.overlayElement || !blockElement) return;
 		startEvent.preventDefault();
