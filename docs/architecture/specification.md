@@ -78,11 +78,14 @@ The system will be a decoupled client-server application.
   * [x] zip
   * [x] pdf with selectable text
   * [ ] cbz (low priority)
+  * [ ] metadata only
 * [ ] Library features
-  * [ ] More secure cookie implementation for more public use cases.
+  * [ ] More secure cookie (auth) implementation for more public use cases.
   * [x] The ability to rename series and volume.
   * [x] Search, sort, and paginate.
   * [ ] Implement the UI to display reading stats (time, characters read), which will be tracked in the database.
+  * [ ] Import and manage content without OCR
+  * [ ] Bundle mokuro into backend for OCR generation
 * [ ] AnkiConnect Integration: Focuses on sentence mining, as dictionary extensions like Yomi-tan already have word mining down.
 
 ## Technology Stack
