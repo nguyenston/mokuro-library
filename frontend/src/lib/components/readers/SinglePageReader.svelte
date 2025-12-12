@@ -50,6 +50,7 @@
 		options: {
 			canvas: true,
 			maxScale: 10,
+			minScale: 0.5,
 			cursor: 'default',
 			origin: '50% 50%',
 			disableYAxis: false

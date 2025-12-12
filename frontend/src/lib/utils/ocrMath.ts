@@ -90,8 +90,8 @@ export const getImageDeltas = (
   const relativeDeltaY = moveEvent.movementY;
 
   // 2. Convert container-relative delta to image-absolute delta
-  const imageDeltaX = relativeDeltaX * scaleRatioX / devicePixelRatio;
-  const imageDeltaY = relativeDeltaY * scaleRatioY / devicePixelRatio;
+  const imageDeltaX = relativeDeltaX * scaleRatioX;
+  const imageDeltaY = relativeDeltaY * scaleRatioY;
 
   return { imageDeltaX, imageDeltaY };
 };

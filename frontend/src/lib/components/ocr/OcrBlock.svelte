@@ -111,8 +111,8 @@
 
 			// 1. Visual Update (Screen Space)
 			const currentZoom = ocrState.panzoomInstance?.getScale() ?? 1.0;
-			totalScreenDeltaX += deltaX / currentZoom / devicePixelRatio;
-			totalScreenDeltaY += deltaY / currentZoom / devicePixelRatio;
+			totalScreenDeltaX += deltaX / currentZoom;
+			totalScreenDeltaY += deltaY / currentZoom;
 
 			if (blockElement) {
 				blockElement.style.transform = `translate(${totalScreenDeltaX}px, ${totalScreenDeltaY}px)`;
@@ -479,7 +479,7 @@
 					onMerge={handleMerge}
 					onNavigate={handleNavigate}
 					onSmartResizeRequest={handleSmartResize}
-					onFocusRequest={(el) => {
+					onFocusRequest={() => {
 						ocrState.setFocus(block);
 						// Optional: update global active element tracking if needed
 					}}

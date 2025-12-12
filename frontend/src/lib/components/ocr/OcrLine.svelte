@@ -281,8 +281,8 @@
 
 			// 1. Visual Update
 			const currentZoom = ocrState.panzoomInstance?.getScale() ?? 1.0;
-			totalScreenDeltaX += deltaX / currentZoom / devicePixelRatio;
-			totalScreenDeltaY += deltaY / currentZoom / devicePixelRatio;
+			totalScreenDeltaX += deltaX / currentZoom;
+			totalScreenDeltaY += deltaY / currentZoom;
 
 			if (lineElement) {
 				lineElement.style.transform = `translate(${totalScreenDeltaX}px, ${totalScreenDeltaY}px)`;

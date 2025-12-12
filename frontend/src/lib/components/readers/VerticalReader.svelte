@@ -128,7 +128,8 @@
 	$effect(() => {
 		if (panzoomInstance) currentPanzoomScale = panzoomInstance.getScale();
 	});
-	const onPinchZoom = (e: CustomEvent) => {
+
+	const onZoom = (e: CustomEvent) => {
 		if (!panzoomInstance || !verticalScrollerElement || !panzoomWrapper || !panzoomElement) return;
 
 		// The library passes the new scale in the event detail
@@ -147,14 +148,24 @@
 		currentPanzoomScale = newScale;
 	};
 
+	// Prevent scrolling from being triggered when pinching on mobile
+	const onPinch = (event: TouchEvent) => {
+		// Check if the user is using two fingers (Pinch)
+		if (event.touches.length === 2) {
+			// Stop the browser from handling this event (stops the pan-y scroll)
+			// allowing Panzoom to handle the pinch instead.
+			event.preventDefault();
+		}
+	};
+
 	// Register the listener specifically for the library's event
 	$effect(() => {
-		if (!panzoomElement) return;
-
-		panzoomElement.addEventListener('panzoomzoom', onPinchZoom as EventListener);
+		panzoomElement?.addEventListener('panzoomzoom', onZoom as EventListener);
+		panzoomWrapper?.addEventListener('touchmove', onPinch as EventListener);
 
 		return () => {
-			panzoomElement?.removeEventListener('panzoomzoom', onPinchZoom as EventListener);
+			panzoomElement?.removeEventListener('panzoomzoom', onZoom as EventListener);
+			panzoomWrapper?.removeEventListener('touchmove', onPinch as EventListener);
 		};
 	});
 
@@ -182,7 +193,7 @@
 		const zoomStep = panzoomInstance.getOptions().step ?? 0.3;
 		const scaleAmount = 1 + scroll * zoomStep;
 		const currentScale = panzoomInstance.getScale();
-		const newScale = Math.max(Math.min(currentScale * scaleAmount, 10), 0.3);
+		const newScale = Math.max(Math.min(currentScale * scaleAmount, 10), 0.5);
 
 		// Apply changes
 		panzoomInstance.zoom(newScale);

@@ -18,6 +18,8 @@ export class OcrState {
 
   // --- Callbacks (Injected) ---
   onOcrChange = $state<() => void>(() => { });
+  // This function is purely to coordinate font slider logic on the top-level
+  // I should rethink this
   onLineFocus = $state<(block: MokuroBlock | null, page: MokuroPage | null) => void>(() => { });
   onChangeMode = $state<(state: 'READ' | 'BOX' | 'TEXT') => void>(() => { });
 
