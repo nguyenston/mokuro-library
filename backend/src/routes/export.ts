@@ -36,6 +36,10 @@ interface SeriesParams {
   id: string; // This 'id' is the seriesId
 }
 
+interface ExportQuery {
+  include_images?: string;
+}
+
 // Shared Interface for the Metadata JSON
 interface MokuroSeriesMetadata {
   version: string;
@@ -209,14 +213,15 @@ const exportRoutes: FastifyPluginAsync = async (
   fastify.addHook('preHandler', fastify.authenticate);
 
   /**
-     * GET /api/export/volume/:id/zip
-     * Downloads a single volume as a ZIP.
-     */
-  fastify.get<{ Params: VolumeParams }>(
+   * GET /api/export/volume/:id/zip
+   * Downloads a single volume as a ZIP.
+   */
+  fastify.get<{ Params: VolumeParams; Querystring: ExportQuery }>(
     '/volume/:id/zip',
     async (request, reply) => {
       const { id: volumeId } = request.params;
       const userId = request.user.id;
+      const includeImages = request.query.include_images !== 'false'; // Default true
 
       const volume = await fastify.prisma.volume.findFirst({
         where: { id: volumeId, series: { ownerId: userId } },
@@ -253,9 +258,11 @@ const exportRoutes: FastifyPluginAsync = async (
       const metadata = generateSeriesMetadata(volume.series, [volume], userId);
       archive.append(JSON.stringify(metadata, null, 2), { name: `${volume.series.folderName}.json` });
 
-      // Add the volume directory (images)
-      const absoluteVolumePath = path.join(fastify.projectRoot, volume.filePath);
-      archive.directory(absoluteVolumePath, volume.folderName);
+      if (includeImages) {
+        // Add the volume directory (images)
+        const absoluteVolumePath = path.join(fastify.projectRoot, volume.filePath);
+        archive.directory(absoluteVolumePath, volume.folderName);
+      }
 
       // Add the .mokuro file
       const absoluteMokuroPath = path.join(
@@ -268,6 +275,7 @@ const exportRoutes: FastifyPluginAsync = async (
       return reply.send(archive);
     }
   );
+
 
   /**
      * GET /api/export/volume/:id/pdf
@@ -331,11 +339,13 @@ const exportRoutes: FastifyPluginAsync = async (
    * GET /api/export/series/:id/zip
    * Downloads an entire series as a ZIP.
    */
-  fastify.get<{ Params: SeriesParams }>(
+  fastify.get<{ Params: SeriesParams; Querystring: ExportQuery }>(
     '/series/:id/zip',
     async (request, reply) => {
       const { id: seriesId } = request.params;
       const userId = request.user.id;
+      const includeImages = request.query.include_images !== 'false';
+
       try {
         const series = await fastify.prisma.series.findFirst({
           where: { id: seriesId, ownerId: userId },
@@ -377,7 +387,7 @@ const exportRoutes: FastifyPluginAsync = async (
           const volumePath = path.join(fastify.projectRoot, vol.filePath);
           const mokuroPath = path.join(fastify.projectRoot, vol.mokuroPath);
 
-          if (fs.existsSync(volumePath)) {
+          if (fs.existsSync(volumePath) && includeImages) {
             archive.directory(volumePath, vol.folderName);
           }
           if (fs.existsSync(mokuroPath)) {
@@ -469,8 +479,10 @@ const exportRoutes: FastifyPluginAsync = async (
    * GET /api/export/zip
    * Downloads the entire user library as a ZIP.
    */
-  fastify.get('/zip', async (request, reply) => {
+  fastify.get<{ Querystring: ExportQuery }>('/zip', async (request, reply) => {
     const userId = request.user.id;
+    const includeImages = request.query.include_images !== 'false';
+
     try {
       const allSeries = await fastify.prisma.series.findMany({
         where: { ownerId: userId },
@@ -511,7 +523,7 @@ const exportRoutes: FastifyPluginAsync = async (
           const volumePath = path.join(fastify.projectRoot, vol.filePath);
           const mokuroPath = path.join(fastify.projectRoot, vol.mokuroPath);
 
-          if (fs.existsSync(volumePath)) {
+          if (fs.existsSync(volumePath) && includeImages) {
             archive.directory(volumePath, path.join(seriesRoot, vol.folderName));
           }
           if (fs.existsSync(mokuroPath)) {
