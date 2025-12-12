@@ -148,6 +148,13 @@
 				}
 			},
 			{
+				label: 'Download Metadata Only (ZIP)',
+				action: () => {
+					// Triggers with query param
+					triggerDownload(`/api/export/zip?include_images=false`);
+				}
+			},
+			{
 				label: 'Download as PDF',
 				action: () => {
 					// Triggers the new PDF-in-ZIP download route
