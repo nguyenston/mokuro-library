@@ -322,7 +322,7 @@
 	{:else if reader.volume}
 		<!-- Main Reader UI / Header Section -->
 		<header
-			class="absolute top-0 left-0 right-0 z-20 flex h-16 items-center justify-between bg-gradient-to-b from-black/70 to-transparent px-4 text-white"
+			class="absolute top-0 left-0 right-0 z-20 flex h-16 items-center justify-between bg-gradient-to-b from-black/70 to-transparent px-4 text-white touch-none"
 		>
 			<!-- Left: Back Button & Title -->
 			<div class="flex-1 justify-start overflow-hidden">
