@@ -276,27 +276,35 @@ const libraryRoutes: FastifyPluginAsync = async (
 
           // We flatten the filename (ignore client paths like "Naruto/Vol 1/001.jpg")
           const safeName = safeFilename(path.basename(part.filename));
-          const absPath = path.join(targetDir, safeName);
+          let absPath = path.join(targetDir, safeName); // default save path
 
           // 3. Identify Special Files
-          if (safeName.endsWith('.mokuro')) {
-            mokuroPathRelative = path.join('uploads', userId, seriesFolder, volumeFolder, safeName).replace(/\\/g, '/');
-          } else if (/\.(jpg|jpeg|png|webp)$/i.test(safeName)) {
-            const nameWithoutExt = path.parse(safeName).name;
-            const isSeriesCover = nameWithoutExt === seriesFolder;
+          const isMokuro = safeName.endsWith('.mokuro');
+          const isImage = /\.(jpg|jpeg|png|webp)$/i.test(safeName);
+          const isCoverImage = isImage && path.parse(safeName).name === seriesFolder;
 
-            if (isSeriesCover) {
-              potentialSeriesCoverPath = path.join('uploads', userId, seriesFolder, volumeFolder, safeName).replace(/\\/g, '/');
-            } else {
-              // Only use as Volume Cover if it's NOT the series cover
-              // and if we haven't found any other image yet
-              if (!coverImageName) coverImageName = safeName;
-              // increment page count
-              pageCount++;
-            }
-          } else {
+          if (isMokuro) {
+            mokuroPathRelative = path.join('uploads', userId, seriesFolder, safeName).replace(/\\/g, '/');
+            absPath = path.join(fastify.projectRoot, mokuroPathRelative);
+          }
+
+          else if (isCoverImage) {
+            potentialSeriesCoverPath = path.join('uploads', userId, seriesFolder, safeName).replace(/\\/g, '/');
+            absPath = path.join(fastify.projectRoot, potentialSeriesCoverPath);
+          }
+
+          else if (isImage) {
+            // Only use as Volume Cover if it's NOT the series cover
+            // and if we haven't found any other image yet
+            if (!coverImageName) coverImageName = safeName;
+            // increment page count
+            pageCount++;
+          }
+
+          else {
             // invalid file, skip
             await drainStream(part.file);
+            continue;
           }
 
           // 4. Save File
