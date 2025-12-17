@@ -112,7 +112,8 @@
 	const handleLogout = async () => {
 		try {
 			await apiFetch('/api/auth/logout', {
-				method: 'POST'
+				method: 'POST',
+				body: {}
 			});
 		} catch (e) {
 			console.error('Logout failed:', (e as Error).message);
