@@ -136,6 +136,20 @@ const metadataRoutes: FastifyPluginAsync = async (
           },
         });
 
+        // Update the parent Series 'lastReadAt' timestamp
+        // This ensures the series bubbles to the top of "Recently Read" lists
+        await fastify.prisma.series.updateMany({
+          where: {
+            volumes: {
+              some: { id: volumeId } // Find series containing this volume
+            },
+            ownerId: userId // Ensure we only update series owned by user
+          },
+          data: {
+            lastReadAt: new Date()
+          }
+        });
+
         return reply.status(200).send(upsertedProgress);
       } catch (error) {
         // Handle case where the volumeId is invalid

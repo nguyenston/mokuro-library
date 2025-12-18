@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
+	import { browser } from '$app/environment';
 
 	let { meta } = $props<{
 		meta: {
@@ -16,7 +17,7 @@
 		for (const [key, value] of Object.entries(changes)) {
 			params.set(key, value);
 		}
-		goto(`/?${params.toString()}`, { keepFocus: true });
+		goto(`${page.url.pathname}?${params.toString()}`, { keepFocus: true });
 	};
 
 	const setPage = (p: number) => {
@@ -25,9 +26,26 @@
 	};
 
 	const setLimit = (l: number) => {
+		// Save preference to localStorage
+		if (browser) {
+			localStorage.setItem('pagination_limit', l.toString());
+		}
 		// Reset to page 1 when changing limit to avoid out-of-bounds
 		updateParams({ limit: l.toString(), page: '1' });
 	};
+
+	// Restore preference on load if no limit param is present
+	$effect(() => {
+		if (browser) {
+			const saved = localStorage.getItem('pagination_limit');
+			const current = page.url.searchParams.get('limit');
+
+			// If we have a saved limit, no URL override, and it differs from current display
+			if (saved && !current && Number(saved) !== meta.limit) {
+				updateParams({ limit: saved });
+			}
+		}
+	});
 </script>
 
 {#if meta.total > 0}

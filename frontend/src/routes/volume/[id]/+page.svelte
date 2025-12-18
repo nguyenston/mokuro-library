@@ -312,6 +312,13 @@
 	});
 </script>
 
+<!-- DYNAMIC TITLE -->
+<svelte:head>
+	<title>
+		{reader.volume ? `${reader.seriesTitle} - ${reader.volumeTitle}` : 'Loading...'}
+	</title>
+</svelte:head>
+
 <div class="flex h-screen w-full flex-col bg-gray-800 dark:bg-black overflow-hidden">
 	{#if isLoading}
 		<!-- Loading State -->

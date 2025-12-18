@@ -338,23 +338,29 @@ const libraryRoutes: FastifyPluginAsync = async (
           }
         });
       } else {
+        let updateData: Record<string, any> = {
+          updatedAt: new Date()
+        };
+
         // Update title if provided and missing
         if (metadata.series_title && !series.title) {
-          await fastify.prisma.series.update({
-            where: { id: series.id },
-            data: {
-              title: metadata.series_title,
-              sortTitle: metadata.series_title
-            }
-          });
+          updateData = {
+            ...updateData,
+            title: metadata.series_title,
+            sortTitle: metadata.series_title
+          };
         }
         // Update cover if we found a better candidate and one didn't exist
         if (potentialSeriesCoverPath && !series.coverPath) {
-          await fastify.prisma.series.update({
-            where: { id: series.id },
-            data: { coverPath: potentialSeriesCoverPath }
-          });
+          updateData = {
+            ...updateData,
+            coverPath: potentialSeriesCoverPath
+          };
         }
+        await fastify.prisma.series.update({
+          where: { id: series.id },
+          data: updateData
+        });
       }
 
       // 2. Create Volume
@@ -509,7 +515,8 @@ const libraryRoutes: FastifyPluginAsync = async (
                     page: true,
                     completed: true,
                     timeRead: true,
-                    charsRead: true
+                    charsRead: true,
+                    lastReadAt: true
                   }
                 }
               }

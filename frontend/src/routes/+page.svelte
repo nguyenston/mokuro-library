@@ -42,18 +42,30 @@
 		};
 	}
 
-	// --- Use $state for all reactive variables ---
+	type ViewMode = 'grid' | 'list';
+
+	// --- State ---
 	let library = $state<Series[]>([]);
 	let meta = $state({ total: 0, page: 1, limit: 20, totalPages: 1 });
 	let isLoadingLibrary = $state(true);
 	let libraryError = $state<string | null>(null);
 	let isUploadModalOpen = $state(false);
 
+	// UI State (Persisted)
+	let viewMode = $derived($page.url.searchParams.get('view') || 'grid');
+
+	// --- API Query Logic ---
+	// Create a derived query string that EXCLUDES 'view'.
+	// This ensures the fetch effect below only runs when 'q', 'sort', 'page', etc. change.
+	let apiQueryString = $derived.by(() => {
+		const params = new URLSearchParams($page.url.searchParams);
+		params.delete('view'); // Ignore view changes for fetching
+		return params.toString();
+	});
+
 	// --- Auth Effect ---
 	$effect(() => {
 		if (browser) {
-			// ONLY redirect if $user is NULL (check complete, no user)
-			// DO NOT redirect if $user is UNDEFINED (still loading)
 			if ($user === null) {
 				goto('/login');
 			}
@@ -63,17 +75,13 @@
 	// --- Library Fetch Effect ---
 	$effect(() => {
 		if ($user && browser) {
-			// Pass the current search params to the fetch function
-			fetchLibrary($page.url.search);
+			fetchLibrary(`?${apiQueryString}`);
 		}
 	});
 
-	// --- fetchLibrary ---
 	const fetchLibrary = async (queryString: string, silent = false) => {
 		try {
-			// Only show the loading spinner if NOT silent (e.g. initial load)
 			if (!silent) isLoadingLibrary = true;
-
 			libraryError = null;
 			const response = await apiFetch(`/api/library${queryString}`);
 			library = response.data as Series[];
@@ -85,233 +93,400 @@
 		}
 	};
 
-	// --- Opens confirmation to delete a series ---
 	const handleDeleteSeries = (seriesId: string, seriesTitle: string) => {
 		confirmation.open(
 			'Delete Series?',
 			`Are you sure you want to permanently delete "${seriesTitle}" and all ${
 				library.find((s) => s.id === seriesId)?.volumes.length ?? 'its'
-			} volumes? This action cannot be undone.`,
+			} volumes?`,
 			async () => {
-				// This is the onConfirm callback
 				try {
-					await apiFetch(`/api/library/series/${seriesId}`, {
-						method: 'DELETE'
-					});
-					// Refresh the library list
+					await apiFetch(`/api/library/series/${seriesId}`, { method: 'DELETE' });
 					await fetchLibrary($page.url.search);
 				} catch (e) {
-					// Show error in the main UI
 					libraryError = `Failed to delete series: ${(e as Error).message}`;
 				}
 			}
 		);
 	};
 
-	// --- Logout Handler  ---
 	const handleLogout = async () => {
 		try {
-			await apiFetch('/api/auth/logout', {
-				method: 'POST',
-				body: {}
-			});
+			await apiFetch('/api/auth/logout', { method: 'POST', body: {} });
 		} catch (e) {
 			console.error('Logout failed:', (e as Error).message);
 		}
 		user.set(null);
 	};
 
-	/**
-	 * Opens a context menu to choose the download format.
-	 * This will be triggered by the download button.
-	 */
 	const openDownloadMenu = (event: MouseEvent) => {
-		// Stop the click from doing anything else
 		event.preventDefault();
 		event.stopPropagation();
-
-		// 1. Get the button element from the event
 		const button = event.currentTarget as HTMLButtonElement;
-
-		// 2. Get its position on the screen
 		const rect = button.getBoundingClientRect();
-
-		// 3. Set the menu's (x, y) to be just below the button
-		const x = rect.left;
-		const y = rect.bottom;
-
-		contextMenu.open(x, y, [
+		contextMenu.open(rect.left, rect.bottom, [
 			{
 				label: 'Download as ZIP',
-				action: () => {
-					// Triggers the existing (original) zip download route
-					triggerDownload(`/api/export/zip`);
-				}
+				action: () => triggerDownload(`/api/export/zip`)
 			},
 			{
 				label: 'Download Metadata Only (ZIP)',
-				action: () => {
-					// Triggers with query param
-					triggerDownload(`/api/export/zip?include_images=false`);
-				}
+				action: () => triggerDownload(`/api/export/zip?include_images=false`)
 			},
 			{
 				label: 'Download as PDF',
-				action: () => {
-					// Triggers the new PDF-in-ZIP download route
-					triggerDownload(`/api/export/pdf`);
-				}
+				action: () => triggerDownload(`/api/export/pdf`)
 			}
 		]);
 	};
 </script>
 
-<div class="min-h-screen bg-gray-100 p-8 dark:bg-gray-900">
+<!-- DYNAMIC TITLE -->
+<svelte:head>
+	<title>
+		{$user ? `${$user.username}'s Library` : 'Library'}
+	</title>
+</svelte:head>
+
+<!-- Main Container: Dark Navy Theme -->
+<div class="min-h-screen bg-[#0a0e17] text-white p-6 font-sans">
 	{#if $user}
-		<!-- header -->
-		<div
-			class="flex flex-col items-center justify-between gap-4 border-b border-gray-300 pb-4 dark:border-gray-700 sm:flex-row"
-		>
-			<h1 class="text-3xl font-bold dark:text-white">
-				{$user.username}'s Library
-			</h1>
+		<!-- Content Wrapper -->
+		<div class="max-w-7xl mx-auto">
+			<!-- HEADER SECTION -->
+			<div
+				class="flex flex-col md:flex-row items-center justify-between gap-6 border-b border-gray-800 pb-6 mb-8"
+			>
+				<!-- Title -->
+				<div class="flex items-center gap-3">
+					<div class="h-10 w-1 bg-blue-500 rounded-full"></div>
+					<h1 class="text-3xl font-bold tracking-tight text-white">
+						{$user.username}'s Library
+					</h1>
+				</div>
 
-			<div class="flex items-center gap-4 w-full sm:w-auto sm:ml-auto">
-				<!-- Download Library Button -->
-				<button
-					onclick={openDownloadMenu}
-					disabled={library.length === 0}
-					class="flex items-center gap-2 rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:hover:bg-gray-600 sm:w-auto"
-				>
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						viewBox="0 0 20 20"
-						fill="currentColor"
-						class="h-5 w-5 text-gray-500 dark:text-gray-400"
+				<!-- Actions Group -->
+				<div class="flex items-center justify-end gap-3 w-full md:w-auto">
+					<!-- Download All -->
+					<button
+						onclick={openDownloadMenu}
+						disabled={library.length === 0}
+						class="flex items-center gap-2 px-4 py-2 bg-[#161b2e] border border-gray-700 text-gray-300 rounded-md hover:bg-gray-800 hover:text-white disabled:opacity-50 transition-colors text-sm font-medium"
 					>
-						<path
-							d="M10.75 2.75a.75.75 0 00-1.5 0v8.614L6.295 8.235a.75.75 0 10-1.09 1.03l4.25 4.5a.75.75 0 001.09 0l4.25-4.5a.75.75 0 00-1.09-1.03l-2.955 3.129V2.75z"
-						/>
-						<path
-							d="M3.5 12.75a.75.75 0 00-1.5 0v2.5A2.75 2.75 0 004.75 18h10.5A2.75 2.75 0 0018 15.25v-2.5a.75.75 0 00-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5z"
-						/>
-					</svg>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							width="16"
+							height="16"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline
+								points="7 10 12 15 17 10"
+							/><line x1="12" x2="12" y1="15" y2="3" /></svg
+						>
+						<span class="hidden sm:inline">Download All</span>
+					</button>
 
-					<span class="hidden md:inline mr-1"> Download All </span>
-				</button>
-				<!-- upload button -->
-				<button
-					onclick={() => (isUploadModalOpen = true)}
-					class="w-1/2 rounded-md border border-transparent bg-green-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 sm:w-auto"
-				>
-					Upload
-				</button>
+					<!-- Upload -->
+					<button
+						onclick={() => (isUploadModalOpen = true)}
+						class="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-md transition-colors text-sm font-medium shadow-lg shadow-blue-900/20"
+					>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							width="16"
+							height="16"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline
+								points="17 8 12 3 7 8"
+							/><line x1="12" x2="12" y1="3" y2="15" /></svg
+						>
+						Upload
+					</button>
 
-				<button
-					onclick={handleLogout}
-					class="w-full rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 sm:w-auto"
-				>
-					Log Out
-				</button>
+					<!-- Logout -->
+					<button
+						onclick={handleLogout}
+						class="p-2 text-gray-500 hover:text-red-400 hover:bg-red-500/10 rounded-md transition-colors"
+						title="Log Out"
+					>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							width="20"
+							height="20"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline
+								points="16 17 21 12 16 7"
+							/><line x1="21" x2="9" y1="12" y2="12" /></svg
+						>
+					</button>
+				</div>
 			</div>
-		</div>
 
-		<div class="mt-8">
-			<LibrarySearchBar />
+			<!-- CONTROLS AREA -->
+			<div class="mb-6 flex flex-col sm:flex-row gap-4 items-end sm:items-center">
+				<!-- Search Bar Container -->
+				<div class="w-full">
+					<LibrarySearchBar />
+				</div>
+			</div>
+
+			<!-- LIBRARY CONTENT -->
 			{#if isLoadingLibrary}
-				<p class="mt-4 text-gray-700 dark:text-gray-300">Loading library...</p>
+				<div class="flex h-64 items-center justify-center text-gray-500">
+					<svg
+						class="animate-spin -ml-1 mr-3 h-8 w-8 text-blue-500"
+						xmlns="http://www.w3.org/2000/svg"
+						fill="none"
+						viewBox="0 0 24 24"
+						><circle
+							class="opacity-25"
+							cx="12"
+							cy="12"
+							r="10"
+							stroke="currentColor"
+							stroke-width="4"
+						></circle><path
+							class="opacity-75"
+							fill="currentColor"
+							d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+						></path></svg
+					>
+					Loading library...
+				</div>
 			{:else if libraryError}
-				<p class="mt-4 text-red-500 dark:text-red-400">
+				<div class="p-4 rounded-md bg-red-500/10 border border-red-500/20 text-red-400">
 					Error loading library: {libraryError}
-				</p>
+				</div>
 			{:else if library.length === 0}
-				<div class="text-center">
-					<p class="mt-4 text-lg text-gray-700 dark:text-gray-300">Your library is empty.</p>
-					<p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
-						Upload some manga to get started.
+				<div class="flex flex-col items-center justify-center py-20 text-center">
+					<div class="bg-[#161b2e] p-6 rounded-full mb-4">
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							width="48"
+							height="48"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="1"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							class="text-gray-600"
+							><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20" /></svg
+						>
+					</div>
+					<p class="text-xl font-medium text-gray-300">Your library is empty</p>
+					<p class="mt-2 text-gray-500 max-w-sm">
+						Upload some Mokuro-processed manga volumes to get started building your collection.
 					</p>
+					<button
+						onclick={() => (isUploadModalOpen = true)}
+						class="mt-6 text-blue-400 hover:text-blue-300 font-medium hover:underline"
+					>
+						Upload Now &rarr;
+					</button>
 				</div>
 			{:else}
-				<!-- series grid -->
-				<div
-					class="mt-6 grid grid-cols-2 gap-y-10 gap-x-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 xl:gap-x-8"
-				>
-					{#each library as series (series.id)}
-						<div class="group relative">
-							<!-- Series Cover Display -->
+				<!-- GRID VIEW -->
+				{#if viewMode === 'grid'}
+					<div
+						class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6"
+					>
+						{#each library as series (series.id)}
 							<div
-								class="aspect-[3/4] w-full overflow-hidden rounded-md bg-gray-200 shadow-md dark:bg-gray-800"
+								class="group relative bg-[#161b2e] rounded-xl border border-gray-800 overflow-hidden hover:border-gray-600 transition-colors flex flex-col"
 							>
-								{#if series.coverPath}
-									<img
-										src={`/api/files/series/${series.id}/cover`}
-										alt={series.folderName}
-										class="h-full w-full object-contain object-center transition-opacity group-hover:opacity-75"
-									/>
-								{:else}
+								<!-- Full Link Overlay (Behind actions) -->
+								<a
+									href={`/series/${series.id}`}
+									class="absolute inset-0 z-0"
+									aria-label={`View ${series.folderName}`}
+								></a>
+
+								<!-- Cover Image -->
+								<div
+									class="aspect-[2/3] w-full bg-gray-900 relative overflow-hidden pointer-events-none"
+								>
+									{#if series.coverPath}
+										<img
+											src={`/api/files/series/${series.id}/cover`}
+											alt={series.folderName}
+											class="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+										/>
+									{:else}
+										<div
+											class="flex h-full w-full items-center justify-center p-4 text-center text-4xl font-bold text-gray-700 bg-gray-800"
+										>
+											{series.folderName.charAt(0).toUpperCase()}
+										</div>
+									{/if}
+
+									<!-- Hover Actions Overlay -->
 									<div
-										class="flex h-full w-full items-center justify-center p-4 text-center text-xl font-bold text-gray-400"
+										class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-start p-2 pointer-events-none"
 									>
-										{series.folderName}
+										<div class="flex justify-end">
+											<button
+												type="button"
+												onclick={(e) => {
+													e.preventDefault();
+													e.stopPropagation();
+													handleDeleteSeries(series.id, series.title ?? series.folderName);
+												}}
+												class="pointer-events-auto p-1.5 bg-black/50 rounded-full text-white hover:bg-red-600 transition-colors relative z-10"
+												title="Delete Series"
+											>
+												<svg
+													xmlns="http://www.w3.org/2000/svg"
+													width="14"
+													height="14"
+													viewBox="0 0 24 24"
+													fill="none"
+													stroke="currentColor"
+													stroke-width="2"
+													stroke-linecap="round"
+													stroke-linejoin="round"
+													><path d="M3 6h18" /><path
+														d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"
+													/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" /></svg
+												>
+											</button>
+										</div>
 									</div>
-								{/if}
-
-								<!-- Clickable Link Overlay -->
-								<a href={`/series/${series.id}`} class="absolute inset-0">
-									<span class="sr-only">View {series.folderName}</span>
-								</a>
-							</div>
-
-							<div class="mt-4 flex justify-between">
-								<div>
-									<h3 class="text-sm font-medium text-gray-900 dark:text-white">
-										<a href={`/series/${series.id}`}>
-											<span aria-hidden="true" class="absolute inset-0"></span>
-											{series.title ?? series.folderName}
-										</a>
-									</h3>
-									<p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-										{series.volumes.length}
-										{series.volumes.length === 1 ? 'volume' : 'volumes'}
-									</p>
 								</div>
 
-								<!-- Delete Button -->
-								<button
-									type="button"
-									aria-label="Delete series"
-									onclick={(e) => {
-										e.preventDefault();
-										e.stopPropagation();
-										handleDeleteSeries(series.id, series.title ?? series.folderName);
-									}}
-									class="relative z-10 -m-2 p-2 text-gray-400 hover:text-red-500"
-								>
-									<!-- Trash Icon -->
-									<svg
-										xmlns="http://www.w3.org/2000/svg"
-										width="20"
-										height="20"
-										viewBox="0 0 24 24"
+								<!-- Info Section -->
+								<div class="p-3 flex flex-col gap-1 pointer-events-none">
+									<div
+										class="text-sm font-semibold text-white line-clamp-1 group-hover:text-blue-400 transition-colors"
 									>
-										<path
-											fill="currentColor"
-											d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zm2.46-7.12l1.41-1.41L12 12.59l2.12-2.12l1.41 1.41L13.41 14l2.12 2.12l-1.41 1.41L12 15.41l-2.12 2.12l-1.41-1.41L10.59 14l-2.13-2.12zM15.5 4l-1-1h-5l-1 1H5v2h14V4z"
-										/>
-									</svg>
-								</button>
+										{series.title ?? series.folderName}
+									</div>
+									<div class="text-xs text-gray-500 font-medium">
+										{series.volumes.length}
+										{series.volumes.length === 1 ? 'Volume' : 'Volumes'}
+									</div>
+								</div>
 							</div>
-						</div>
-					{/each}
-				</div>
+						{/each}
+					</div>
 
-				<PaginationControls {meta} />
+					<!-- LIST VIEW -->
+				{:else}
+					<div class="flex flex-col gap-3">
+						{#each library as series (series.id)}
+							<div
+								class="group relative bg-[#161b2e] rounded-lg border border-gray-800 p-2 flex items-center gap-4 hover:border-gray-600 transition-colors"
+							>
+								<!-- Full Link Overlay -->
+								<a
+									href={`/series/${series.id}`}
+									class="absolute inset-0 z-0"
+									aria-label={`View ${series.folderName}`}
+								></a>
+
+								<!-- Thumbnail -->
+								<div
+									class="w-10 h-14 bg-gray-900 rounded overflow-hidden flex-shrink-0 pointer-events-none"
+								>
+									{#if series.coverPath}
+										<img
+											src={`/api/files/series/${series.id}/cover`}
+											alt={series.folderName}
+											class="h-full w-full object-cover"
+										/>
+									{:else}
+										<div
+											class="h-full w-full flex items-center justify-center text-xs font-bold text-gray-600 bg-gray-800"
+										>
+											{series.folderName.charAt(0)}
+										</div>
+									{/if}
+								</div>
+
+								<!-- Info -->
+								<div class="flex-grow min-w-0 pointer-events-none">
+									<div
+										class="text-sm font-semibold text-white truncate group-hover:text-blue-400 transition-colors"
+									>
+										{series.title ?? series.folderName}
+									</div>
+									<div class="text-xs text-gray-500 flex gap-2 items-center mt-0.5">
+										<span class="flex items-center gap-1">
+											<svg
+												xmlns="http://www.w3.org/2000/svg"
+												width="12"
+												height="12"
+												viewBox="0 0 24 24"
+												fill="none"
+												stroke="currentColor"
+												stroke-width="2"
+												stroke-linecap="round"
+												stroke-linejoin="round"
+												class="text-gray-600"
+												><path
+													d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"
+												/></svg
+											>
+											{series.volumes.length} Vols
+										</span>
+									</div>
+								</div>
+
+								<!-- Actions -->
+								<div class="pl-4 border-l border-gray-800">
+									<button
+										type="button"
+										onclick={(e) => {
+											e.preventDefault();
+											e.stopPropagation();
+											handleDeleteSeries(series.id, series.title ?? series.folderName);
+										}}
+										class="pointer-events-auto relative z-10 p-2 text-gray-500 hover:text-red-500 transition-colors"
+										title="Delete Series"
+									>
+										<svg
+											xmlns="http://www.w3.org/2000/svg"
+											width="16"
+											height="16"
+											viewBox="0 0 24 24"
+											fill="none"
+											stroke="currentColor"
+											stroke-width="2"
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											><path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path
+												d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"
+											/></svg
+										>
+									</button>
+								</div>
+							</div>
+						{/each}
+					</div>
+				{/if}
+
+				<!-- PAGINATION -->
+				<div class="mt-8 flex justify-center">
+					<PaginationControls {meta} />
+				</div>
 			{/if}
 		</div>
 	{:else}
-		<div class="flex h-screen items-center justify-center">
-			<p class="text-gray-700 dark:text-gray-300">Loading...</p>
-		</div>
+		<div class="flex h-screen items-center justify-center text-gray-500">Loading...</div>
 	{/if}
 
 	<UploadModal
