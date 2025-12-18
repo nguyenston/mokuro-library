@@ -21,6 +21,8 @@ model Series {
   folderName  String
   coverPath   String?   // Path to the cover image
 
+  description String?
+
   // Always contains either 'title' or 'folderName'
   sortTitle   String
 

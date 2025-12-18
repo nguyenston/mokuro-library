@@ -15,8 +15,15 @@ const progressBodySchema = {
   // No required fields, as this is a partial update
 };
 
-// Schema for Renaming (Series/Volume)
-const renameBodySchema = {
+const seriesUpdateSchema = {
+  type: 'object',
+  properties: {
+    title: { type: ['string', 'null'] }, // Allow string or explicit null
+    description: { type: ['string', 'null'] }
+  }
+};
+
+const volumeUpdateSchema = {
   type: 'object',
   properties: {
     title: { type: ['string', 'null'] } // Allow string or explicit null
@@ -39,6 +46,12 @@ interface ProgressBody {
 // For Volume or Series id
 interface IdParams {
   id: string;
+}
+
+// Updated Interface for Series Body
+interface SeriesUpdateBody {
+  title?: string | null;
+  description?: string | null;
 }
 
 const metadataRoutes: FastifyPluginAsync = async (
@@ -201,20 +214,20 @@ const metadataRoutes: FastifyPluginAsync = async (
   );
 
   // ===========================================================================
-  // RENAMING ENDPOINTS
+  // METADATA ENDPOINTS (Renaming & Descriptions)
   // Namespace: /series/:id and /volume/:id
   // ===========================================================================
 
   /**
    * PATCH /api/metadata/series/:id
-   * Renames the Display Title of a Series.
+   * Updates Series metadata (Title, Description).
    */
-  fastify.patch<{ Params: IdParams; Body: { title: string | null } }>(
+  fastify.patch<{ Params: IdParams; Body: SeriesUpdateBody }>(
     '/series/:id',
-    { schema: { body: renameBodySchema } },
+    { schema: { body: seriesUpdateSchema } },
     async (request, reply) => {
       const { id } = request.params;
-      const { title } = request.body;
+      const { title, description } = request.body;
 
       try {
         const series = await fastify.prisma.series.findFirst({
@@ -229,9 +242,22 @@ const metadataRoutes: FastifyPluginAsync = async (
 
         if (!series) return reply.status(404).send({ message: 'Series not found.' });
 
+        // Build the update object dynamically
+        // We always calculate sortTitle if title changes, otherwise leave it
+        const dataToUpdate: Prisma.SeriesUpdateInput = {};
+
+        if (title !== undefined) {
+          dataToUpdate.title = title;
+          dataToUpdate.sortTitle = title ?? series.folderName;
+        }
+
+        if (description !== undefined) {
+          dataToUpdate.description = description;
+        }
+
         await fastify.prisma.series.update({
           where: { id, ownerId: request.user.id },
-          data: { title, sortTitle: title ?? series.folderName },
+          data: dataToUpdate,
         });
 
         return reply.send({ message: 'Series title updated.' });
@@ -248,7 +274,7 @@ const metadataRoutes: FastifyPluginAsync = async (
    */
   fastify.patch<{ Params: IdParams; Body: { title: string | null } }>(
     '/volume/:id',
-    { schema: { body: renameBodySchema } },
+    { schema: { body: volumeUpdateSchema } },
     async (request, reply) => {
       const { id } = request.params;
       const { title } = request.body;

@@ -41,6 +41,7 @@ function drainStream(stream: Readable): Promise<void> {
 
 interface UploadMetadata {
   series_title?: string;
+  series_description?: string;
   volume_title?: string;
   // Progress Interface
   volume_progress?: {
@@ -332,31 +333,32 @@ const libraryRoutes: FastifyPluginAsync = async (
             ownerId: userId,
             folderName: seriesFolder,
             title: metadata.series_title || null,
+            description: metadata.series_description || null,
             sortTitle: metadata.series_title || seriesFolder,
             // If we found a file matching "SeriesName.jpg", use it as cover
             coverPath: potentialSeriesCoverPath
           }
         });
       } else {
-        let updateData: Record<string, any> = {
+        let updateData: Prisma.SeriesUpdateInput = {
           updatedAt: new Date()
         };
 
         // Update title if provided and missing
         if (metadata.series_title && !series.title) {
-          updateData = {
-            ...updateData,
-            title: metadata.series_title,
-            sortTitle: metadata.series_title
-          };
+          updateData.title = metadata.series_title;
+          updateData.sortTitle = metadata.series_title;
         }
+
+        if (metadata.series_description && !series.description) { // <--- ADDED
+          updateData.description = metadata.series_description;
+        }
+
         // Update cover if we found a better candidate and one didn't exist
         if (potentialSeriesCoverPath && !series.coverPath) {
-          updateData = {
-            ...updateData,
-            coverPath: potentialSeriesCoverPath
-          };
+          updateData.coverPath = potentialSeriesCoverPath;
         }
+
         await fastify.prisma.series.update({
           where: { id: series.id },
           data: updateData

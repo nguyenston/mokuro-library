@@ -45,6 +45,7 @@ interface MokuroSeriesMetadata {
   version: string;
   series: {
     title: string | null;
+    description: string | null;
     originalFolderName: string;
   };
   volumes: {
@@ -199,6 +200,7 @@ const generateSeriesMetadata = (
     version: "0.2.0",
     series: {
       title: series.title,
+      description: series.description,
       originalFolderName: series.folderName
     },
     volumes: volumeMap
