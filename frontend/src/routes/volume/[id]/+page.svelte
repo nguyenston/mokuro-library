@@ -19,6 +19,7 @@
 	import DoublePageReader from '$lib/components/readers/DoublePageReader.svelte';
 	import VerticalReader from '$lib/components/readers/VerticalReader.svelte';
 	import type { PanzoomObject } from '@panzoom/panzoom';
+	import LineOrderModal from '$lib/components/LineOrderModal.svelte';
 
 	// --- Props ---
 	let { params } = $props<{ params: { id: string } }>();
@@ -564,5 +565,6 @@
 			{showTriggerOutline}
 			onToggleTriggerOutline={() => (showTriggerOutline = !showTriggerOutline)}
 		/>
+		<LineOrderModal />
 	{/if}
 </div>
