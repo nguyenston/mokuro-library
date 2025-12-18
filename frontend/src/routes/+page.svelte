@@ -166,7 +166,7 @@
 				</div>
 
 				<!-- Actions Group -->
-				<div class="flex items-center gap-3 w-full md:w-auto">
+				<div class="flex items-center justify-end gap-3 w-full md:w-auto">
 					<!-- Download All -->
 					<button
 						onclick={openDownloadMenu}
@@ -215,7 +215,7 @@
 					<!-- Logout -->
 					<button
 						onclick={handleLogout}
-						class="ml-2 p-2 text-gray-500 hover:text-red-400 hover:bg-red-500/10 rounded-md transition-colors"
+						class="p-2 text-gray-500 hover:text-red-400 hover:bg-red-500/10 rounded-md transition-colors"
 						title="Log Out"
 					>
 						<svg

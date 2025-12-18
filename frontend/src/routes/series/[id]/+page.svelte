@@ -460,7 +460,7 @@
 					</div>
 
 					<!-- Stats Grid -->
-					<div class="mt-auto pt-8 grid grid-cols-2 md:grid-cols-4 gap-4">
+					<div class="mt-auto pt-8 grid grid-cols-2 lg:grid-cols-4 gap-4">
 						<!-- Stat Card: Volumes -->
 						<div class="bg-[#161b2e] p-4 rounded-lg border border-gray-800 flex items-center gap-3">
 							<div class="p-2 bg-blue-500/10 rounded-md text-blue-400">
@@ -572,18 +572,18 @@
 
 			<!-- CONTROL BAR -->
 			<div
-				class="flex flex-col sm:flex-row items-end sm:items-center justify-between mb-6 border-b border-gray-800 pb-4 gap-4"
+				class="flex flex-col sm:flex-row items-start justify-between mb-6 border-b border-gray-800 pb-4 gap-4"
 			>
 				<!-- Bar Title -->
 				<h2 class="text-xl font-bold text-white">Volumes</h2>
 
-				<div class="flex items-center gap-3">
+				<div class="flex flex-row items-center gap-2 w-full sm:w-auto">
 					<!-- Pagination -->
 					<div
 						class="h-9 flex items-center bg-[#161b2e] rounded-md border border-gray-700 overflow-hidden"
 					>
 						<button
-							class="h-full px-3 hover:bg-gray-700 disabled:opacity-50 flex items-center"
+							class="h-full px-1 hover:bg-gray-700 disabled:opacity-50 flex items-center"
 							disabled={currentPage === 1}
 							onclick={() => currentPage--}
 						>
@@ -595,7 +595,7 @@
 							{currentPage} / {totalPages}
 						</span>
 						<button
-							class="h-full px-3 hover:bg-gray-700 disabled:opacity-50 flex items-center"
+							class="h-full px-1 hover:bg-gray-700 disabled:opacity-50 flex items-center"
 							disabled={currentPage === totalPages}
 							onclick={() => currentPage++}
 						>
@@ -604,10 +604,10 @@
 					</div>
 
 					<!-- Sort Dropdown -->
-					<div class="relative h-9">
+					<div class="relative h-9 flex-1 sm:max-w-60">
 						<select
 							bind:value={sortMode}
-							class="h-full appearance-none bg-[#161b2e] border border-gray-700 text-gray-300 text-[14px] font-medium rounded-md pl-3 pr-8 focus:outline-none focus:ring-1 focus:ring-blue-500 flex items-center cursor-pointer hover:bg-gray-800 transition-colors"
+							class="h-full w-full appearance-none bg-[#161b2e] border border-gray-700 text-gray-300 text-[12px] sm:text-[14px] font-medium rounded-md pl-3 pr-8 focus:outline-none focus:ring-1 focus:ring-blue-500 flex items-center cursor-pointer hover:bg-gray-800 transition-colors"
 						>
 							<option value="title_asc">Title (Asc)</option>
 							<option value="title_desc">Title (Desc)</option>
@@ -765,7 +765,7 @@
 
 								<!-- Overlay Actions (Hover) -->
 								<div
-									class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-between p-2 pointer-events-none"
+									class="absolute inset-0 hover-hover:bg-black/40 opacity-100 hover-hover:opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-between p-2 pointer-events-none"
 								>
 									<div class="flex justify-end gap-1">
 										<!-- Download Btn -->
@@ -868,7 +868,7 @@
 									<!-- Rename Icon -->
 									<button
 										onclick={(e) => openRenameVolume(e, volume)}
-										class="pointer-events-auto opacity-0 group-hover:opacity-100 text-gray-500 hover:text-white z-10 relative"
+										class="pointer-events-auto opacity-100 hover-hover:opacity-0 group-hover:opacity-100 text-gray-500 hover:text-white z-10 relative"
 										title="Rename"
 									>
 										<svg

@@ -70,7 +70,7 @@
 
 <!-- // Container: Dark Navy Surface -->
 <div
-	class="flex flex-col gap-4 sm:flex-row sm:items-center bg-[#161b2e] p-1 rounded-xl border border-gray-800 shadow-xl mb-8"
+	class="flex flex-col gap-4 md:flex-row md:items-center bg-[#161b2e] p-1 rounded-xl border border-gray-800 shadow-xl mb-8"
 >
 	<!-- // Search Input -->
 	<div class="relative flex-1 group">
@@ -96,10 +96,12 @@
 		/>
 	</div>
 
-	<div class="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+	<div class="flex flex-row items-center justify-center gap-1 sm:gap-4">
 		<!-- // Sort Controls -->
 		<div class="flex items-center gap-3">
-			<span class="text-xs uppercase tracking-wider font-bold text-gray-500">Sort</span>
+			<span class="hidden sm:inline text-xs uppercase tracking-wider font-bold text-gray-500">
+				Sort
+			</span>
 			<div class="flex rounded-lg shadow-sm bg-[#0a0e17] border border-gray-800 p-1">
 				{#each ['title', 'created', 'updated', 'recent'] as sortKey}
 					<button
