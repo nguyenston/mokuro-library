@@ -3,9 +3,17 @@
 	import '../app.css';
 
 	import { onMount } from 'svelte';
-	import { checkAuth } from '$lib/authStore';
+	import { invalidateAll } from '$app/navigation';
+	import { checkAuth, user } from '$lib/authStore';
+	import { uiState } from '$lib/states/uiState.svelte';
+
+	// Components
+	import Header from '$lib/components/Header.svelte';
 	import ContextMenu from '$lib/components/ContextMenu.svelte';
 	import ConfirmationModal from '$lib/components/ConfirmationModal.svelte';
+	import UploadModal from '$lib/components/UploadModal.svelte';
+	import StatisticsModal from '$lib/components/StatisticsModal.svelte';
+	import AboutModal from '$lib/components/AboutModal.svelte';
 
 	let { children } = $props();
 
@@ -16,8 +24,34 @@
 
 <svelte:head>
 	<link rel="icon" href={favicon} />
+	<meta name="theme-color" content="#1e293b" />
 </svelte:head>
 
-{@render children()}
-<ContextMenu />
-<ConfirmationModal />
+<div
+	class="min-h-screen bg-theme-main text-theme-primary font-sans selection:bg-accent/30 selection:text-white"
+>
+	{#if $user && uiState.context !== 'reader'}
+		<Header />
+	{/if}
+
+	<main class="relative">
+		{@render children()}
+	</main>
+
+	{#if $user}
+		<UploadModal
+			isOpen={uiState.isUploadOpen}
+			onClose={() => (uiState.isUploadOpen = false)}
+			onUploadSuccess={() => {
+				invalidateAll();
+			}}
+		/>
+
+		<StatisticsModal isOpen={uiState.isStatsOpen} onClose={() => (uiState.isStatsOpen = false)} />
+
+		<AboutModal isOpen={uiState.isAboutOpen} onClose={() => (uiState.isAboutOpen = false)} />
+	{/if}
+
+	<ContextMenu />
+	<ConfirmationModal />
+</div>

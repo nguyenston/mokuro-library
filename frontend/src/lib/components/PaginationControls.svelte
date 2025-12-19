@@ -50,7 +50,7 @@
 
 {#if meta.total > 0}
 	<div
-		class="flex flex-col sm:flex-row items-center justify-between border-t border-gray-200 bg-white px-4 py-3 dark:border-gray-700 dark:bg-gray-900 sm:px-6 mt-8 rounded-lg gap-4"
+		class="flex flex-col sm:flex-row items-center justify-between border-t border-gray-200 bg-white px-4 py-3 dark:border-gray-700 dark:bg-gray-900 sm:px-6 rounded-lg gap-4"
 	>
 		<div class="text-sm text-gray-700 dark:text-gray-400 text-center sm:text-left">
 			Showing

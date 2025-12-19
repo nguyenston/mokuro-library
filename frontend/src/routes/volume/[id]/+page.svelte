@@ -12,6 +12,7 @@
 	// Types & State
 	import type { VolumeResponse, MokuroBlock, MokuroPage } from '$lib/types';
 	import { ReaderState } from '$lib/states/ReaderState.svelte';
+	import { uiState } from '$lib/states/uiState.svelte';
 
 	// Components
 	import ReaderSettings from '$lib/components/ReaderSettings.svelte';
@@ -310,6 +311,11 @@
 				mq.removeEventListener('change', listener);
 			};
 		}
+	});
+
+	// Setting context to 'reader' hides the Global Header via +layout.svelte
+	onMount(() => {
+		uiState.setContext('reader', 'Reader', []);
 	});
 </script>
 

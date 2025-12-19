@@ -1,3 +1,37 @@
+@import 'tailwindcss';
+
+@plugin "@tailwindcss/forms";
+
+@theme {
+  /* --- Theming Variables (Matches JSX Template) --- */
+  
+  /* Background Colors */
+  --color-theme-main: #0f172a;       /* Slate 900 */
+  --color-theme-surface: #1e293b;    /* Slate 800 */
+  --color-theme-surface-hover: #334155; /* Slate 700 */
+  
+  /* Border Colors */
+  --color-theme-border: #1e293b;     /* Slate 800 */
+  --color-theme-border-light: #334155; /* Slate 700 */
+  --color-theme-border-active: #6366f1; /* Indigo 500 */
+  
+  /* Text Colors */
+  --color-theme-primary: #f1f5f9;    /* Slate 100 */
+  --color-theme-secondary: #94a3b8;  /* Slate 400 */
+  --color-theme-tertiary: #64748b;   /* Slate 500 */
+  
+  /* Accent Colors (Indigo) */
+  --color-accent: #6366f1;           /* Indigo 500 */
+  --color-accent-hover: #4f46e5;     /* Indigo 600 */
+  --color-progress: #3b82f6;         /* Blue 500 */
+  
+  /* Status Colors */
+  --color-status-success: #10b981;   /* Emerald 500 */
+  --color-status-warning: #f59e0b;   /* Amber 500 */
+  --color-status-danger: #ef4444;    /* Red 500 */
+}
+
+/* --- Font Faces --- */
 @font-face {
   font-family: 'Noto Sans JP';
   font-style: normal;
@@ -13,6 +47,7 @@
   font-display: swap;
   src: url('/fonts/noto-sans-jp-v55-japanese_latin-500.woff2') format('woff2');
 }
+
 @font-face {
   font-family: 'Noto Sans JP';
   font-style: normal;
@@ -20,6 +55,7 @@
   font-display: swap;
   src: url('/fonts/noto-sans-jp-v55-japanese_latin-600.woff2') format('woff2');
 }
+
 @font-face {
   font-family: 'Noto Serif JP';
   font-style: normal;
@@ -27,6 +63,7 @@
   font-display: swap;
   src: url('/fonts/noto-serif-jp-v32-japanese_latin-400.woff2') format('woff2');
 }
+
 @font-face {
   font-family: 'Noto Serif JP';
   font-style: normal;
@@ -51,9 +88,25 @@
   src: url('/fonts/SourceHanSerif-VF.otf.woff2') format('woff2');
 }
 
+/* --- Global Styles --- */
+body {
+  background-color: var(--color-theme-main);
+  color: var(--color-theme-primary);
+  font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+}
 
-@import 'tailwindcss';
-@variant hover-none (@media (hover: none));
-@variant hover-hover (@media (hover: hover));
-
-@plugin "@tailwindcss/forms";
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-theme-main); 
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-theme-border-light); 
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-theme-tertiary); 
+}
