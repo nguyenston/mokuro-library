@@ -583,6 +583,7 @@
 											openGridVolumeMenu(e, vol);
 										}}
 										class="pointer-events-auto -mt-1 -mr-1 p-2 text-theme-secondary hover:text-accent active:bg-theme-main rounded-full transition-colors"
+										title="openGridVolumeMenu"
 									>
 										<svg
 											xmlns="http://www.w3.org/2000/svg"
@@ -619,6 +620,7 @@
 											toggleComplete(vol.id);
 										}}
 										class={`pointer-events-auto p-1.5 rounded-md transition-all ${stats.isRead ? 'text-status-success' : 'text-theme-tertiary hover:text-white'}`}
+										title="ToggleComplete"
 									>
 										<svg
 											xmlns="http://www.w3.org/2000/svg"
@@ -652,33 +654,25 @@
             ${
 							isSelected
 								? 'border-accent ring-1 ring-accent shadow-[0_0_20px_rgba(99,102,241,0.4)] z-30'
-								: 'border-theme-border z-20'
+								: 'border-theme-border z-10'
 						} 
-            ${isDimmed ? 'opacity-40 grayscale-[0.3]' : 'opacity-100'}`}
+            ${isDimmed ? 'opacity-40 grayscale-[0.4]' : 'opacity-100'}`}
 					>
 						<a
 							href={`/volume/${vol.id}`}
 							onclick={(e) => handleVolumeClick(e, vol.id)}
-							class="absolute inset-0 z-10 block"
-							title={vol.sortTitle}
-						>
-							<span class="sr-only">View {vol.title || vol.folderName}</span>
-						</a>
+							class="absolute inset-0 z-0 block"
+							aria-label={`View ${vol.title}`}
+						></a>
 
 						<div
-							class="relative h-full aspect-[7/11] bg-theme-main flex-shrink-0 pointer-events-none border-r border-theme-border overflow-hidden"
+							class="relative h-full aspect-[7/11] bg-theme-main flex-shrink-0 pointer-events-none border-r border-theme-border overflow-hidden z-10"
 						>
 							{#if vol.coverImageName}
 								<img
 									src={`/api/files/volume/${vol.id}/image/${vol.coverImageName}`}
 									alt=""
-									class="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110"
-								/>
-							{:else if series.coverPath}
-								<img
-									src={`/api/files/series/${series.id}/cover?t=${coverRefreshTrigger}`}
-									alt=""
-									class="h-full w-full object-cover opacity-80"
+									class="h-full w-full object-cover transition-transform duration-700 md:group-hover:scale-110"
 								/>
 							{:else}
 								<div
@@ -687,13 +681,12 @@
 									#
 								</div>
 							{/if}
-
 							<div
-								class="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent opacity-70"
+								class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-60"
 							></div>
 						</div>
 
-						<div class="flex-grow min-w-0 pointer-events-none py-4 px-6">
+						<div class="flex-grow min-w-0 py-4 px-6 pointer-events-none z-10">
 							<div class="flex items-center gap-3">
 								<div
 									class="text-lg font-bold text-theme-primary truncate group-hover:text-accent transition-colors"
@@ -706,7 +699,7 @@
 										e.stopPropagation();
 										openRenameVolume(e, vol);
 									}}
-									class="pointer-events-auto text-theme-secondary hover:text-white opacity-0 group-hover:opacity-100 transition-opacity"
+									class="pointer-events-auto relative z-20 text-theme-secondary hover:text-white opacity-0 group-hover:opacity-100 transition-opacity"
 									title="Rename"
 								>
 									<svg
@@ -723,10 +716,14 @@
 									>
 								</button>
 							</div>
-							<div class="text-sm text-theme-secondary flex gap-4 items-center mt-1">
-								<span class="font-medium">{vol.pageCount} Pages</span>
+							<div class="text-sm flex gap-4 items-center mt-1">
+								<span
+									class={`font-bold transition-colors ${stats.isRead ? 'text-status-success' : 'text-theme-secondary'}`}
+								>
+									{vol.pageCount} Pages
+								</span>
 								{#if vol.progress[0]?.timeRead}
-									<span class="text-theme-tertiary"
+									<span class="text-theme-tertiary font-medium"
 										>• {formatTime(vol.progress[0].timeRead)} read</span
 									>
 								{/if}
@@ -734,7 +731,7 @@
 						</div>
 
 						<div
-							class="flex items-center gap-5 pr-6 pl-6 border-l border-theme-border-light pointer-events-none h-12"
+							class="flex items-center gap-5 pr-6 pl-6 border-l border-theme-border-light h-12 relative z-20"
 						>
 							<button
 								onclick={(e) => {
@@ -764,7 +761,7 @@
 									e.stopPropagation();
 									openDownloadMenu(e, vol.id, 'volume');
 								}}
-								class="pointer-events-auto text-theme-secondary hover:text-white"
+								class="pointer-events-auto text-theme-secondary hover:text-white transition-colors"
 								title="Download"
 							>
 								<svg
@@ -789,7 +786,7 @@
 									e.stopPropagation();
 									handleDeleteVolume(vol.id, vol.title || vol.folderName);
 								}}
-								class="pointer-events-auto text-theme-secondary hover:text-status-danger"
+								class="pointer-events-auto text-theme-secondary hover:text-status-danger transition-colors"
 								title="Delete"
 							>
 								<svg
@@ -810,11 +807,13 @@
 						</div>
 
 						{#if stats.percent > 0 || stats.isRead}
-							<div
-								class="absolute bottom-0 left-[81.5px] right-0 h-1.5 bg-theme-main/50 pointer-events-none"
-							>
+							<div class="absolute bottom-0 left-[81.5px] right-0 h-1.5 bg-black/40 z-10">
 								<div
-									class={`h-full transition-all duration-700 ease-out ${stats.isRead ? 'bg-status-success shadow-[0_0_10px_var(--color-status-success)]' : 'bg-progress shadow-[0_0_10px_var(--color-progress)]'} opacity-80`}
+									class={`absolute inset-0 blur-[4px] brightness-150 opacity-80 transition-all duration-700 ${stats.isRead ? 'bg-status-success' : 'bg-progress'}`}
+									style={`width: ${stats.isRead ? 100 : stats.percent}%`}
+								></div>
+								<div
+									class={`absolute inset-0 transition-all duration-700 ${stats.isRead ? 'bg-status-success' : 'bg-progress'}`}
 									style={`width: ${stats.isRead ? 100 : stats.percent}%`}
 								></div>
 							</div>
