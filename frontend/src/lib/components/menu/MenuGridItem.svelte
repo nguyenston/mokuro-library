@@ -16,12 +16,12 @@
 
 	// Map variants to specific color styles for the icon circle
 	const styles = {
-		default: 'bg-theme-surface-hover text-theme-secondary',
-		primary: 'bg-accent/10 text-accent',
-		success: 'bg-status-success/10 text-status-success',
-		warning: 'bg-status-warning/10 text-status-warning',
-		stats: 'bg-icon-stats/10 text-icon-stats',
-		appearance: 'bg-icon-appearance/10 text-icon-appearance'
+		default: 'bg-theme-surface-hover/80 text-theme-primary',
+		primary: 'bg-accent/40 text-accent border-2 border-accent/50',
+		success: 'bg-status-success/35 text-status-success border-2 border-status-success/50',
+		warning: 'bg-status-warning/35 text-status-warning border-2 border-status-warning/50',
+		stats: 'bg-icon-stats/40 text-icon-stats border-2 border-icon-stats/50',
+		appearance: 'bg-icon-appearance/40 text-icon-appearance border-2 border-icon-appearance/50'
 	};
 	const usedStyle =
 		styles[variant as 'default' | 'primary' | 'success' | 'warning' | 'stats' | 'appearance'];
@@ -34,9 +34,9 @@
 
 <button
 	onclick={handleClick}
-	class="flex flex-col items-center justify-center p-3 rounded-xl bg-theme-surface-hover/30 hover:bg-theme-surface-hover border border-transparent hover:border-theme-border-light transition-all group"
+	class="flex flex-col items-center justify-center p-3 rounded-xl bg-theme-surface-hover/50 hover:bg-theme-surface-hover/80 border-2 border-theme-border hover:border-theme-border transition-all group"
 >
-	<div class={`p-2.5 rounded-full mb-2 transition-transform group-hover:scale-110 ${usedStyle}`}>
+	<div class={`p-2.5 rounded-full mb-2 transition-transform group-hover:scale-110 shadow-lg ${usedStyle}`}>
 		{@render icon()}
 	</div>
 	<span class="text-xs font-bold text-theme-primary">{label}</span>

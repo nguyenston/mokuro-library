@@ -4,10 +4,11 @@
 	import { onMount } from 'svelte';
 	import { browser } from '$app/environment';
 	import { page } from '$app/stores';
-	import { apiFetch } from '$lib/api';
+	import { apiFetch, clearApiCache } from '$lib/api';
 	import { confirmation } from '$lib/confirmationStore';
 	import { uiState } from '$lib/states/uiState.svelte';
 	import { contextMenu } from '$lib/contextMenuStore';
+	import { persistentImageCache } from '$lib/persistentImageCache';
 	import PaginationControls from '$lib/components/PaginationControls.svelte';
 	import LibraryEntry from '$lib/components/LibraryEntry.svelte';
 
@@ -43,11 +44,22 @@
 	let libraryError = $state<string | null>(null);
 
 	// --- Helper: Calculate Series Progress ---
-	const getSeriesProgress = (series: Series) => {
+	// Memoized progress calculation using $derived for performance
+	const seriesProgressCache = new Map<string, number>();
+	
+	const getSeriesProgress = (series: Series): number => {
+		// Check cache first
+		if (seriesProgressCache.has(series.id)) {
+			return seriesProgressCache.get(series.id)!;
+		}
+
 		let totalPages = 0;
 		let readPages = 0;
 
-		if (!series.volumes || series.volumes.length === 0) return 0;
+		if (!series.volumes || series.volumes.length === 0) {
+			seriesProgressCache.set(series.id, 0);
+			return 0;
+		}
 
 		for (const vol of series.volumes) {
 			const pCount = vol.pageCount || 0;
@@ -63,9 +75,38 @@
 			}
 		}
 
-		if (totalPages === 0) return 0;
-		return Math.min(100, Math.max(0, (readPages / totalPages) * 100));
+		const result = totalPages === 0 ? 0 : Math.min(100, Math.max(0, (readPages / totalPages) * 100));
+		seriesProgressCache.set(series.id, result);
+		return result;
 	};
+
+	// Clear progress cache when library changes
+	$effect(() => {
+		// Clear cache entries that are no longer in library
+		const currentIds = new Set(library.map(s => s.id));
+		for (const [id] of seriesProgressCache) {
+			if (!currentIds.has(id)) {
+				seriesProgressCache.delete(id);
+			}
+		}
+	});
+
+	// Preload cover images for current page (runs in background)
+	$effect(() => {
+		if (library.length > 0 && browser) {
+			// Get all cover URLs from current page
+			const coverUrls = library
+				.filter(s => s.coverPath)
+				.map(s => `/api/files/series/${s.id}/cover`);
+
+			// Preload them in the background (non-blocking)
+			if (coverUrls.length > 0) {
+				persistentImageCache.preload(coverUrls).catch((err) => {
+					console.warn('Failed to preload covers:', err);
+				});
+			}
+		}
+	});
 
 	// --- Initialization & URL Hydration ---
 
@@ -76,9 +117,7 @@
 			{ key: 'updated', label: 'Last Updated' },
 			{ key: 'lastRead', label: 'Recent' }
 		]);
-	});
 
-	onMount(() => {
 		// Hydrate State from URL
 		if (browser) {
 			const params = $page.url.searchParams;
@@ -169,15 +208,19 @@
 		}
 	});
 
-	const fetchLibrary = async (queryString: string, silent = false) => {
+	const fetchLibrary = async (queryString: string, silent = false): Promise<void> => {
 		try {
 			if (!silent) isLoadingLibrary = true;
 			libraryError = null;
 
 			// Backend expects: /api/library?page=1&limit=24&q=...&sort=title&order=asc
-			const response = await apiFetch(`/api/library${queryString}`);
-			library = response.data as Series[];
-			meta = response.meta;
+			// Enable caching for library requests (30 second TTL)
+			const response = await apiFetch(`/api/library${queryString}`, { 
+				cache: true, 
+				cacheTTL: 30000 
+			});
+			library = (response as { data?: Series[]; meta?: typeof meta }).data as Series[] || [];
+			meta = (response as { data?: Series[]; meta?: typeof meta }).meta || meta;
 		} catch (e) {
 			libraryError = (e as Error).message;
 		} finally {
@@ -200,6 +243,8 @@
 			async () => {
 				try {
 					await apiFetch(`/api/library/series/${seriesId}`, { method: 'DELETE' });
+					// Clear cache after deletion
+					clearApiCache();
 					const params = new URLSearchParams($page.url.searchParams);
 					fetchLibrary(`?${params.toString()}`, true);
 				} catch (e) {
@@ -218,72 +263,85 @@
 	};
 </script>
 
-<div class="flex flex-col min-h-[calc(100vh-5rem)] max-w-7xl mx-auto p-4 sm:p-6">
+<div class="flex flex-col min-h-[calc(100vh-5rem)] mx-auto px-4 sm:px-6 pt-1 sm:pt-2 pb-6" style="max-width: 1400px;">
 	{#if isLoadingLibrary && library.length === 0}
-		<div class="flex-grow flex items-center justify-center text-theme-secondary">
-			<svg
-				class="animate-spin -ml-1 mr-3 h-8 w-8 text-accent"
-				xmlns="http://www.w3.org/2000/svg"
-				fill="none"
-				viewBox="0 0 24 24"
-			>
-				<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"
-				></circle>
-				<path
-					class="opacity-75"
-					fill="currentColor"
-					d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-				></path>
-			</svg>
-			Loading library...
+		<div class="flex-grow flex items-center justify-center">
+			<div class="rounded-3xl bg-black/20 backdrop-blur-3xl border border-white/10 shadow-[0_8px_32px_0_rgba(0,0,0,0.5)] p-8 flex items-center gap-4">
+				<svg
+					class="animate-spin h-8 w-8 text-accent"
+					xmlns="http://www.w3.org/2000/svg"
+					fill="none"
+					viewBox="0 0 24 24"
+				>
+					<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"
+					></circle>
+					<path
+						class="opacity-75"
+						fill="currentColor"
+						d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+					></path>
+				</svg>
+				<span class="text-theme-secondary">Loading library...</span>
+			</div>
 		</div>
 	{:else if libraryError}
-		<div class="flex-grow p-4">
+		<div class="flex-grow flex items-center justify-center p-4">
 			<div
-				class="p-4 rounded-md bg-status-danger/10 border border-status-danger/20 text-status-danger"
+				class="rounded-2xl bg-black/30 backdrop-blur-2xl p-6 border border-status-danger/20 text-status-danger shadow-[0_4px_16px_0_rgba(0,0,0,0.3)]"
 			>
 				Error loading library: {libraryError}
 			</div>
 		</div>
 	{:else if library.length === 0}
 		<div class="flex-grow flex flex-col items-center justify-center py-20 text-center">
-			<div class="bg-theme-surface p-6 rounded-full mb-4 shadow-lg shadow-black/20">
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					width="48"
-					height="48"
-					viewBox="0 0 24 24"
-					fill="none"
-					stroke="currentColor"
-					stroke-width="1"
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					class="text-theme-tertiary"
+			<div class="rounded-3xl bg-black/20 backdrop-blur-3xl border border-white/10 shadow-[0_8px_32px_0_rgba(0,0,0,0.5)] p-8 sm:p-12 max-w-md">
+				<div class="bg-black/30 backdrop-blur-2xl p-6 rounded-full mb-6 border border-white/5 inline-block">
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						width="48"
+						height="48"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="1"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						class="text-theme-tertiary"
+					>
+						<path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20" />
+					</svg>
+				</div>
+				<p class="text-xl font-medium text-white mb-2">Your library is empty</p>
+				<p class="text-theme-secondary max-w-sm mb-6">
+					Upload some Mokuro-processed manga volumes to get started building your collection.
+				</p>
+				<button
+					onclick={() => (uiState.isUploadOpen = true)}
+					class="px-6 py-3 rounded-xl bg-accent hover:bg-accent-hover text-white font-medium transition-colors shadow-lg shadow-indigo-900/20"
 				>
-					<path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20" />
-				</svg>
+					Upload Now &rarr;
+				</button>
 			</div>
-			<p class="text-xl font-medium text-theme-primary">Your library is empty</p>
-			<p class="mt-2 text-theme-secondary max-w-sm">
-				Upload some Mokuro-processed manga volumes to get started building your collection.
-			</p>
-			<button
-				onclick={() => (uiState.isUploadOpen = true)}
-				class="mt-6 text-accent hover:text-accent-hover font-medium hover:underline transition-colors"
-			>
-				Upload Now &rarr;
-			</button>
 		</div>
 	{:else}
-		<div class="flex-grow pb-24">
-			<div
-				class={uiState.viewMode === 'grid'
+		<div class="flex-grow pb-24 relative">
+			<!-- Glassmorphic container wrapper with fade on background only -->
+			<div class="relative p-3 sm:p-4">
+				<!-- Background layer with fade mask - only fades the background, not content -->
+				<div 
+					class="absolute inset-0 bg-black/20 backdrop-blur-3xl pointer-events-none z-0"
+					style="mask-image: linear-gradient(to right, transparent 0%, black 15%, black 85%, transparent 100%), linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%); mask-composite: intersect; -webkit-mask-image: linear-gradient(to right, transparent 0%, black 15%, black 85%, transparent 100%), linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%); -webkit-mask-composite: source-in;"
+				></div>
+				
+				<!-- Content layer (series cards) - fully visible, not affected by fade -->
+				<div class="relative z-10 {uiState.viewMode === 'grid'
 					? 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6'
-					: 'flex flex-col gap-3'}
-			>
-				{#each library as series (series.id)}
+					: 'flex flex-col gap-3'}"
+				>
+				{#each library as series, index (series.id)}
 					{@const percent = getSeriesProgress(series)}
 					{@const isSelected = uiState.selectedIds.has(series.id)}
+					{@const isAboveFold = index < (uiState.viewMode === 'grid' ? 12 : 6)}
 
 					<LibraryEntry
 						entry={{
@@ -296,6 +354,7 @@
 						viewMode={uiState.viewMode}
 						{isSelected}
 						isSelectionMode={uiState.isSelectionMode}
+						{isAboveFold}
 						progress={{
 							percent: percent,
 							isRead: percent === 100,
@@ -371,11 +430,12 @@
 						{/snippet}
 					</LibraryEntry>
 				{/each}
+				</div>
 			</div>
 		</div>
 
 		<div class="fixed bottom-0 left-0 right-0 bg-transparent p-6 z-40">
-			<div class="max-w-7xl mx-auto flex justify-center">
+			<div class="mx-auto flex justify-center" style="max-width: 1400px;">
 				<PaginationControls {meta} />
 			</div>
 		</div>

@@ -1,16 +1,23 @@
 import { browser } from '$app/environment';
 
-// This map stores the *promises* of the blob URLs.
-// This is the key to deduplicating requests.
+/**
+ * Map of image source URLs to their fetch promises.
+ * Ensures only one fetch request is made per unique image URL.
+ */
 const imagePromiseCache = new Map<string, Promise<string>>();
 
-// This set tracks the blob URLs we've created so we can clean them up.
+/**
+ * Set of created blob URLs for cleanup tracking.
+ * Allows proper memory management by revoking blob URLs when no longer needed.
+ */
 const createdBlobUrls = new Set<string>();
 
 /**
- * Fetches an image, caches it in memory, and returns a blob URL.
- * This does not use the persistent 'Cache' API, so it works
- * on insecure (http://) mobile connections.
+ * Fetches an image from the network, creates a blob URL, and caches it.
+ * Works on insecure (http://) connections unlike the persistent Cache API.
+ * @param src - The image source URL to fetch
+ * @returns Promise resolving to a blob URL
+ * @throws Error if the fetch fails
  */
 async function fetchAndCreateBlob(src: string): Promise<string> {
   if (!browser) return '';
@@ -31,9 +38,16 @@ async function fetchAndCreateBlob(src: string): Promise<string> {
   }
 }
 
+/**
+ * Image store for managing cached blob URLs.
+ * Provides deduplication and memory management for image loading.
+ */
 export const imageStore = {
   /**
-   * Gets an image blob URL from the session cache or network.
+   * Gets an image blob URL from cache or fetches it from the network.
+   * Multiple simultaneous requests for the same image will share a single fetch.
+   * @param src - The image source URL
+   * @returns Promise resolving to a blob URL that can be used in img src attributes
    */
   get: (src: string): Promise<string> => {
     // 1. Check if a promise for this src already exists.
@@ -41,7 +55,11 @@ export const imageStore = {
 
     // 2. If it doesn't, create one.
     if (!request) {
-      request = fetchAndCreateBlob(src);
+      request = fetchAndCreateBlob(src).catch((error) => {
+        // Remove failed promise from cache so we can retry
+        imagePromiseCache.delete(src);
+        throw error;
+      });
       // Store the *promise* (not the result) in the map.
       imagePromiseCache.set(src, request);
     }
@@ -52,8 +70,8 @@ export const imageStore = {
   },
 
   /**
-   * Clears the session cache and revokes all blob URLs.
-   * This is called on navigation to prevent memory leaks.
+   * Clears all cached images and revokes blob URLs to prevent memory leaks.
+   * Should be called when navigating away from pages that loaded images.
    */
   clear: () => {
     console.log('Clearing image store, revoking URLs...');

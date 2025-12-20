@@ -1,6 +1,11 @@
 import { type PanzoomObject } from '@panzoom/panzoom';
 import type { MokuroBlock, MokuroPage } from '$lib/types';
 
+/**
+ * OCR state management class using Svelte 5 reactive state.
+ * Manages OCR overlay display, editing modes, and page-level OCR data.
+ * Coordinates with panzoom for proper scaling and positioning.
+ */
 export class OcrState {
   // --- Raw State ---
   page = $state<MokuroPage | null>(null);
@@ -49,14 +54,25 @@ export class OcrState {
 
   // --- Actions ---
 
+  /**
+   * Marks OCR data as modified, triggering the onChange callback
+   */
   markDirty() {
     this.onOcrChange();
   }
 
+  /**
+   * Sets the OCR mode and triggers the mode change callback
+   * @param mode - The OCR mode to set
+   */
   setMode(mode: 'READ' | 'BOX' | 'TEXT') {
     this.onChangeMode(mode);
   }
 
+  /**
+   * Sets the currently focused OCR block
+   * @param block - The block to focus, or null to clear focus
+   */
   setFocus(block: MokuroBlock | null) {
     this.focusedBlock = block;
     this.onLineFocus(block, this.page);

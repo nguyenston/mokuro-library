@@ -6,12 +6,12 @@
 </script>
 
 <MenuWrapper
-	className="w-80 !bg-theme-surface/70 backdrop-blur-xl !border-theme-border/20 shadow-2xl ring-1 ring-inset ring-white/10 shadow-[inset_0_1px_1px_0_rgba(255,255,255,0.3)]"
+	className="w-80 !bg-theme-surface !border-theme-border shadow-2xl"
 >
 	<MenuGroup title="Layout Style">
 		<div class="px-5">
 			<div
-				class="relative flex bg-theme-main/50 p-1.5 rounded-2xl border border-theme-border-light overflow-hidden"
+				class="relative flex bg-theme-main/70 p-1.5 rounded-2xl border-2 border-theme-border overflow-hidden shadow-inner"
 			>
 				<div
 					class="absolute top-1.5 bottom-1.5 left-1.5 w-[calc(50%-6px)] bg-accent rounded-xl shadow-lg shadow-accent/20 transition-transform duration-100 ease-out"
@@ -22,7 +22,7 @@
 					onclick={() => uiState.setViewMode('grid')}
 					class="relative z-10 flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-xs font-bold transition-colors duration-200"
 					class:text-white={uiState.viewMode === 'grid'}
-					class:text-theme-secondary={uiState.viewMode !== 'grid'}
+					class:text-theme-primary={uiState.viewMode !== 'grid'}
 				>
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
@@ -34,6 +34,7 @@
 						stroke-width="2.5"
 						stroke-linecap="round"
 						stroke-linejoin="round"
+						class={uiState.viewMode === 'grid' ? 'drop-shadow-sm' : ''}
 					>
 						<rect width="7" height="7" x="3" y="3" rx="1" /><rect
 							width="7"
@@ -57,7 +58,7 @@
 					onclick={() => uiState.setViewMode('list')}
 					class="relative z-10 flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-xs font-bold transition-colors duration-200"
 					class:text-white={uiState.viewMode === 'list'}
-					class:text-theme-secondary={uiState.viewMode !== 'list'}
+					class:text-theme-primary={uiState.viewMode !== 'list'}
 				>
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
@@ -69,6 +70,7 @@
 						stroke-width="2.5"
 						stroke-linecap="round"
 						stroke-linejoin="round"
+						class={uiState.viewMode === 'list' ? 'drop-shadow-sm' : ''}
 					>
 						<line x1="8" x2="21" y1="6" y2="6" /><line x1="8" x2="21" y1="12" y2="12" /><line
 							x1="8"
@@ -90,7 +92,7 @@
 	</MenuGroup>
 
 	<MenuGroup title="Ordering">
-		<div class="space-y-1 px-2">
+		<div class="space-y-1.5 px-3">
 			{#each uiState.availableSorts as sort}
 				{@const isActive = uiState.sortKey === sort.key}
 				<button
@@ -101,8 +103,8 @@
 					class={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-sm font-bold transition-all duration-200
                     ${
 											isActive
-												? 'bg-accent/15 text-accent'
-												: 'text-theme-secondary hover:bg-theme-surface-hover hover:text-white'
+												? 'bg-accent/40 text-accent border-2 border-accent/60 shadow-lg shadow-accent/40'
+												: 'text-theme-primary hover:bg-theme-surface-hover/70 hover:text-white border-2 border-transparent'
 										}`}
 				>
 					<span class="capitalize">{sort.label}</span>
@@ -122,7 +124,7 @@
 								stroke-width="2.5"
 								stroke-linecap="round"
 								stroke-linejoin="round"
-								class={`transition-transform duration-200 ${uiState.sortOrder === 'desc' ? 'rotate-180' : ''}`}
+								class={`transition-transform duration-200 drop-shadow-sm ${uiState.sortOrder === 'desc' ? 'rotate-180' : ''}`}
 								><path d="M12 19V5" /><path d="m5 12 7-7 7 7" /></svg
 							>
 						</div>
@@ -136,22 +138,22 @@
 		{#each ['all', 'in_progress', 'unread', 'read'] as filter}
 			{@const isActive = uiState.filterStatus === filter}
 
-			{@const activeClass =
-				filter === 'unread'
-					? 'bg-status-unread/15 text-status-unread border-status-unread/50'
-					: filter === 'in_progress'
-						? 'bg-accent/15 text-accent border-accent/50'
-						: filter === 'read'
-							? 'bg-status-success/15 text-status-success border-status-success/50'
-							: 'bg-theme-primary/10 text-theme-primary border-theme-primary/30'}
+		{@const activeClass =
+			filter === 'unread'
+				? 'bg-status-unread/30 text-status-unread border-2 border-status-unread/70 shadow-lg shadow-status-unread/30'
+				: filter === 'in_progress'
+					? 'bg-accent/40 text-accent border-2 border-accent/70 shadow-lg shadow-accent/40'
+					: filter === 'read'
+						? 'bg-status-success/30 text-status-success border-2 border-status-success/70 shadow-lg shadow-status-success/30'
+						: 'bg-theme-primary/25 text-theme-primary border-2 border-theme-primary/50 shadow-lg shadow-theme-primary/20'}
 
 			<button
 				onclick={() => (uiState.filterStatus = filter as any)}
-				class={`flex flex-col items-center justify-center gap-2 p-3 rounded-xl border transition-all duration-200
+				class={`flex flex-col items-center justify-center gap-2 p-3 rounded-xl border-2 transition-all duration-200
                 ${
 									isActive
 										? activeClass
-										: 'bg-theme-surface-hover/30 border-transparent text-theme-secondary hover:bg-theme-surface-hover hover:text-white'
+										: 'bg-theme-surface-hover/50 border-theme-border text-theme-primary hover:bg-theme-surface-hover/80 hover:text-white'
 								}`}
 			>
 				{#if filter === 'all'}

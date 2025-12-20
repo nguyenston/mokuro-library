@@ -1,9 +1,25 @@
 import type { VolumeResponse, MokuroData, MokuroPage } from '$lib/types';
 
+/**
+ * Layout modes for the manga reader
+ */
 export type LayoutMode = 'single' | 'double' | 'vertical';
+
+/**
+ * Reading direction for manga pages
+ */
 export type ReadingDirection = 'ltr' | 'rtl';
+
+/**
+ * Page offset for double-page mode (determines if cover page is alone)
+ */
 export type PageOffset = 'even' | 'odd';
 
+/**
+ * Reader state management class using Svelte 5 reactive state.
+ * Handles volume data, page navigation, layout modes, and OCR settings.
+ * Provides derived state for visible pages and navigation controls.
+ */
 export class ReaderState {
   // --- Core State ---
   volume = $state<VolumeResponse | null>(null);
@@ -18,7 +34,12 @@ export class ReaderState {
 
   constructor() { }
 
-  load(volumeData: VolumeResponse, initialPage: number = 0) {
+  /**
+   * Loads volume data and initializes the reader state
+   * @param volumeData - The volume response data from the API
+   * @param initialPage - The page index to start at (0-based)
+   */
+  load(volumeData: VolumeResponse, initialPage: number = 0): void {
     this.volume = volumeData;
     this.currentPageIndex = initialPage;
   }
@@ -100,7 +121,32 @@ export class ReaderState {
 
   // --- Actions ---
 
-  nextPage() {
+  /**
+   * Calculate the next page index for double-page mode
+   */
+  private calculateNextPageIndex(currentIndex: number, hasOddOffset: boolean): number {
+    let jump = 2;
+    // If we're on the solo cover (index 0), the first jump is only 1
+    if (hasOddOffset && currentIndex === 0) {
+      jump = 1;
+    }
+    return Math.min(this.totalPages - 1, currentIndex + jump);
+  }
+
+  /**
+   * Calculate the previous page index for double-page mode
+   */
+  private calculatePrevPageIndex(currentIndex: number, hasOddOffset: boolean): number {
+    const pageIsEven = currentIndex % 2 === 0;
+    let jump = 2;
+    // Recover from the clamped state after nextPage
+    if (hasOddOffset === pageIsEven) {
+      jump = 1;
+    }
+    return Math.max(0, currentIndex - jump);
+  }
+
+  nextPage(): void {
     if (this.layoutMode === 'vertical') return; // disable for vertical
     if (!this.hasNext) return; // at the end
 
@@ -111,19 +157,10 @@ export class ReaderState {
 
     // Dual Page Logic
     const hasOddOffset = this.doublePageOffset === 'odd';
-    let jump = 2;
-
-    // If we're on the solo cover (index 0), the first jump is only 1
-    // Recovers from the clamped state after prevPage
-    if (hasOddOffset && this.currentPageIndex === 0) {
-      jump = 1;
-    }
-
-    // Clamps page index to max page index
-    this.currentPageIndex = Math.min(this.totalPages - 1, this.currentPageIndex + jump);
+    this.currentPageIndex = this.calculateNextPageIndex(this.currentPageIndex, hasOddOffset);
   }
 
-  prevPage() {
+  prevPage(): void {
     if (this.layoutMode === 'vertical') return; // disable for vertical
     if (!this.hasPrev) return;
 
@@ -134,26 +171,24 @@ export class ReaderState {
 
     // Dual Page Logic
     const hasOddOffset = this.doublePageOffset === 'odd';
-    const pageIsEven = this.currentPageIndex % 2 === 0;
-
-    let jump = 2;
-
-    // Recovers from the clamped state after nextPage
-    if (hasOddOffset === pageIsEven) {
-      jump = 1;
-    }
-
-    // Clamps page index to non-negative
-    this.currentPageIndex = Math.max(0, this.currentPageIndex - jump);
+    this.currentPageIndex = this.calculatePrevPageIndex(this.currentPageIndex, hasOddOffset);
   }
 
-  setPage(index: number) {
+  /**
+   * Sets the current page index with bounds checking
+   * @param index - The page index to navigate to (0-based)
+   */
+  setPage(index: number): void {
     if (index >= 0 && index < this.totalPages) {
       this.currentPageIndex = index;
     }
   }
 
-  setLayout(mode: LayoutMode) {
+  /**
+   * Sets the layout mode and realigns page index for double-page mode
+   * @param mode - The layout mode to set
+   */
+  setLayout(mode: LayoutMode): void {
     this.layoutMode = mode;
 
     // Re-align index for Double Page Mode
@@ -165,15 +200,25 @@ export class ReaderState {
     }
   }
 
-  setOcrMode(mode: 'READ' | 'BOX' | 'TEXT') {
+  /**
+   * Sets the OCR display mode
+   * @param mode - The OCR mode: 'READ' (hidden), 'BOX' (boxes visible), or 'TEXT' (editable)
+   */
+  setOcrMode(mode: 'READ' | 'BOX' | 'TEXT'): void {
     this.ocrMode = mode;
   }
 
-  toggleSmartResizeMode() {
+  /**
+   * Toggles smart resize mode for automatic font fitting
+   */
+  toggleSmartResizeMode(): void {
     this.isSmartResizeMode = !this.isSmartResizeMode;
   }
 
-  toggleOffset() {
+  /**
+   * Toggles the double-page offset and realigns pages if in double mode
+   */
+  toggleOffset(): void {
     this.doublePageOffset = this.doublePageOffset === 'odd' ? 'even' : 'odd';
 
     // realign double page
