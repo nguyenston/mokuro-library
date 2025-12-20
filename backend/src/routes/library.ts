@@ -148,6 +148,13 @@ const libraryRoutes: FastifyPluginAsync = async (
               orderBy: { title: 'asc' },
               // We can still fetch progress preview if needed, but it's heavy
               // For the main library view, we usually just need covers/titles
+              include: {
+                progress: {
+                  select: {
+                    page: true
+                  }
+                }
+              }
             },
           },
         }),
