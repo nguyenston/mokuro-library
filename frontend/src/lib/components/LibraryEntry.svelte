@@ -136,7 +136,7 @@
 			</div>
 
 			<div class="relative grid place-items-center w-11 h-11 flex-shrink-0">
-				{#if !isSelectionMode && circleAction}
+				{#if circleAction}
 					<div class="z-30 col-start-1 row-start-1 pointer-events-auto">
 						{@render circleAction()}
 					</div>
