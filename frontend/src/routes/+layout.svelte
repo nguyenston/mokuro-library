@@ -6,6 +6,7 @@
 	import { invalidateAll } from '$app/navigation';
 	import { checkAuth, user } from '$lib/authStore';
 	import { uiState } from '$lib/states/uiState.svelte';
+	import { themeStore } from '$lib/stores/themeStore.svelte';
 
 	// Components
 	import Header from '$lib/components/Header.svelte';
@@ -14,11 +15,14 @@
 	import UploadModal from '$lib/components/UploadModal.svelte';
 	import StatisticsModal from '$lib/components/StatisticsModal.svelte';
 	import AboutModal from '$lib/components/AboutModal.svelte';
+	import AppearanceModal from '$lib/components/AppearanceModal.svelte';
 
 	let { children } = $props();
 
 	onMount(() => {
 		checkAuth();
+		// Initialize theme (themeStore constructor applies saved theme)
+		// This ensures theme is applied on page load
 	});
 </script>
 
@@ -50,6 +54,8 @@
 		<StatisticsModal isOpen={uiState.isStatsOpen} onClose={() => (uiState.isStatsOpen = false)} />
 
 		<AboutModal isOpen={uiState.isAboutOpen} onClose={() => (uiState.isAboutOpen = false)} />
+
+		<AppearanceModal isOpen={uiState.isAppearanceOpen} onClose={() => (uiState.isAppearanceOpen = false)} />
 	{/if}
 
 	<ContextMenu />

@@ -64,11 +64,11 @@
 
 {#if viewMode === 'grid'}
 	<div
-		class={`group relative bg-theme-surface rounded-xl border flex flex-col transition-all duration-300 overflow-hidden shadow-lg hover:shadow-xl
+		class={`group relative bg-black/30 backdrop-blur-2xl rounded-2xl border flex flex-col transition-all duration-300 overflow-hidden shadow-[0_4px_16px_0_rgba(0,0,0,0.3)] hover:shadow-[0_8px_24px_0_rgba(0,0,0,0.4)]
     ${
 			isSelected
-				? 'border-accent ring-1 ring-accent shadow-[0_0_20px_rgba(99,102,241,0.4)] z-30 scale-[1.02]'
-				: 'border-theme-border-light hover:border-theme-secondary/50 z-10'
+				? 'border-accent/50 ring-1 ring-accent shadow-[0_0_20px_rgba(99,102,241,0.4)] z-30 scale-[1.02]'
+				: 'border-white/5 hover:border-white/10 z-10'
 		}
     ${isSelectionMode && !isSelected ? 'opacity-40 grayscale-[0.4]' : 'opacity-100'}`}
 	>
@@ -111,7 +111,7 @@
 		</div>
 
 		<div
-			class="px-3 py-2 bg-theme-surface flex items-center justify-between gap-3 relative z-20 border-t border-white/5"
+			class="px-3 py-2 bg-theme-surface/40 backdrop-blur-xl flex items-center justify-between gap-3 relative z-20 border-t border-theme-border/30"
 		>
 			<div class="flex flex-col gap-1.5 min-w-0 flex-1">
 				{#if mainStat}
@@ -127,7 +127,7 @@
 						{mainStat}
 					</div>
 
-					<div class="w-full h-[1px] bg-theme-secondary/10"></div>
+					<div class="w-full h-[1px] bg-theme-border/40"></div>
 				{/if}
 
 				<div class="text-[11px] text-theme-secondary font-medium leading-none">
@@ -177,11 +177,11 @@
 	</div>
 {:else}
 	<div
-		class={`group relative bg-theme-surface rounded-xl border flex items-center transition-all duration-300 overflow-hidden h-32 shadow-md hover:shadow-lg
+		class={`group relative bg-black/30 backdrop-blur-2xl rounded-2xl border flex items-center transition-all duration-300 overflow-hidden h-32 shadow-[0_4px_16px_0_rgba(0,0,0,0.3)] hover:shadow-[0_8px_24px_0_rgba(0,0,0,0.4)]
     ${
 			isSelected
-				? 'border-accent ring-1 ring-accent shadow-[0_0_20px_rgba(99,102,241,0.4)] z-30'
-				: 'border-theme-border-light hover:border-theme-secondary/50 z-10'
+				? 'border-accent/50 ring-1 ring-accent shadow-[0_0_20px_rgba(99,102,241,0.4)] z-30'
+				: 'border-white/5 hover:border-white/10 z-10'
 		}
     ${isSelectionMode && !isSelected ? 'opacity-40 grayscale-[0.4]' : 'opacity-100'}`}
 	>
@@ -193,7 +193,7 @@
 		></a>
 
 		<div
-			class="relative h-full aspect-[7/11] bg-theme-main flex-shrink-0 pointer-events-none border-r border-theme-border overflow-hidden z-10"
+			class="relative h-full aspect-[7/11] bg-theme-main flex-shrink-0 pointer-events-none border-r border-white/5 overflow-hidden z-10"
 		>
 			{#if entry.coverUrl}
 				<img
@@ -247,14 +247,14 @@
 
 		{#if !isSelectionMode}
 			<div
-				class="flex items-center gap-4 pr-5 pl-5 border-l border-theme-border-light h-12 relative z-20 flex-shrink-0"
+				class="flex items-center gap-4 pr-5 pl-5 border-l border-white/5 h-12 relative z-20 flex-shrink-0"
 			>
 				{@render listActions?.()}
 			</div>
 		{/if}
 
 		{#if progress.showBar || progress.isRead}
-			<div class="absolute bottom-0 left-[81.5px] right-0 h-1 bg-black/40 z-20">
+			<div class="absolute bottom-0 left-[81.5px] right-0 h-1 bg-theme-surface/50 z-20">
 				<div
 					class="neon-glow h-full transition-all duration-700 {progress.isRead
 						? 'bg-status-success text-status-success'

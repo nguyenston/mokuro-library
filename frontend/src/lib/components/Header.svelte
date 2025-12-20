@@ -4,6 +4,7 @@
 	import { untrack } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { contextMenu } from '$lib/contextMenuStore';
+	import { fade, scale } from 'svelte/transition';
 
 	// Import your new Menu Components
 	import FilterMenu from '$lib/components/menu/FilterMenu.svelte';
@@ -14,18 +15,66 @@
 	let searchValue = $state(uiState.searchQuery);
 	let searchTimer: ReturnType<typeof setTimeout>;
 	let isScrolled = $state(false);
+	let scrollY = $state(0);
+	let lastScrollY = $state(0);
+	let isScrollingDown = $state(false);
 
 	// --- Effects ---
-	// Track scroll position
+	// Track scroll position and direction (only in library view)
 	$effect(() => {
 		const handleScroll = () => {
-			isScrolled = window.scrollY > 20;
+			const currentScrollY = window.scrollY;
+			isScrolled = currentScrollY > 20;
+
+			// Only apply auto-hide behavior in library view
+			if (uiState.context === 'library') {
+				// Detect scroll direction
+				const scrollDifference = currentScrollY - lastScrollY;
+				if (Math.abs(scrollDifference) > 1) {
+					// Only update direction if there's meaningful scroll movement
+					isScrollingDown = scrollDifference > 0;
+				}
+				
+				scrollY = currentScrollY;
+				lastScrollY = currentScrollY;
+			} else {
+				// Always show header in other views
+				scrollY = 0;
+				isScrollingDown = false;
+				lastScrollY = currentScrollY;
+			}
 		};
 
 		if (typeof window !== 'undefined') {
-			window.addEventListener('scroll', handleScroll);
+			scrollY = window.scrollY;
+			lastScrollY = window.scrollY;
+			window.addEventListener('scroll', handleScroll, { passive: true });
 			return () => window.removeEventListener('scroll', handleScroll);
 		}
+	});
+
+	// Calculate header translateY based on scroll position and direction
+	// When scrolling down: gradually hide proportionally
+	// When scrolling up: show immediately
+	const headerOffset = $derived.by(() => {
+		if (uiState.context !== 'library') return 0;
+		
+		// If scrolling up or at top, always show (return to 0)
+		if (!isScrollingDown || scrollY < 20) {
+			return 0;
+		}
+		
+		// When scrolling down, gradually hide based on scroll amount
+		const startHide = 20;
+		const fullHide = 100;
+		const headerHeight = 64; // h-16 = 4rem = 64px
+		
+		// Calculate progress from startHide to fullHide
+		const progress = Math.min(1, (scrollY - startHide) / (fullHide - startHide));
+		
+		// Translate by progress * headerHeight (negative to move up)
+		// When fully hidden, use a value larger than header height to ensure it's completely off-screen
+		return -progress * (headerHeight + 10); // +10px extra to ensure it's fully hidden
 	});
 
 	// Sync Global State -> Input (e.g. back button navigation)
@@ -90,9 +139,10 @@
 </script>
 
 <header
-	class="sticky top-0 z-40 w-full bg-theme-main/95 backdrop-blur-md transition-all duration-200"
+	class="sticky top-0 z-40 w-full bg-theme-main/95 backdrop-blur-md transition-transform duration-300 ease-out"
+	style="transform: translateY({headerOffset}px);"
 >
-	<div class="max-w-7xl mx-auto flex h-16 items-center justify-between px-4 sm:px-6">
+	<div class="mx-auto flex h-16 items-center justify-between px-4 sm:px-6" style="max-width: 1400px;">
 		<div class="flex flex-shrink-0 items-center gap-4 z-10">
 			{#if uiState.isSelectionMode}
 				<div
@@ -145,11 +195,13 @@
 			{/if}
 		</div>
 
-		<div
-			class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 hidden w-full md:block z-0 px-4 transition-all duration-300"
-			style="max-width: 32rem;"
-		>
-			<div class="relative group">
+		{#if uiState.context !== 'settings'}
+			<div
+				transition:fade={{ duration: 200 }}
+				class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 hidden w-full md:block z-0 transition-all duration-300"
+				style="max-width: 32rem; padding-left: 1rem; padding-right: 1rem;"
+			>
+				<div class="relative group">
 				<div
 					class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-theme-secondary group-focus-within:text-accent"
 				>
@@ -172,7 +224,8 @@
 					oninput={handleSearchInput}
 					placeholder={uiState.context === 'library' ? 'Search library...' : 'Search volumes...'}
 					aria-label="Search"
-					class="block w-full rounded-full border border-theme-border-light bg-theme-main py-3 pl-12 pr-16 text-base text-theme-primary placeholder-theme-secondary focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent shadow-inner transition-all"
+					class="block w-full rounded-full border border-theme-border-light bg-theme-main h-10 pl-12 pr-16 text-base text-theme-primary placeholder-theme-secondary focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent shadow-inner transition-all text-center placeholder:text-center"
+					style="line-height: 2.5rem;"
 				/>
 
 				<button
@@ -211,6 +264,7 @@
 				</button>
 			</div>
 		</div>
+		{/if}
 
 		<div class="flex flex-shrink-0 items-center gap-2 z-10">
 			{#if uiState.isSelectionMode}
@@ -242,62 +296,63 @@
 					<span class="hidden sm:inline">Download</span>
 				</button>
 			{:else}
-				<button
-					class="md:hidden p-2 text-theme-secondary hover:text-white"
-					onclick={() => (isMobileSearchOpen = !isMobileSearchOpen)}
-					aria-label="Toggle Search"
-				>
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						width="20"
-						height="20"
-						viewBox="0 0 24 24"
-						fill="none"
-						stroke="currentColor"
-						stroke-width="2"
-						stroke-linecap="round"
-						stroke-linejoin="round"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></svg
+				{#if uiState.context !== 'settings'}
+					<button
+						class="md:hidden p-2 text-theme-secondary hover:text-white"
+						onclick={() => (isMobileSearchOpen = !isMobileSearchOpen)}
+						aria-label="Toggle Search"
 					>
-				</button>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							width="20"
+							height="20"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></svg
+						>
+					</button>
 
-				<button
-					onclick={toggleFilterMenu}
-					class="md:hidden p-2 rounded-lg transition-colors text-theme-secondary hover:text-white hover:bg-theme-surface-hover hover:border-theme-border-light border border-transparent"
-					title="Filter & Sort"
-					aria-label="Filter and Sort Options"
-				>
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						width="20"
-						height="20"
-						viewBox="0 0 24 24"
-						fill="none"
-						stroke="currentColor"
-						stroke-width="2"
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						><line x1="21" x2="14" y1="4" y2="4" /><line x1="10" x2="3" y1="4" y2="4" /><line
-							x1="21"
-							x2="12"
-							y1="12"
-							y2="12"
-						/><line x1="8" x2="3" y1="12" y2="12" /><line x1="21" x2="16" y1="20" y2="20" /><line
-							x1="12"
-							x2="3"
-							y1="20"
-							y2="20"
-						/><line x1="14" x2="14" y1="2" y2="6" /><line x1="8" x2="8" y1="10" y2="14" /><line
-							x1="16"
-							x2="16"
-							y1="18"
-							y2="22"
-						/></svg
+					<button
+						onclick={toggleFilterMenu}
+						class="md:hidden p-2 rounded-lg transition-colors text-theme-secondary hover:text-white hover:bg-theme-surface-hover hover:border-theme-border-light border border-transparent"
+						title="Filter & Sort"
+						aria-label="Filter and Sort Options"
 					>
-				</button>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							width="20"
+							height="20"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							><line x1="21" x2="14" y1="4" y2="4" /><line x1="10" x2="3" y1="4" y2="4" /><line
+								x1="21"
+								x2="12"
+								y1="12"
+								y2="12"
+							/><line x1="8" x2="3" y1="12" y2="12" /><line x1="21" x2="16" y1="20" y2="20" /><line
+								x1="12"
+								x2="3"
+								y1="20"
+								y2="20"
+							/><line x1="14" x2="14" y1="2" y2="6" /><line x1="8" x2="8" y1="10" y2="14" /><line
+								x1="16"
+								x2="16"
+								y1="18"
+								y2="22"
+							/></svg
+						>
+					</button>
 
-				<!-- Filter Status Buttons (Desktop only) -->
-				<div class="hidden lg:flex items-center gap-2">
-					{#each ['all', 'unread', 'in_progress', 'read'] as filter}
+					<!-- Filter Status Buttons (Desktop only) -->
+					<div class="hidden lg:flex items-center gap-2">
+					{#each ['all', 'unread', 'in_progress', 'read'] as filter, index}
 						{@const isActive = uiState.filterStatus === filter}
 						{@const iconColor =
 							filter === 'unread'
@@ -400,7 +455,8 @@
 							{/if}
 						</button>
 					{/each}
-				</div>
+					</div>
+				{/if}
 
 				<button
 					onclick={toggleAppMenu}
@@ -456,7 +512,8 @@
 					bind:value={uiState.searchQuery}
 					placeholder={uiState.context === 'library' ? 'Search library...' : 'Search volumes...'}
 					aria-label="Search"
-					class="block w-full rounded-full border border-theme-border-light bg-theme-main py-3 pl-12 pr-4 text-base text-theme-primary placeholder-theme-secondary focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent shadow-inner transition-all"
+					class="block w-full rounded-full border border-theme-border-light bg-theme-main h-10 pl-12 pr-4 text-base text-theme-primary placeholder-theme-secondary focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent shadow-inner transition-all text-center placeholder:text-center"
+					style="line-height: 2.5rem;"
 				/>
 			</div>
 

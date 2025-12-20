@@ -1,6 +1,6 @@
 import { SvelteSet } from 'svelte/reactivity';
 
-export type AppContext = 'library' | 'series' | 'reader';
+export type AppContext = 'library' | 'series' | 'reader' | 'settings';
 export type ViewMode = 'grid' | 'list';
 export type SortOrder = 'asc' | 'desc';
 export type SortKey = 'title' | 'updated' | 'lastRead' | 'progress';
@@ -29,6 +29,7 @@ class UiState {
   isUploadOpen = $state(false);
   isStatsOpen = $state(false);
   isAboutOpen = $state(false);
+  isAppearanceOpen = $state(false);
 
   // --- Options Configuration ---
   availableSorts = $state<{ key: SortKey; label: string }[]>([

@@ -38,6 +38,7 @@
 		description: string | null;
 		coverPath: string | null;
 		volumes: Volume[];
+		isBookmarked?: boolean;
 	}
 
 	let { params } = $props<{ params: { id: string } }>();
@@ -239,29 +240,6 @@
 		);
 	};
 
-	const openSeriesMenu = (event: MouseEvent) => {
-		event.preventDefault();
-		event.stopPropagation();
-		const rect = (event.currentTarget as HTMLButtonElement).getBoundingClientRect();
-		contextMenu.open(rect.left, rect.bottom, [
-			{
-				label: 'Download ZIP',
-				action: () => triggerDownload(`/api/export/series/${seriesId}/zip`)
-			},
-			{
-				label: 'Download PDF',
-				action: () => triggerDownload(`/api/export/series/${seriesId}/pdf`)
-			},
-			{
-				label: 'Download Metadata',
-				action: () => triggerDownload(`/api/export/series/${seriesId}/zip?include_images=false`)
-			},
-			{ separator: true },
-			{ label: 'Bookmark Series', action: () => console.log('Bookmark Series - TBD') },
-			{ label: 'Delete Series', action: handleDeleteSeries }
-		]);
-	};
-
 	const openDownloadMenu = (event: MouseEvent, id: string, kind: 'series' | 'volume') => {
 		event.preventDefault();
 		event.stopPropagation();
@@ -345,6 +323,12 @@
 		}
 	};
 
+	const toggleBookmark = async () => {
+		if (!series) return;
+		// TODO: actually implement this with backend
+		series.isBookmarked = !series.isBookmarked;
+	};
+
 	// --- Effects ---
 	$effect(() => {
 		if (browser && $user === null) goto('/login');
@@ -375,7 +359,8 @@
 			{coverRefreshTrigger}
 			onCoverUpload={handleCoverUpload}
 			onEditMetadata={() => (isEditModalOpen = true)}
-			onMenuClick={openSeriesMenu}
+			onBookmarkToggle={toggleBookmark}
+			isBookmarked={series.isBookmarked ?? false}
 		/>
 
 		<LibraryListWrapper>

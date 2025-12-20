@@ -21,14 +21,16 @@
 		coverRefreshTrigger = 0,
 		onCoverUpload,
 		onEditMetadata,
-		onMenuClick
+		onBookmarkToggle,
+		isBookmarked = false
 	} = $props<{
 		series: Series;
 		stats: SeriesStats;
 		coverRefreshTrigger?: number;
 		onCoverUpload: (e: Event, fileInput: HTMLInputElement | undefined) => void;
 		onEditMetadata: () => void;
-		onMenuClick: (e: MouseEvent) => void;
+		onBookmarkToggle: () => void;
+		isBookmarked?: boolean;
 	}>();
 
 	// --- Helpers ---
@@ -129,26 +131,52 @@
 					</h2>
 				{/if}
 
-				<button
-					onclick={onEditMetadata}
-					class="absolute top-0 right-0 p-2 text-theme-secondary hover:text-theme-primary hover:bg-white/10 rounded-lg transition-colors hidden md:block"
-					title="Edit Metadata"
-				>
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						width="20"
-						height="20"
-						viewBox="0 0 24 24"
-						fill="none"
-						stroke="currentColor"
-						stroke-width="2"
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" /><path
-							d="m15 5 4 4"
-						/></svg
+				<div class="absolute top-0 right-0 flex items-center gap-2 hidden md:flex">
+					<button
+						onclick={onBookmarkToggle}
+						class="p-2 rounded-lg transition-colors hover:bg-white/10 {isBookmarked
+							? 'text-status-warning' 
+							: 'text-theme-secondary hover:text-theme-primary'}"
+						title={isBookmarked ? 'Remove Bookmark' : 'Add Bookmark'}
 					>
-				</button>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							width="20"
+							height="20"
+							viewBox="0 0 24 24"
+							fill={isBookmarked ? 'currentColor' : 'none'}
+							stroke="currentColor"
+							stroke-width="2.5"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							class={`relative transition-all ${
+								isBookmarked ? 'animate-pop neon-glow' : 'neon-off'
+							}`}
+						>
+							<path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+						</svg>
+					</button>
+					<button
+						onclick={onEditMetadata}
+						class="p-2 text-theme-secondary hover:text-theme-primary hover:bg-white/10 rounded-lg transition-colors"
+						title="Edit Metadata"
+					>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							width="20"
+							height="20"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" /><path
+								d="m15 5 4 4"
+							/></svg
+						>
+					</button>
+				</div>
 			</div>
 
 			{#if series.description}
@@ -164,29 +192,6 @@
 			<div class="mt-auto space-y-6">
 				<div class="flex flex-wrap items-center justify-center md:justify-start gap-3">
 					<button
-						onclick={onMenuClick}
-						class="flex items-center gap-2 px-5 py-2.5 bg-theme-surface hover:bg-theme-surface-hover border border-white/10 rounded-full text-sm font-medium text-theme-primary transition-all hover:shadow-lg hover:border-accent/50 active:scale-95"
-					>
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							width="16"
-							height="16"
-							viewBox="0 0 24 24"
-							fill="none"
-							stroke="currentColor"
-							stroke-width="2"
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							><circle cx="12" cy="12" r="1" /><circle cx="12" cy="5" r="1" /><circle
-								cx="12"
-								cy="19"
-								r="1"
-							/></svg
-						>
-						Series Actions
-					</button>
-
-					<button
 						onclick={onEditMetadata}
 						class="md:hidden flex items-center gap-2 px-5 py-2.5 bg-transparent border border-white/10 rounded-full text-sm font-medium text-theme-secondary hover:text-theme-primary hover:bg-white/5 transition-colors"
 					>
@@ -201,9 +206,9 @@
 							stroke-linecap="round"
 							stroke-linejoin="round"
 							><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" /><path
-								d="m15 5 4 4"
-							/></svg
-						>
+							d="m15 5 4 4"
+						/></svg
+					>
 						Edit Metadata
 					</button>
 				</div>
@@ -305,3 +310,37 @@
 		</div>
 	</div>
 </div>
+
+<style>
+	/* Intensity Control: Change the % next to transparent to adjust glow strength */
+	.neon-glow {
+		transition: filter 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+		filter: drop-shadow(0 0 1px color-mix(in srgb, var(--color-status-warning), transparent 30%))
+			drop-shadow(0 0 3px color-mix(in srgb, var(--color-status-warning), transparent 50%))
+			drop-shadow(0 0 6px color-mix(in srgb, var(--color-status-warning), transparent 70%));
+	}
+
+	.neon-off {
+		transition: filter 0.8s ease-in;
+		/* Transitioning to 100% transparent version of the SAME variable */
+		filter: drop-shadow(0 0 0px color-mix(in srgb, var(--color-status-warning), transparent 100%))
+			drop-shadow(0 0 0px color-mix(in srgb, var(--color-status-warning), transparent 100%))
+			drop-shadow(0 0 0px color-mix(in srgb, var(--color-status-warning), transparent 100%));
+	}
+
+	@keyframes bookmark-pop {
+		0% {
+			transform: scale(1);
+		}
+		50% {
+			transform: scale(1.4);
+		}
+		100% {
+			transform: scale(1);
+		}
+	}
+
+	.animate-pop {
+		animation: bookmark-pop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+	}
+</style>
