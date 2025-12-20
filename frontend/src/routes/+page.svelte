@@ -53,7 +53,11 @@
 
 			const progress = vol.progress?.[0];
 			if (progress) {
-				if (progress.completed) {
+				// Only consider completed if page number has reached the last page (pageCount)
+				// Note: page numbers are typically 1-indexed, so we check if page >= pageCount
+				const actuallyCompleted = progress.completed && progress.page >= pCount;
+
+				if (actuallyCompleted) {
 					readPages += pCount;
 				} else {
 					readPages += progress.page || 0;
@@ -202,6 +206,31 @@
 		);
 	};
 
+	const openSeriesContextMenu = (e: MouseEvent, series: Series) => {
+		e.preventDefault();
+		e.stopPropagation();
+		const rect = (e.currentTarget as HTMLButtonElement).getBoundingClientRect();
+		contextMenu.open(rect.left, rect.bottom, [
+			{ label: 'View Files', action: () => console.log('View Files - TBD') },
+			{ label: 'Version History', action: () => console.log('Version History - TBD') },
+			{ separator: true },
+			{
+				label: 'Download',
+				action: () => {
+					// TODO: Add download functionality
+					console.log('Download series:', series.id);
+				}
+			},
+			{ separator: true },
+			{ label: 'Bookmark Series', action: () => console.log('Bookmark Series - TBD') },
+			{ separator: true },
+			{
+				label: 'Delete Series',
+				action: () => handleDeleteSeries(series.id, series.title ?? series.folderName)
+			}
+		]);
+	};
+
 	const handleCardClick = (e: MouseEvent, seriesId: string) => {
 		if (uiState.isSelectionMode) {
 			e.preventDefault();
@@ -301,54 +330,38 @@
 							: ''}
 						onSelect={(e) => handleCardClick(e, series.id)}
 					>
-						{#snippet imageOverlay()}
-							{#if !uiState.isSelectionMode}
-								<div
-									class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-between p-2 pointer-events-none z-20"
+						{#snippet menuAction()}
+							<button
+								type="button"
+								onclick={(e) => openSeriesContextMenu(e, series)}
+								class="p-1.5 bg-black/60 backdrop-blur-md rounded-full text-white hover:bg-theme-surface-hover transition-colors shadow-lg"
+								title="Series Actions"
+							>
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									width="14"
+									height="14"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="2"
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									><circle cx="12" cy="12" r="1" /><circle cx="12" cy="5" r="1" /><circle
+										cx="12"
+										cy="19"
+										r="1"
+									/></svg
 								>
-									<div class="flex justify-end">
-										<button
-											type="button"
-											onclick={(e) => {
-												e.preventDefault();
-												e.stopPropagation();
-												handleDeleteSeries(series.id, series.title ?? series.folderName);
-											}}
-											class="pointer-events-auto p-1.5 bg-black/60 backdrop-blur-md rounded-full text-white hover:bg-status-danger transition-colors shadow-lg"
-											title="Delete Series"
-										>
-											<svg
-												xmlns="http://www.w3.org/2000/svg"
-												width="14"
-												height="14"
-												viewBox="0 0 24 24"
-												fill="none"
-												stroke="currentColor"
-												stroke-width="2"
-												stroke-linecap="round"
-												stroke-linejoin="round"
-												><path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path
-													d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"
-												/></svg
-											>
-										</button>
-									</div>
-
-									<div class="text-white text-xs font-medium"></div>
-								</div>
-							{/if}
+							</button>
 						{/snippet}
 
 						{#snippet listActions()}
 							<button
 								type="button"
-								onclick={(e) => {
-									e.preventDefault();
-									e.stopPropagation();
-									handleDeleteSeries(series.id, series.title ?? series.folderName);
-								}}
-								class="p-2 text-theme-secondary hover:text-status-danger transition-colors rounded-md hover:bg-status-danger/10"
-								title="Delete Series"
+								onclick={(e) => openSeriesContextMenu(e, series)}
+								class="p-2 text-theme-secondary hover:text-white transition-colors rounded-md hover:bg-theme-surface-hover"
+								title="Series Actions"
 							>
 								<svg
 									xmlns="http://www.w3.org/2000/svg"
@@ -360,8 +373,10 @@
 									stroke-width="2"
 									stroke-linecap="round"
 									stroke-linejoin="round"
-									><path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path
-										d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"
+									><circle cx="12" cy="12" r="1" /><circle cx="12" cy="5" r="1" /><circle
+										cx="12"
+										cy="19"
+										r="1"
 									/></svg
 								>
 							</button>

@@ -21,14 +21,14 @@
 		coverRefreshTrigger = 0,
 		onCoverUpload,
 		onEditMetadata,
-		onDownload
+		onMenuClick
 	} = $props<{
 		series: Series;
 		stats: SeriesStats;
 		coverRefreshTrigger?: number;
 		onCoverUpload: (e: Event, fileInput: HTMLInputElement | undefined) => void;
 		onEditMetadata: () => void;
-		onDownload: (e: MouseEvent) => void;
+		onMenuClick: (e: MouseEvent) => void;
 	}>();
 
 	// --- Helpers ---
@@ -164,7 +164,7 @@
 			<div class="mt-auto space-y-6">
 				<div class="flex flex-wrap items-center justify-center md:justify-start gap-3">
 					<button
-						onclick={onDownload}
+						onclick={onMenuClick}
 						class="flex items-center gap-2 px-5 py-2.5 bg-theme-surface hover:bg-theme-surface-hover border border-white/10 rounded-full text-sm font-medium text-theme-primary transition-all hover:shadow-lg hover:border-accent/50 active:scale-95"
 					>
 						<svg
@@ -177,11 +177,13 @@
 							stroke-width="2"
 							stroke-linecap="round"
 							stroke-linejoin="round"
-							><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline
-								points="7 10 12 15 17 10"
-							/><line x1="12" x2="12" y1="15" y2="3" /></svg
+							><circle cx="12" cy="12" r="1" /><circle cx="12" cy="5" r="1" /><circle
+								cx="12"
+								cy="19"
+								r="1"
+							/></svg
 						>
-						Download Series
+						Series Actions
 					</button>
 
 					<button

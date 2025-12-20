@@ -16,14 +16,16 @@ type MenuState = {
   position: { x: number; y: number };
   component: Component<any> | null;
   props: Record<string, any>;
+  anchorElement: HTMLElement | null;
 };
 
 function createContextMenu() {
-  const { subscribe, set } = writable<MenuState>({
+  const { subscribe, set, update } = writable<MenuState>({
     isOpen: false,
     position: { x: 0, y: 0 },
     component: null,
-    props: {}
+    props: {},
+    anchorElement: null
   });
 
   return {
@@ -31,16 +33,17 @@ function createContextMenu() {
 
     /**
      * Opens the context menu.
-     * * Signature A: open(x, y, Component, props) 
+     * * Signature A: open(x, y, Component, props)
      * -> Renders a custom Svelte component (Advanced Mode)
-     * * Signature B: open(x, y, options[]) 
+     * * Signature B: open(x, y, options[])
      * -> Renders the built-in SimpleMenu (Simple Mode)
      */
     open: (
       x: number,
       y: number,
       componentOrOptions: Component<any> | MenuOption[],
-      props: Record<string, any> = {}
+      props: Record<string, any> = {},
+      anchorElement: HTMLElement | null = null
     ) => {
       if (Array.isArray(componentOrOptions)) {
         // SIMPLE MODE: User passed an array of options.
@@ -49,7 +52,8 @@ function createContextMenu() {
           isOpen: true,
           position: { x, y },
           component: SimpleMenu,
-          props: { options: componentOrOptions }
+          props: { options: componentOrOptions },
+          anchorElement
         });
       } else {
         // ADVANCED MODE: User passed a custom component.
@@ -57,9 +61,17 @@ function createContextMenu() {
           isOpen: true,
           position: { x, y },
           component: componentOrOptions,
-          props
+          props,
+          anchorElement
         });
       }
+    },
+
+    updatePosition: (x: number, y: number) => {
+      update(state => ({
+        ...state,
+        position: { x, y }
+      }));
     },
 
     close: () =>
@@ -67,7 +79,8 @@ function createContextMenu() {
         isOpen: false,
         position: { x: 0, y: 0 },
         component: null,
-        props: {}
+        props: {},
+        anchorElement: null
       })
   };
 }

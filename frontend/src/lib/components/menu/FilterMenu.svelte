@@ -130,7 +130,7 @@
 		</div>
 	</MenuGroup>
 
-	<MenuGrid title="Filter Status">
+	<MenuGrid title="Filter Status" className="lg:hidden">
 		{#each ['all', 'in_progress', 'unread', 'read'] as filter}
 			{@const isActive = uiState.filterStatus === filter}
 

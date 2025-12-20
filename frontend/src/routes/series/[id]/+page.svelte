@@ -69,8 +69,9 @@
 
 	const getVolumeStats = (vol: Volume) => {
 		const p = vol.progress?.[0];
-		const isRead = p?.completed ?? false;
 		const currentPage = p?.page ?? 0;
+		// Only consider completed if page number has reached the last page
+		const isRead = p?.completed && currentPage >= vol.pageCount ? true : false;
 		const percent = isRead
 			? 100
 			: Math.min(100, Math.max(0, (currentPage / (vol.pageCount || 1)) * 100));
@@ -128,7 +129,11 @@
 		const vols = series.volumes;
 		return {
 			totalVols: vols.length,
-			volsRead: vols.filter((v) => v.progress[0]?.completed).length,
+			volsRead: vols.filter((v) => {
+				const p = v.progress[0];
+				// Only count as read if completed AND reached last page
+				return p?.completed && p.page >= v.pageCount;
+			}).length,
 			totalCharsRead: vols.reduce((acc, v) => acc + (v.progress[0]?.charsRead || 0), 0),
 			totalTime: vols.reduce((acc, v) => acc + (v.progress[0]?.timeRead || 0), 0)
 		};
@@ -219,6 +224,41 @@
 		await fetchSeriesData(seriesId);
 	};
 
+	const handleDeleteSeries = () => {
+		if (!series) return;
+		confirmation.open(
+			'Delete Series?',
+			`Are you sure you want to permanently delete "${series.title || series.folderName}" and all ${series.volumes.length} volumes?`,
+			async () => {
+				try {
+					await apiFetch(`/api/library/series/${seriesId}`, { method: 'DELETE' });
+					goto('/');
+				} catch (e: any) {
+					error = e.message;
+				}
+			}
+		);
+	};
+
+	const openSeriesMenu = (event: MouseEvent) => {
+		event.preventDefault();
+		event.stopPropagation();
+		const rect = (event.currentTarget as HTMLButtonElement).getBoundingClientRect();
+		contextMenu.open(rect.left, rect.bottom, [
+			{ label: 'View Files', action: () => console.log('View Files - TBD') },
+			{ label: 'Version History', action: () => console.log('Version History - TBD') },
+			{ separator: true },
+			{
+				label: 'Download',
+				action: () => triggerDownload(`/api/export/series/${seriesId}/zip`)
+			},
+			{ separator: true },
+			{ label: 'Bookmark Series', action: () => console.log('Bookmark Series - TBD') },
+			{ separator: true },
+			{ label: 'Delete Series', action: handleDeleteSeries }
+		]);
+	};
+
 	const openDownloadMenu = (event: MouseEvent, id: string, kind: 'series' | 'volume') => {
 		event.preventDefault();
 		event.stopPropagation();
@@ -238,20 +278,17 @@
 		e.stopPropagation();
 		const rect = (e.currentTarget as HTMLButtonElement).getBoundingClientRect();
 		contextMenu.open(rect.left, rect.bottom, [
+			{ label: 'Mark as Unread', action: () => console.log('Mark as Unread - TBD') },
+			{ separator: true },
+			{ label: 'View Files', action: () => console.log('View Files - TBD') },
+			{ label: 'Version History', action: () => console.log('Version History - TBD') },
+			{ separator: true },
 			{
-				label: 'Rename',
-				action: () => {
-					renameTarget = { id: vol.id, title: vol.title, type: 'volume' };
-					isRenameOpen = true;
-				}
+				label: 'Download',
+				action: () => triggerDownload(`/api/export/volume/${vol.id}/zip`)
 			},
-			{ label: 'Download ZIP', action: () => triggerDownload(`/api/export/volume/${vol.id}/zip`) },
-			{
-				label: 'Download Metadata',
-				action: () => triggerDownload(`/api/export/volume/${vol.id}/zip?include_images=false`)
-			},
-			{ label: 'Download PDF', action: () => triggerDownload(`/api/export/volume/${vol.id}/pdf`) },
-			{ label: 'Delete', action: () => handleDeleteVolume(vol.id, vol.title || vol.folderName) }
+			{ separator: true },
+			{ label: 'Delete Volume', action: () => handleDeleteVolume(vol.id, vol.title || vol.folderName) }
 		]);
 	};
 
@@ -304,7 +341,12 @@
 
 	const handleContinueReading = () => {
 		if (!series) return;
-		const nextVol = series.volumes.find((v) => !v.progress[0]?.completed) || series.volumes[0];
+		// Find first volume that isn't actually completed (page hasn't reached last page)
+		const nextVol =
+			series.volumes.find((v) => {
+				const p = v.progress[0];
+				return !(p?.completed && p.page >= v.pageCount);
+			}) || series.volumes[0];
 		if (nextVol) goto(`/volume/${nextVol.id}`);
 	};
 
@@ -338,7 +380,7 @@
 			{coverRefreshTrigger}
 			onCoverUpload={handleCoverUpload}
 			onEditMetadata={() => (isEditModalOpen = true)}
-			onDownload={(e) => openDownloadMenu(e, seriesId, 'series')}
+			onMenuClick={openSeriesMenu}
 		/>
 
 		<LibraryListWrapper>
@@ -419,32 +461,6 @@
 											r="1"
 										/></svg
 									>
-								</button>
-							{/snippet}
-
-							{#snippet quickAction()}
-								<button
-									onclick={(e) => {
-										e.preventDefault();
-										e.stopPropagation();
-										toggleComplete(vol.id);
-									}}
-									class={`p-1.5 rounded-md transition-all ${stats.isRead ? 'text-status-success' : 'text-theme-tertiary hover:text-white'}`}
-									title="ToggleComplete"
-								>
-									<svg
-										xmlns="http://www.w3.org/2000/svg"
-										width="16"
-										height="16"
-										viewBox="0 0 24 24"
-										fill="none"
-										stroke="currentColor"
-										stroke-width="2.5"
-										stroke-linecap="round"
-										stroke-linejoin="round"
-									>
-										<path d="M20 6L9 17l-5-5" />
-									</svg>
 								</button>
 							{/snippet}
 
