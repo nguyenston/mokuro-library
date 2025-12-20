@@ -3,32 +3,34 @@
 @plugin "@tailwindcss/forms";
 
 @theme {
-  /* --- Theming Variables (Matches JSX Template) --- */
-  
-  /* Background Colors */
-  --color-theme-main: #0f172a;       /* Slate 900 */
-  --color-theme-surface: #1e293b;    /* Slate 800 */
-  --color-theme-surface-hover: #334155; /* Slate 700 */
-  
-  /* Border Colors */
-  --color-theme-border: #1e293b;     /* Slate 800 */
-  --color-theme-border-light: #334155; /* Slate 700 */
-  --color-theme-border-active: #6366f1; /* Indigo 500 */
-  
-  /* Text Colors */
-  --color-theme-primary: #f1f5f9;    /* Slate 100 */
-  --color-theme-secondary: #94a3b8;  /* Slate 400 */
-  --color-theme-tertiary: #64748b;   /* Slate 500 */
-  
-  /* Accent Colors (Indigo) */
-  --color-accent: #6366f1;           /* Indigo 500 */
-  --color-accent-hover: #4f46e5;     /* Indigo 600 */
-  --color-progress: #3b82f6;         /* Blue 500 */
-  
-  /* Status Colors */
-  --color-status-success: #10b981;   /* Emerald 500 */
-  --color-status-warning: #f59e0b;   /* Amber 500 */
-  --color-status-danger: #ef4444;    /* Red 500 */
+  /* --- Base Theme --- */
+  --color-theme-main: #0f172a;
+  --color-theme-surface: #1e293b;
+  --color-theme-surface-hover: #334155;
+
+  --color-theme-border: #1e293b;
+  --color-theme-border-light: #334155;
+  --color-theme-border-active: #6366f1;
+
+  --color-theme-primary: #f1f5f9;
+  --color-theme-secondary: #94a3b8;
+  --color-theme-tertiary: #64748b;
+
+  --color-accent: #6366f1;
+  --color-accent-hover: #4f46e5;
+  --color-progress: #3b82f6;
+
+  /* --- Functional Colors --- */
+  /* Status Indicators */
+  --color-status-success: #10b981;   /* Emerald */
+  --color-status-warning: #f59e0b;   /* Amber */
+  --color-status-danger: #ef4444;    /* Red */
+  --color-status-unread: #0ea5e9;    /* Sky (Used for Unread indicators) */
+
+  /* Icon/Feature Identifiers */
+  --color-icon-stats: #3b82f6;       /* Blue (Used for Stats icons) */
+  --color-icon-appearance: #8b5cf6;  /* Violet (Used for Appearance/Settings) */
+  --color-stat-metadata: #a855f7;    /* Purple (Used for Character counts/Metadata) */
 }
 
 /* --- Font Faces --- */

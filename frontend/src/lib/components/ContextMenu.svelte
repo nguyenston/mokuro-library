@@ -1,103 +1,66 @@
 <script lang="ts">
-	import { contextMenu, type MenuOption } from '$lib/contextMenuStore';
+	import { contextMenu } from '$lib/contextMenuStore';
 	import { browser } from '$app/environment';
 
 	let menuElement: HTMLDivElement | null = $state(null);
 
-	/**
-	 * Global click listener.
-	 * Closes the menu if the click is outside the menu itself.
-	 */
 	const handleWindowClick = (event: MouseEvent) => {
 		if ($contextMenu.isOpen && menuElement && !menuElement.contains(event.target as Node)) {
 			contextMenu.close();
 		}
 	};
 
-	// Helper type guard to check if an option is a separator
-	const isSeparator = (option: MenuOption): option is { separator: true } => {
-		return (option as any).separator === true;
-	};
-
-	/**
-	 * This effect recalculates the menu's position
-	 * to keep it within the viewport boundaries.
-	 */
-	// Local state to hold the *adjusted* position
 	let finalX = $state(0);
 	let finalY = $state(0);
+
+	// Position Calculation Effect
 	$effect(() => {
 		if ($contextMenu.isOpen && menuElement && browser) {
+			// 1. Capture current values (untrack if necessary, but here we want the trigger)
 			const { x, y } = $contextMenu.position;
 
-			// Get menu and viewport dimensions
+			// 2. Measure DOM
 			const menuWidth = menuElement.offsetWidth;
 			const menuHeight = menuElement.offsetHeight;
 			const viewportWidth = window.innerWidth;
 			const viewportHeight = window.innerHeight;
 
-			// Calculate final X position
-			if (x + menuWidth > viewportWidth) {
-				// Clicks near right edge: open menu to the left
-				finalX = x - menuWidth;
-			} else {
-				// Default: open menu to the right
-				finalX = x;
+			// 3. Calculate with "Small Viewport" safety
+			let nextX = x;
+			let nextY = y;
+
+			// Horizontal logic: Flip if no space, but don't go off-screen left
+			if (x + menuWidth > viewportWidth || $contextMenu.props.edgeAlign === 'right') {
+				nextX = Math.max(0, x - menuWidth);
 			}
 
-			// Calculate final Y position
+			// Vertical logic: Flip if no space, but don't go off-screen top
 			if (y + menuHeight > viewportHeight) {
-				// Clicks near bottom edge: open menu upwards
-				finalY = y - menuHeight;
-			} else {
-				// Default: open menu downwards
-				finalY = y;
+				nextY = Math.max(0, y - menuHeight);
 			}
 
-			// Handle over-correction (ensure it's not off-screen left or top)
-			if (finalX < 0) finalX = 0;
-			if (finalY < 0) finalY = 0;
-		} else {
-			// When closed, reset position
-			finalX = 0;
-			finalY = 0;
+			// 4. Update state only if values actually changed to prevent unnecessary cycles
+			if (finalX !== nextX) finalX = nextX;
+			if (finalY !== nextY) finalY = nextY;
 		}
 	});
+
+	const handleKeydown = (e: KeyboardEvent) => {
+		if (e.key === 'Escape') contextMenu.close();
+	};
 </script>
 
-<svelte:window on:click={handleWindowClick} />
+<svelte:window onclick={handleWindowClick} onkeydown={handleKeydown} />
 
-<!-- Render the menu if it's open -->
-{#if $contextMenu.isOpen}
+{#if $contextMenu.isOpen && $contextMenu.component}
+	{@const ActiveComponent = $contextMenu.component}
 	<div
 		bind:this={menuElement}
-		class="fixed z-50 w-48 rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 dark:bg-gray-800"
+		class="fixed z-[100] transition-opacity duration-150 ease-out"
 		style="left: {finalX}px; top: {finalY}px;"
 		role="menu"
-		aria-orientation="vertical"
-		onmousedown={(event) => event.preventDefault()}
-		tabindex="0"
+		tabindex="-1"
 	>
-		<div class="py-1" role="none">
-			{#each $contextMenu.options as option}
-				{#if isSeparator(option)}
-					<!-- Render a separator -->
-					<div class="my-1 h-px bg-gray-200 dark:bg-gray-700" role="separator"></div>
-				{:else}
-					<!-- Render a button -->
-					<button
-						class="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 disabled:opacity-50 dark:text-gray-200 dark:hover:bg-gray-700 dark:disabled:text-gray-500"
-						role="menuitem"
-						disabled={option.disabled ?? false}
-						onclick={() => {
-							option.action(); // Execute the passed-in action
-							contextMenu.close(); // Close the menu
-						}}
-					>
-						{option.label}
-					</button>
-				{/if}
-			{/each}
-		</div>
+		<ActiveComponent {...$contextMenu.props} />
 	</div>
 {/if}
