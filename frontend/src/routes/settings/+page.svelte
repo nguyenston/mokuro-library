@@ -2,7 +2,7 @@
 	import { user } from '$lib/authStore';
 	import { goto } from '$app/navigation';
 	import { browser } from '$app/environment';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import { uiState } from '$lib/states/uiState.svelte';
 	import { onMount } from 'svelte';
 
@@ -31,7 +31,7 @@
 
 		// Check URL params for category
 		if (browser) {
-			const cat = $page.url.searchParams.get('category');
+			const cat = page.url.searchParams.get('category');
 			if (cat && categories.some((c) => c.id === cat)) {
 				activeCategory = cat;
 			}
@@ -48,10 +48,10 @@
 	// Sync category with URL
 	$effect(() => {
 		if (browser) {
-			const newParams = new URLSearchParams($page.url.searchParams);
+			const newParams = new URLSearchParams(page.url.searchParams);
 			newParams.set('category', activeCategory);
 			const queryString = newParams.toString();
-			const currentQuery = $page.url.searchParams.toString();
+			const currentQuery = page.url.searchParams.toString();
 
 			if (queryString !== currentQuery) {
 				goto(`/settings?${queryString}`, { replaceState: true, keepFocus: true, noScroll: true });

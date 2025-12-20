@@ -3,7 +3,7 @@
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
 	import { browser } from '$app/environment';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import { apiFetch } from '$lib/api';
 	import { confirmation } from '$lib/confirmationStore';
 	import { uiState } from '$lib/states/uiState.svelte';
@@ -81,7 +81,7 @@
 	onMount(() => {
 		// Hydrate State from URL
 		if (browser) {
-			const params = $page.url.searchParams;
+			const params = page.url.searchParams;
 
 			// Search
 			const q = params.get('q');
@@ -122,7 +122,7 @@
 	// --- Data Fetching & URL Sync ---
 	$effect(() => {
 		if ($user && browser) {
-			const currentParams = new URLSearchParams($page.url.searchParams);
+			const currentParams = new URLSearchParams(page.url.searchParams);
 			const newParams = new URLSearchParams(currentParams);
 
 			// A. Construct Query Params (Map UI -> Backend)
@@ -200,7 +200,7 @@
 			async () => {
 				try {
 					await apiFetch(`/api/library/series/${seriesId}`, { method: 'DELETE' });
-					const params = new URLSearchParams($page.url.searchParams);
+					const params = new URLSearchParams(page.url.searchParams);
 					fetchLibrary(`?${params.toString()}`, true);
 				} catch (e) {
 					libraryError = `Failed to delete series: ${(e as Error).message}`;
@@ -218,10 +218,15 @@
 	};
 </script>
 
-<div class="flex flex-col min-h-[calc(100vh-5rem)] mx-auto px-4 sm:px-6 pt-1 sm:pt-2 pb-6" style="max-width: 1400px;">
+<div
+	class="flex flex-col min-h-[calc(100vh-5rem)] mx-auto px-4 sm:px-6 pt-1 sm:pt-2 pb-6"
+	style="max-width: 1400px;"
+>
 	{#if isLoadingLibrary && library.length === 0}
 		<div class="flex-grow flex items-center justify-center">
-			<div class="rounded-3xl bg-black/20 backdrop-blur-3xl border border-white/10 shadow-[0_8px_32px_0_rgba(0,0,0,0.5)] p-8 flex items-center gap-4">
+			<div
+				class="rounded-3xl bg-black/20 backdrop-blur-3xl border border-white/10 shadow-[0_8px_32px_0_rgba(0,0,0,0.5)] p-8 flex items-center gap-4"
+			>
 				<svg
 					class="animate-spin h-8 w-8 text-accent"
 					xmlns="http://www.w3.org/2000/svg"
@@ -249,8 +254,12 @@
 		</div>
 	{:else if library.length === 0}
 		<div class="flex-grow flex flex-col items-center justify-center py-20 text-center">
-			<div class="rounded-3xl bg-black/20 backdrop-blur-3xl border border-white/10 shadow-[0_8px_32px_0_rgba(0,0,0,0.5)] p-8 sm:p-12 max-w-md">
-				<div class="bg-black/30 backdrop-blur-2xl p-6 rounded-full mb-6 border border-white/5 inline-block">
+			<div
+				class="rounded-3xl bg-black/20 backdrop-blur-3xl border border-white/10 shadow-[0_8px_32px_0_rgba(0,0,0,0.5)] p-8 sm:p-12 max-w-md"
+			>
+				<div
+					class="bg-black/30 backdrop-blur-2xl p-6 rounded-full mb-6 border border-white/5 inline-block"
+				>
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
 						width="48"
@@ -283,106 +292,107 @@
 			<!-- Glassmorphic container wrapper with fade on background only -->
 			<div class="relative p-3 sm:p-4">
 				<!-- Background layer with fade mask - only fades the background, not content -->
-				<div 
+				<div
 					class="absolute inset-0 bg-black/20 backdrop-blur-3xl pointer-events-none z-0"
 					style="mask-image: linear-gradient(to right, transparent 0%, black 15%, black 85%, transparent 100%), linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%); mask-composite: intersect; -webkit-mask-image: linear-gradient(to right, transparent 0%, black 15%, black 85%, transparent 100%), linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%); -webkit-mask-composite: source-in;"
 				></div>
-				
+
 				<!-- Content layer (series cards) - fully visible, not affected by fade -->
-				<div class="relative z-10 {uiState.viewMode === 'grid'
-					? 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6'
-					: 'flex flex-col gap-3'}"
+				<div
+					class="relative z-10 {uiState.viewMode === 'grid'
+						? 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6'
+						: 'flex flex-col gap-3'}"
 				>
-				{#each library as series (series.id)}
-					{@const percent = getSeriesProgress(series)}
-					{@const isSelected = uiState.selectedIds.has(series.id)}
+					{#each library as series (series.id)}
+						{@const percent = getSeriesProgress(series)}
+						{@const isSelected = uiState.selectedIds.has(series.id)}
 
-					<LibraryEntry
-						entry={{
-							id: series.id,
-							title: series.title,
-							folderName: series.folderName,
-							coverUrl: series.coverPath ? `/api/files/series/${series.id}/cover` : null
-						}}
-						type="series"
-						viewMode={uiState.viewMode}
-						{isSelected}
-						isSelectionMode={uiState.isSelectionMode}
-						progress={{
-							percent: percent,
-							isRead: percent === 100,
-							showBar: percent > 0
-						}}
-						href={`/series/${series.id}`}
-						mainStat={`${series.volumes.length} ${series.volumes.length === 1 ? 'Vol' : 'Vols'}`}
-						subStat={series.lastReadAt
-							? `READ ${new Date(series.lastReadAt).toLocaleDateString()}`
-							: ''}
-						onSelect={(e) => handleCardClick(e, series.id)}
-					>
-						{#snippet circleAction()}
-							<button
-								onclick={(e) => {
-									e.preventDefault();
-									e.stopPropagation();
-									toggleBookmark(series);
-								}}
-								class={`z-30 col-start-1 row-start-1 relative flex items-center justify-center w-9 h-9 rounded-full transition-all duration-200 pointer-events-auto hover:bg-white/10 active:scale-75 ${
-									series.isBookmarked ? 'text-status-warning' : 'text-theme-secondary'
-								}`}
-								title={series.isBookmarked ? 'Remove Bookmark' : 'Add Bookmark'}
-							>
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									height="18"
-									width="18"
-									viewBox="0 0 24 24"
-									fill={series.isBookmarked ? 'currentColor' : 'none'}
-									stroke="currentColor"
-									stroke-width="2.5"
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									class={`relative transition-all ${
-										series.isBookmarked ? 'animate-pop neon-glow' : 'neon-off'
+						<LibraryEntry
+							entry={{
+								id: series.id,
+								title: series.title,
+								folderName: series.folderName,
+								coverUrl: series.coverPath ? `/api/files/series/${series.id}/cover` : null
+							}}
+							type="series"
+							viewMode={uiState.viewMode}
+							{isSelected}
+							isSelectionMode={uiState.isSelectionMode}
+							progress={{
+								percent: percent,
+								isRead: percent === 100,
+								showBar: percent > 0
+							}}
+							href={`/series/${series.id}`}
+							mainStat={`${series.volumes.length} ${series.volumes.length === 1 ? 'Vol' : 'Vols'}`}
+							subStat={series.lastReadAt
+								? `READ ${new Date(series.lastReadAt).toLocaleDateString()}`
+								: ''}
+							onSelect={(e) => handleCardClick(e, series.id)}
+						>
+							{#snippet circleAction()}
+								<button
+									onclick={(e) => {
+										e.preventDefault();
+										e.stopPropagation();
+										toggleBookmark(series);
+									}}
+									class={`z-30 col-start-1 row-start-1 relative flex items-center justify-center w-9 h-9 rounded-full transition-all duration-200 pointer-events-auto hover:bg-white/10 active:scale-75 ${
+										series.isBookmarked ? 'text-status-warning' : 'text-theme-secondary'
 									}`}
+									title={series.isBookmarked ? 'Remove Bookmark' : 'Add Bookmark'}
 								>
-									<path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
-								</svg>
-							</button>
-						{/snippet}
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										height="18"
+										width="18"
+										viewBox="0 0 24 24"
+										fill={series.isBookmarked ? 'currentColor' : 'none'}
+										stroke="currentColor"
+										stroke-width="2.5"
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										class={`relative transition-all ${
+											series.isBookmarked ? 'animate-pop neon-glow' : 'neon-off'
+										}`}
+									>
+										<path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+									</svg>
+								</button>
+							{/snippet}
 
-						{#snippet listActions()}
-							<button
-								onclick={(e) => {
-									e.preventDefault();
-									e.stopPropagation();
-									toggleBookmark(series);
-								}}
-								class={`z-30 col-start-1 row-start-1 relative flex items-center justify-center w-9 h-9 rounded-full transition-all duration-200 pointer-events-auto hover:bg-white/10 active:scale-75 ${
-									series.isBookmarked ? 'text-status-warning' : 'text-theme-secondary'
-								}`}
-								title={series.isBookmarked ? 'Remove Bookmark' : 'Add Bookmark'}
-							>
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									height="18"
-									width="18"
-									viewBox="0 0 24 24"
-									fill={series.isBookmarked ? 'currentColor' : 'none'}
-									stroke="currentColor"
-									stroke-width="2.5"
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									class={`relative transition-all ${
-										series.isBookmarked ? 'animate-pop neon-glow' : 'neon-off'
+							{#snippet listActions()}
+								<button
+									onclick={(e) => {
+										e.preventDefault();
+										e.stopPropagation();
+										toggleBookmark(series);
+									}}
+									class={`z-30 col-start-1 row-start-1 relative flex items-center justify-center w-9 h-9 rounded-full transition-all duration-200 pointer-events-auto hover:bg-white/10 active:scale-75 ${
+										series.isBookmarked ? 'text-status-warning' : 'text-theme-secondary'
 									}`}
+									title={series.isBookmarked ? 'Remove Bookmark' : 'Add Bookmark'}
 								>
-									<path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
-								</svg>
-							</button>
-						{/snippet}
-					</LibraryEntry>
-				{/each}
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										height="18"
+										width="18"
+										viewBox="0 0 24 24"
+										fill={series.isBookmarked ? 'currentColor' : 'none'}
+										stroke="currentColor"
+										stroke-width="2.5"
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										class={`relative transition-all ${
+											series.isBookmarked ? 'animate-pop neon-glow' : 'neon-off'
+										}`}
+									>
+										<path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+									</svg>
+								</button>
+							{/snippet}
+						</LibraryEntry>
+					{/each}
 				</div>
 			</div>
 		</div>
