@@ -1,58 +1,75 @@
 import { writable } from 'svelte/store';
+import type { Component } from 'svelte';
+import SimpleMenu from '$lib/components/menu/SimpleMenu.svelte';
 
-// --- Type Definitions ---
+// --- Types ---
 export type MenuAction = {
   label: string;
   action: () => void;
   disabled?: boolean;
 };
-
-export type MenuSeparator = {
-  separator: true; // This is to create a discriminated union
-};
-
-// MenuOption is now a union of an action or a separator
+export type MenuSeparator = { separator: true };
 export type MenuOption = MenuAction | MenuSeparator;
 
 type MenuState = {
   isOpen: boolean;
   position: { x: number; y: number };
-  options: MenuOption[];
+  component: Component<any> | null;
+  props: Record<string, any>;
 };
 
-// --- Store Creation ---
 function createContextMenu() {
-  const { subscribe, set, update } = writable<MenuState>({
+  const { subscribe, set } = writable<MenuState>({
     isOpen: false,
     position: { x: 0, y: 0 },
-    options: []
+    component: null,
+    props: {}
   });
 
   return {
     subscribe,
+
     /**
-     * Opens the context menu at the specified coordinates
-     * with the given options.
+     * Opens the context menu.
+     * * Signature A: open(x, y, Component, props) 
+     * -> Renders a custom Svelte component (Advanced Mode)
+     * * Signature B: open(x, y, options[]) 
+     * -> Renders the built-in SimpleMenu (Simple Mode)
      */
-    open: (x: number, y: number, options: MenuOption[]) =>
-      set({
-        isOpen: true,
-        position: { x, y },
-        options
-      }),
-    /**
-     * Closes the context menu.
-     */
+    open: (
+      x: number,
+      y: number,
+      componentOrOptions: Component<any> | MenuOption[],
+      props: Record<string, any> = {}
+    ) => {
+      if (Array.isArray(componentOrOptions)) {
+        // SIMPLE MODE: User passed an array of options.
+        // We wrap them in the SimpleMenu component automatically.
+        set({
+          isOpen: true,
+          position: { x, y },
+          component: SimpleMenu,
+          props: { options: componentOrOptions }
+        });
+      } else {
+        // ADVANCED MODE: User passed a custom component.
+        set({
+          isOpen: true,
+          position: { x, y },
+          component: componentOrOptions,
+          props
+        });
+      }
+    },
+
     close: () =>
       set({
         isOpen: false,
         position: { x: 0, y: 0 },
-        options: []
+        component: null,
+        props: {}
       })
   };
 }
 
-/**
- * A global, singleton store for managing the custom context menu.
- */
 export const contextMenu = createContextMenu();

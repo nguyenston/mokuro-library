@@ -8,6 +8,7 @@
 	import { confirmation } from '$lib/confirmationStore';
 	import { uiState } from '$lib/states/uiState.svelte';
 	import PaginationControls from '$lib/components/PaginationControls.svelte';
+	import LibraryEntry from '$lib/components/LibraryEntry.svelte';
 
 	// --- Type Definitions ---
 	interface UserProgress {
@@ -268,22 +269,54 @@
 		</div>
 	{:else}
 		<div class="flex-grow pb-24">
-			{#if uiState.viewMode === 'grid'}
-				<div
-					class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6"
-				>
-					{#each library as series (series.id)}
-						{@const percent = getSeriesProgress(series)}
+			<div
+				class={uiState.viewMode === 'grid'
+					? 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6'
+					: 'flex flex-col gap-3'}
+			>
+				{#each library as series (series.id)}
+					{@const percent = getSeriesProgress(series)}
+					{@const isSelected = uiState.selectedIds.has(series.id)}
 
-						<div
-							class={`group relative bg-theme-surface rounded-xl border overflow-hidden transition-all duration-200 flex flex-col ${uiState.selectedIds.has(series.id) ? 'border-accent ring-2 ring-accent ring-offset-2 ring-offset-theme-main' : 'border-theme-border hover:border-theme-border-active'}`}
-						>
-							{#if uiState.isSelectionMode}
-								<div class="absolute top-2 right-2 z-30 pointer-events-none">
-									<div
-										class={`h-6 w-6 rounded-full border-2 flex items-center justify-center transition-colors ${uiState.selectedIds.has(series.id) ? 'bg-accent border-accent' : 'bg-black/40 border-white/60'}`}
-									>
-										{#if uiState.selectedIds.has(series.id)}
+					<LibraryEntry
+						entry={{
+							id: series.id,
+							title: series.title,
+							folderName: series.folderName,
+							coverUrl: series.coverPath ? `/api/files/series/${series.id}/cover` : null
+						}}
+						type="series"
+						viewMode={uiState.viewMode}
+						{isSelected}
+						isSelectionMode={uiState.isSelectionMode}
+						progress={{
+							percent: percent,
+							isRead: percent === 100,
+							showBar: percent > 0
+						}}
+						href={`/series/${series.id}`}
+						mainStat={`${series.volumes.length} ${series.volumes.length === 1 ? 'Vol' : 'Vols'}`}
+						subStat={series.lastReadAt
+							? `Last read ${new Date(series.lastReadAt).toLocaleDateString()}`
+							: ''}
+						onSelect={(e) => handleCardClick(e, series.id)}
+					>
+						{#snippet imageOverlay()}
+							{#if !uiState.isSelectionMode}
+								<div
+									class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-between p-2 pointer-events-none z-20"
+								>
+									<div class="flex justify-end">
+										<button
+											type="button"
+											onclick={(e) => {
+												e.preventDefault();
+												e.stopPropagation();
+												handleDeleteSeries(series.id, series.title ?? series.folderName);
+											}}
+											class="pointer-events-auto p-1.5 bg-black/60 backdrop-blur-md rounded-full text-white hover:bg-status-danger transition-colors shadow-lg"
+											title="Delete Series"
+										>
 											<svg
 												xmlns="http://www.w3.org/2000/svg"
 												width="14"
@@ -291,245 +324,54 @@
 												viewBox="0 0 24 24"
 												fill="none"
 												stroke="currentColor"
-												stroke-width="3"
+												stroke-width="2"
 												stroke-linecap="round"
 												stroke-linejoin="round"
-												class="text-white"><polyline points="20 6 9 17 4 12" /></svg
+												><path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path
+													d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"
+												/></svg
 											>
-										{/if}
+										</button>
 									</div>
+
+									<div class="text-white text-xs font-medium"></div>
 								</div>
 							{/if}
+						{/snippet}
 
-							<a
-								href={`/series/${series.id}`}
-								onclick={(e) => handleCardClick(e, series.id)}
-								class="absolute inset-0 z-10"
-								aria-label={`View ${series.folderName}`}
-							></a>
-
-							<div
-								class="aspect-[7/11] w-full bg-theme-main relative overflow-hidden pointer-events-none"
+						{#snippet listActions()}
+							<button
+								type="button"
+								onclick={(e) => {
+									e.preventDefault();
+									e.stopPropagation();
+									handleDeleteSeries(series.id, series.title ?? series.folderName);
+								}}
+								class="p-2 text-theme-secondary hover:text-status-danger transition-colors rounded-md hover:bg-status-danger/10"
+								title="Delete Series"
 							>
-								{#if series.coverPath}
-									<img
-										src={`/api/files/series/${series.id}/cover`}
-										alt={series.folderName}
-										loading="lazy"
-										class="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-									/>
-								{:else}
-									<div
-										class="flex h-full w-full items-center justify-center p-4 text-center text-4xl font-bold text-theme-tertiary bg-theme-surface"
-									>
-										{series.folderName.charAt(0).toUpperCase()}
-									</div>
-								{/if}
-
-								{#if percent > 0}
-									<div class="absolute bottom-0 left-0 right-0 h-1 bg-black/50">
-										<div
-											class="h-full bg-progress shadow-[0_0_8px_rgba(99,102,241,0.6)]"
-											style={`width: ${percent}%`}
-										></div>
-									</div>
-								{/if}
-
-								{#if !uiState.isSelectionMode}
-									<div
-										class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-start p-2 pointer-events-none z-20"
-									>
-										<div class="flex justify-end">
-											<button
-												type="button"
-												onclick={(e) => {
-													e.preventDefault();
-													e.stopPropagation();
-													handleDeleteSeries(series.id, series.title ?? series.folderName);
-												}}
-												class="pointer-events-auto p-1.5 bg-black/60 backdrop-blur-md rounded-full text-white hover:bg-status-danger transition-colors shadow-lg"
-												title="Delete Series"
-											>
-												<svg
-													xmlns="http://www.w3.org/2000/svg"
-													width="14"
-													height="14"
-													viewBox="0 0 24 24"
-													fill="none"
-													stroke="currentColor"
-													stroke-width="2"
-													stroke-linecap="round"
-													stroke-linejoin="round"
-													><path d="M3 6h18" /><path
-														d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"
-													/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" /></svg
-												>
-											</button>
-										</div>
-									</div>
-								{/if}
-							</div>
-
-							<div class="p-3 flex flex-col gap-1 pointer-events-none bg-theme-surface">
-								<div
-									class="text-sm font-semibold text-theme-primary line-clamp-1 group-hover:text-accent transition-colors"
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									width="16"
+									height="16"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="2"
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									><path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path
+										d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"
+									/></svg
 								>
-									{series.title ?? series.folderName}
-								</div>
-								<div class="flex items-center justify-between">
-									<div class="text-xs text-theme-secondary font-medium">
-										{series.volumes.length}
-										{series.volumes.length === 1 ? 'Vol' : 'Vols'}
-									</div>
-									{#if percent === 100}
-										<div
-											class="h-2 w-2 rounded-full bg-status-success shadow-[0_0_5px_rgba(16,185,129,0.5)]"
-											title="Completed"
-										></div>
-									{:else if percent > 0}
-										<div class="text-[10px] font-bold text-progress">{Math.round(percent)}%</div>
-									{/if}
-								</div>
-							</div>
-						</div>
-					{/each}
-				</div>
-			{:else}
-				<div class="flex flex-col gap-3">
-					{#each library as series (series.id)}
-						{@const percent = getSeriesProgress(series)}
-
-						<div
-							class={`group relative bg-theme-surface rounded-lg border p-2 flex items-center gap-4 transition-all duration-200 ${uiState.selectedIds.has(series.id) ? 'border-accent ring-1 ring-accent' : 'border-theme-border hover:border-theme-border-active'}`}
-						>
-							{#if uiState.isSelectionMode}
-								<div class="pl-2 pointer-events-none z-30">
-									<div
-										class={`h-5 w-5 rounded border flex items-center justify-center transition-colors ${uiState.selectedIds.has(series.id) ? 'bg-accent border-accent' : 'border-theme-border-light'}`}
-									>
-										{#if uiState.selectedIds.has(series.id)}
-											<svg
-												xmlns="http://www.w3.org/2000/svg"
-												width="12"
-												height="12"
-												viewBox="0 0 24 24"
-												fill="none"
-												stroke="currentColor"
-												stroke-width="3"
-												stroke-linecap="round"
-												stroke-linejoin="round"
-												class="text-white"><polyline points="20 6 9 17 4 12" /></svg
-											>
-										{/if}
-									</div>
-								</div>
-							{/if}
-
-							<a
-								href={`/series/${series.id}`}
-								onclick={(e) => handleCardClick(e, series.id)}
-								class="absolute inset-0 z-10"
-								aria-label={`View ${series.folderName}`}
-							></a>
-
-							<div
-								class="w-10 h-14 bg-theme-main rounded overflow-hidden flex-shrink-0 pointer-events-none border border-theme-border relative"
-							>
-								{#if series.coverPath}
-									<img
-										src={`/api/files/series/${series.id}/cover`}
-										alt={series.folderName}
-										class="h-full w-full object-cover"
-									/>
-								{:else}
-									<div
-										class="h-full w-full flex items-center justify-center text-xs font-bold text-theme-tertiary"
-									>
-										{series.folderName.charAt(0)}
-									</div>
-								{/if}
-							</div>
-
-							{#if percent > 0}
-								<div class="absolute bottom-0 left-0 right-0 h-1 bg-theme-main/50">
-									<div
-										class="h-full bg-progress shadow-[0_0_10px_rgba(59,130,246,0.5)]"
-										style={`width: ${percent}%`}
-									></div>
-								</div>
-							{/if}
-
-							<div class="flex-grow min-w-0 pointer-events-none">
-								<div
-									class="text-sm font-semibold text-theme-primary truncate group-hover:text-accent transition-colors"
-								>
-									{series.title ?? series.folderName}
-								</div>
-								<div class="text-xs text-theme-secondary flex gap-3 items-center mt-0.5">
-									<span class="flex items-center gap-1">
-										<svg
-											xmlns="http://www.w3.org/2000/svg"
-											width="12"
-											height="12"
-											viewBox="0 0 24 24"
-											fill="none"
-											stroke="currentColor"
-											stroke-width="2"
-											stroke-linecap="round"
-											stroke-linejoin="round"
-											class="text-theme-tertiary"
-											><path
-												d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"
-											/></svg
-										>
-										{series.volumes.length} Vols
-									</span>
-									{#if series.lastReadAt}
-										<span class="text-theme-tertiary"
-											>• Last read {new Date(series.lastReadAt).toLocaleDateString()}</span
-										>
-									{/if}
-								</div>
-							</div>
-
-							{#if !uiState.isSelectionMode}
-								<div class="pl-4 border-l border-theme-border relative z-20">
-									<button
-										type="button"
-										onclick={(e) => {
-											e.preventDefault();
-											e.stopPropagation();
-											handleDeleteSeries(series.id, series.title ?? series.folderName);
-										}}
-										class="p-2 text-theme-secondary hover:text-status-danger transition-colors rounded-md hover:bg-status-danger/10"
-										title="Delete Series"
-									>
-										<svg
-											xmlns="http://www.w3.org/2000/svg"
-											width="16"
-											height="16"
-											viewBox="0 0 24 24"
-											fill="none"
-											stroke="currentColor"
-											stroke-width="2"
-											stroke-linecap="round"
-											stroke-linejoin="round"
-											><path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path
-												d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"
-											/></svg
-										>
-									</button>
-								</div>
-							{/if}
-						</div>
-					{/each}
-				</div>
-			{/if}
+							</button>
+						{/snippet}
+					</LibraryEntry>
+				{/each}
+			</div>
 		</div>
 
-		<div
-			class="fixed bottom-0 left-0 right-0 border-t border-theme-border bg-theme-surface/95 backdrop-blur-md p-4 z-40"
-		>
+		<div class="fixed bottom-0 left-0 right-0 bg-transparent p-6 z-40">
 			<div class="max-w-7xl mx-auto flex justify-center">
 				<PaginationControls {meta} />
 			</div>

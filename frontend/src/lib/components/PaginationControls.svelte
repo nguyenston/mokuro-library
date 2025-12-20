@@ -12,6 +12,44 @@
 		};
 	}>();
 
+	// --- Internal State ---
+	let isLimitOpen = $state(false);
+	let limitMenuRef: HTMLDivElement | undefined = $state();
+	const availableLimits = [10, 20, 50, 100];
+
+	// --- Helpers ---
+	function getPageNumbers(current: number, total: number) {
+		if (total <= 1) return [1];
+
+		const delta = 1;
+		const range = [];
+		const rangeWithDots = [];
+		let l;
+
+		for (let i = 1; i <= total; i++) {
+			if (i === 1 || i === total || (i >= current - delta && i <= current + delta)) {
+				range.push(i);
+			}
+		}
+
+		for (let i of range) {
+			if (l) {
+				if (i - l === 2) {
+					rangeWithDots.push(l + 1);
+				} else if (i - l !== 1) {
+					rangeWithDots.push('...');
+				}
+			}
+			rangeWithDots.push(i);
+			l = i;
+		}
+
+		return rangeWithDots;
+	}
+
+	let pages = $derived(getPageNumbers(meta.page, meta.totalPages));
+
+	// --- Handlers ---
 	const updateParams = (changes: Record<string, string>) => {
 		const params = new URLSearchParams(page.url.searchParams);
 		for (const [key, value] of Object.entries(changes)) {
@@ -26,96 +64,159 @@
 	};
 
 	const setLimit = (l: number) => {
-		// Save preference to localStorage
 		if (browser) {
 			localStorage.setItem('pagination_limit', l.toString());
 		}
-		// Reset to page 1 when changing limit to avoid out-of-bounds
 		updateParams({ limit: l.toString(), page: '1' });
+		isLimitOpen = false;
 	};
 
-	// Restore preference on load if no limit param is present
+	// Restore preference
 	$effect(() => {
 		if (browser) {
 			const saved = localStorage.getItem('pagination_limit');
 			const current = page.url.searchParams.get('limit');
-
-			// If we have a saved limit, no URL override, and it differs from current display
 			if (saved && !current && Number(saved) !== meta.limit) {
 				updateParams({ limit: saved });
 			}
 		}
 	});
+
+	// Outside Click
+	function handleOutsideClick(event: MouseEvent) {
+		if (isLimitOpen && limitMenuRef && !limitMenuRef.contains(event.target as Node)) {
+			isLimitOpen = false;
+		}
+	}
 </script>
 
-{#if meta.total > 0}
-	<div
-		class="flex flex-col sm:flex-row items-center justify-between border-t border-gray-200 bg-white px-4 py-3 dark:border-gray-700 dark:bg-gray-900 sm:px-6 rounded-lg gap-4"
-	>
-		<div class="text-sm text-gray-700 dark:text-gray-400 text-center sm:text-left">
-			Showing
-			<span class="font-medium">{(meta.page - 1) * meta.limit + 1}</span>
-			to
-			<span class="font-medium">{Math.min(meta.page * meta.limit, meta.total)}</span>
-			of
-			<span class="font-medium">{meta.total}</span>
-			results
-		</div>
+<svelte:window onclick={handleOutsideClick} />
 
-		<div class="flex flex-col sm:flex-row items-center gap-4">
-			<div class="flex items-center gap-2">
-				<span class="text-sm text-gray-500 dark:text-gray-400">Show:</span>
-				<select
-					value={meta.limit}
-					onchange={(e) => setLimit(Number(e.currentTarget.value))}
-					class="block rounded-md border-0 py-1.5 pl-3 pr-8 text-gray-900 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-indigo-600 sm:text-sm sm:leading-6 dark:bg-gray-700 dark:text-white dark:ring-gray-600"
-				>
-					<option value={10}>10</option>
-					<option value={20}>20</option>
-					<option value={50}>50</option>
-					<option value={100}>100</option>
-				</select>
+{#if meta.total >= 0}
+	<div
+		class="flex justify-center animate-in fade-in slide-in-from-bottom-4 duration-500 relative z-10"
+	>
+		<nav
+			class="flex items-center gap-1 p-1.5 pl-4 rounded-full bg-theme-surface/60 backdrop-blur-xl border border-white/10 shadow-2xl ring-1 ring-black/5"
+			aria-label="Pagination"
+		>
+			<div
+				class="hidden sm:block text-[12px] font-bold text-theme-tertiary uppercase tracking-wider mr-2 select-none"
+			>
+				<span class="text-theme-primary">{(meta.page - 1) * meta.limit + 1}</span>
+				-
+				<span class="text-theme-primary">{Math.min(meta.page * meta.limit, meta.total)}</span>
+				of
+				<span class="text-theme-primary">{meta.total}</span>
 			</div>
 
-			{#if meta.totalPages > 1 || true}
-				<nav class="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
-					<button
-						onclick={() => setPage(meta.page - 1)}
-						disabled={meta.page === 1}
-						class="relative inline-flex items-center rounded-l-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 disabled:opacity-50 dark:ring-gray-600 dark:hover:bg-gray-800"
-					>
-						<span class="sr-only">Previous</span>
-						<svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-							<path
-								fill-rule="evenodd"
-								d="M12.79 5.23a.75.75 0 01-.02 1.06L8.832 10l3.938 3.71a.75.75 0 11-1.04 1.08l-4.5-4.25a.75.75 0 010-1.08l4.5-4.25a.75.75 0 011.06.02z"
-								clip-rule="evenodd"
-							/>
-						</svg>
-					</button>
+			<div class="hidden sm:block w-px h-5 bg-white/10 mr-1"></div>
 
-					<span
-						class="relative inline-flex items-center px-4 py-2 text-sm font-semibold text-gray-900 ring-1 ring-inset ring-gray-300 focus:outline-offset-0 dark:text-white dark:ring-gray-600"
-					>
-						{meta.page} / {meta.totalPages}
-					</span>
+			<button
+				onclick={() => setPage(meta.page - 1)}
+				disabled={meta.page === 1 || meta.totalPages <= 1}
+				class="w-9 h-9 flex items-center justify-center rounded-full text-theme-secondary transition-all hover:bg-white/10 hover:text-white disabled:opacity-30 disabled:hover:bg-transparent"
+				aria-label="Previous Page"
+			>
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					width="18"
+					height="18"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2.5"
+					stroke-linecap="round"
+					stroke-linejoin="round"><polyline points="15 18 9 12 15 6" /></svg
+				>
+			</button>
 
-					<button
-						onclick={() => setPage(meta.page + 1)}
-						disabled={meta.page === meta.totalPages}
-						class="relative inline-flex items-center rounded-r-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 disabled:opacity-50 dark:ring-gray-600 dark:hover:bg-gray-800"
+			{#each pages as pageNum}
+				{#if pageNum === '...'}
+					<div
+						class="w-8 h-9 flex items-center justify-center text-theme-secondary/50 font-bold select-none text-xs tracking-widest"
 					>
-						<span class="sr-only">Next</span>
-						<svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-							<path
-								fill-rule="evenodd"
-								d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z"
-								clip-rule="evenodd"
-							/>
-						</svg>
+						•••
+					</div>
+				{:else}
+					<button
+						onclick={() => setPage(Number(pageNum))}
+						disabled={meta.totalPages <= 1}
+						class={`min-w-[36px] h-9 px-3 flex items-center justify-center rounded-full text-sm font-bold transition-all duration-300
+                        ${
+													meta.page === pageNum
+														? 'bg-accent text-white shadow-lg shadow-accent/25 scale-105 cursor-default'
+														: 'text-theme-secondary hover:bg-white/10 hover:text-white'
+												}`}
+					>
+						{pageNum}
 					</button>
-				</nav>
-			{/if}
-		</div>
+				{/if}
+			{/each}
+
+			<button
+				onclick={() => setPage(meta.page + 1)}
+				disabled={meta.page === meta.totalPages || meta.totalPages <= 1}
+				class="w-9 h-9 flex items-center justify-center rounded-full text-theme-secondary transition-all hover:bg-white/10 hover:text-white disabled:opacity-30 disabled:hover:bg-transparent"
+				aria-label="Next Page"
+			>
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					width="18"
+					height="18"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2.5"
+					stroke-linecap="round"
+					stroke-linejoin="round"><polyline points="9 18 15 12 9 6" /></svg
+				>
+			</button>
+
+			<div class="w-px h-5 bg-white/10 mx-1"></div>
+
+			<div class="relative" bind:this={limitMenuRef}>
+				<button
+					onclick={() => (isLimitOpen = !isLimitOpen)}
+					class="h-9 px-4 flex items-center gap-2 rounded-full text-[12px] font-bold text-theme-secondary hover:text-white hover:bg-white/5 transition-colors"
+					title="Rows per page"
+				>
+					<span>{meta.limit}</span>
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						width="14"
+						height="14"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						class={`transition-transform duration-200 ${isLimitOpen ? 'rotate-180' : ''}`}
+						><path d="m6 9 6 6 6-6" /></svg
+					>
+				</button>
+
+				{#if isLimitOpen}
+					<div
+						class="absolute bottom-full right-0 mb-2 w-24 py-1 bg-theme-surface border border-theme-border rounded-xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 z-50"
+					>
+						{#each availableLimits as opt}
+							<button
+								onclick={() => setLimit(opt)}
+								class={`w-full px-3 py-2 text-center text-[12px] font-bold transition-colors
+                                ${
+																	meta.limit === opt
+																		? 'bg-accent/10 text-accent'
+																		: 'text-theme-secondary hover:text-white hover:bg-white/5'
+																}`}
+							>
+								{opt}
+							</button>
+						{/each}
+					</div>
+				{/if}
+			</div>
+		</nav>
 	</div>
 {/if}

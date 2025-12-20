@@ -1,17 +1,17 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
-	import { fade } from 'svelte/transition';
 	import { apiFetch, triggerDownload } from '$lib/api';
 	import { user } from '$lib/authStore';
 	import { goto } from '$app/navigation';
 	import { browser } from '$app/environment';
 	import { confirmation } from '$lib/confirmationStore';
 	import { contextMenu } from '$lib/contextMenuStore';
-	import { page } from '$app/stores';
 	import { uiState } from '$lib/states/uiState.svelte';
 
 	import EditSeriesModal from '$lib/components/EditSeriesModal.svelte';
 	import RenameModal from '$lib/components/RenameModal.svelte';
+	import LibraryEntry from '$lib/components/LibraryEntry.svelte';
+	import LibraryListWrapper from '$lib/components/LibraryListWrapper.svelte';
+	import SeriesHero from '$lib/components/SeriesHero.svelte';
 
 	// --- Type Definitions ---
 	interface UserProgress {
@@ -49,7 +49,6 @@
 
 	let seriesId = $derived(params.id);
 
-	let fileInput: HTMLInputElement | null = $state(null);
 	let coverRefreshTrigger = $state(0);
 
 	let isEditModalOpen = $state(false);
@@ -161,7 +160,7 @@
 		}
 	};
 
-	const handleCoverUpload = async () => {
+	const handleCoverUpload = async (e: Event, fileInput: HTMLInputElement | undefined) => {
 		if (!fileInput || !fileInput.files || fileInput.files.length === 0 || !series) return;
 		const formData = new FormData();
 		formData.append('cover', fileInput.files[0]);
@@ -333,373 +332,126 @@
 			Error: {error}
 		</div>
 	{:else if series}
-		<div
-			class="relative w-full bg-theme-surface rounded-3xl overflow-hidden border border-theme-border shadow-2xl mb-10 group"
-		>
-			<div class="absolute inset-0 z-0 opacity-30 pointer-events-none">
-				{#if series.coverPath}
-					<img
-						src={`/api/files/series/${series.id}/cover?t=${coverRefreshTrigger}`}
-						alt=""
-						class="w-full h-full object-cover blur-3xl scale-110"
-					/>
-				{:else}
-					<div class="w-full h-full bg-gradient-to-br from-theme-surface to-bg-main"></div>
-				{/if}
-				<div
-					class="absolute inset-0 bg-gradient-to-t from-theme-surface via-theme-surface/80 to-transparent"
-				></div>
-			</div>
+		<SeriesHero
+			{series}
+			{stats}
+			{coverRefreshTrigger}
+			onCoverUpload={handleCoverUpload}
+			onEditMetadata={() => (isEditModalOpen = true)}
+			onDownload={(e) => openDownloadMenu(e, seriesId, 'series')}
+		/>
 
-			<div
-				class="relative z-10 p-6 sm:p-10 flex flex-col md:flex-row gap-8 items-start md:items-end"
-			>
-				<div
-					class="relative shrink-0 w-32 sm:w-48 aspect-[7/11] rounded-lg overflow-hidden shadow-2xl ring-1 ring-white/10 group-hover:scale-105 transition-transform duration-500 bg-theme-main"
-				>
-					{#if series.coverPath}
-						<img
-							src={`/api/files/series/${series.id}/cover?t=${coverRefreshTrigger}`}
-							alt={series.folderName}
-							class="w-full h-full object-cover"
-						/>
-					{:else}
-						<div
-							class="w-full h-full flex items-center justify-center text-4xl font-serif text-theme-tertiary"
-						>
-							{series.folderName.charAt(0)}
-						</div>
-					{/if}
+		<LibraryListWrapper>
+			{#if processedVolumes.length === 0}
+				<div class="flex flex-col items-center justify-center py-20 text-center rounded-2xl">
+					<p class="text-theme-secondary">No volumes found matching your filters.</p>
 					<button
-						onclick={() => fileInput?.click()}
-						class="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+						onclick={() => {
+							uiState.searchQuery = '';
+							uiState.filterStatus = 'all';
+						}}
+						class="mt-4 text-accent hover:underline text-sm">Clear filters</button
 					>
-						<span class="text-xs font-bold uppercase tracking-wider text-white">Change Cover</span>
-					</button>
-					<input
-						type="file"
-						accept="image/*"
-						class="hidden"
-						bind:this={fileInput}
-						onchange={handleCoverUpload}
-					/>
 				</div>
-
-				<div class="flex-grow space-y-4 w-full">
-					<div>
-						<div class="flex items-start justify-between gap-4">
-							<h1
-								class="text-3xl sm:text-4xl md:text-5xl font-bold text-white leading-tight tracking-tight drop-shadow-md"
-							>
-								{series.title ?? series.folderName}
-							</h1>
-							<button
-								onclick={() => (isEditModalOpen = true)}
-								class="p-2 text-theme-secondary hover:text-white hover:bg-white/10 rounded-lg transition-colors"
-								title="Edit Metadata"
-							>
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									width="20"
-									height="20"
-									viewBox="0 0 24 24"
-									fill="none"
-									stroke="currentColor"
-									stroke-width="2"
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" /><path
-										d="m15 5 4 4"
-									/></svg
-								>
-							</button>
-						</div>
-						<div
-							class="flex flex-wrap items-center gap-4 mt-4 text-sm font-medium text-theme-secondary"
-						>
-							<div
-								class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-theme-main/50 border border-theme-border-light"
-							>
-								<span class="text-accent font-bold">{stats.volsRead} / {stats.totalVols}</span><span
-									>Volumes</span
-								>
-							</div>
-							{#if stats.totalCharsRead > 0}
-								<div
-									class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-theme-main/50 border border-theme-border-light"
-								>
-									<span class="text-purple-400 font-bold"
-										>{stats.totalCharsRead.toLocaleString()}</span
-									><span>Chars</span>
-								</div>
-							{/if}
-							{#if stats.totalTime > 0}
-								<div
-									class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-theme-main/50 border border-theme-border-light"
-								>
-									<span class="text-emerald-400 font-bold">{formatTime(stats.totalTime)}</span><span
-										>Read</span
-									>
-								</div>
-							{/if}
-						</div>
-					</div>
-					{#if series.description}
-						<p
-							class="text-theme-secondary line-clamp-3 max-w-2xl text-sm sm:text-base leading-relaxed whitespace-pre-wrap"
-						>
-							{series.description}
-						</p>
-					{:else}
-						<p class="text-theme-secondary/50 text-sm italic">No description available.</p>
-					{/if}
-					<div class="pt-2">
-						<button
-							onclick={(e) => openDownloadMenu(e, seriesId, 'series')}
-							class="flex items-center gap-2 px-4 py-2 bg-theme-main/50 border border-theme-border hover:bg-theme-main text-sm text-theme-secondary hover:text-white rounded-lg transition-colors"
-						>
-							<svg
-								xmlns="http://www.w3.org/2000/svg"
-								width="16"
-								height="16"
-								viewBox="0 0 24 24"
-								fill="none"
-								stroke="currentColor"
-								stroke-width="2"
-								stroke-linecap="round"
-								stroke-linejoin="round"
-							>
-								<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-								<polyline points="7 10 12 15 17 10" />
-								<line x1="12" x2="12" y1="15" y2="3" />
-							</svg>
-							Download Series
-						</button>
-					</div>
-				</div>
-			</div>
-		</div>
-
-		{#if processedVolumes.length === 0}
-			<div
-				class="flex flex-col items-center justify-center py-20 text-center border border-dashed border-theme-border rounded-2xl"
-			>
-				<p class="text-theme-secondary">No volumes found matching your filters.</p>
-				<button
-					onclick={() => {
-						uiState.searchQuery = '';
-						uiState.filterStatus = 'all';
-					}}
-					class="mt-4 text-accent hover:underline text-sm">Clear filters</button
+			{:else}
+				<h2
+					class="text-2xl sm:text-3xl font-bold text-white mb-6 drop-shadow-md flex items-center gap-3"
 				>
-			</div>
-		{:else if uiState.viewMode === 'grid'}
-			<div
-				class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6"
-			>
-				{#each processedVolumes as vol (vol.id)}
-					{@const stats = getVolumeStats(vol)}
-					{@const isSelected = uiState.selectedIds.has(vol.id)}
-					{@const isDimmed = uiState.isSelectionMode && !isSelected}
+					Volumes
+					<span class="text-lg font-normal text-theme-secondary opacity-80">
+						({processedVolumes.length})
+					</span>
+				</h2>
 
-					<div
-						class={`group relative bg-theme-surface rounded-xl border flex flex-col transition-all duration-300 overflow-hidden 
-            ${
-							isSelected
-								? 'border-accent ring-1 ring-accent shadow-[0_0_20px_rgba(99,102,241,0.4)] z-30 scale-[1.02]'
-								: 'border-theme-border z-10'
-						} 
-            ${isDimmed ? 'opacity-40 grayscale-[0.4]' : 'opacity-100'}`}
-					>
-						<a
+				<div
+					class={uiState.viewMode === 'grid'
+						? 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6'
+						: 'flex flex-col gap-3'}
+				>
+					{#each processedVolumes as vol (vol.id)}
+						{@const stats = getVolumeStats(vol)}
+						{@const isSelected = uiState.selectedIds.has(vol.id)}
+
+						<LibraryEntry
+							entry={{
+								id: vol.id,
+								title: vol.title,
+								folderName: vol.folderName,
+								coverUrl: vol.coverImageName
+									? `/api/files/volume/${vol.id}/image/${vol.coverImageName}`
+									: null
+							}}
+							type="volume"
+							viewMode={uiState.viewMode}
+							{isSelected}
+							isSelectionMode={uiState.isSelectionMode}
+							progress={{
+								percent: stats.percent,
+								isRead: stats.isRead,
+								showBar: stats.percent > 0 || stats.isRead
+							}}
 							href={`/volume/${vol.id}`}
-							onclick={(e) => handleVolumeClick(e, vol.id)}
-							class="absolute inset-0 z-10"
-							aria-label={`Read ${vol.title}`}
-						></a>
-
-						<div
-							class="aspect-[2/3] w-full bg-theme-main relative overflow-hidden pointer-events-none z-10"
+							mainStat={`${vol.progress[0]?.page ?? 0}/${vol.pageCount} P`}
+							subStat={vol.progress[0]?.timeRead
+								? `${formatTime(vol.progress[0].timeRead)} read`
+								: ''}
+							onSelect={(e) => handleVolumeClick(e, vol.id)}
 						>
-							{#if vol.coverImageName}
-								<img
-									src={`/api/files/volume/${vol.id}/image/${vol.coverImageName}`}
-									alt={vol.folderName}
-									loading="lazy"
-									class="h-full w-full object-cover transition-transform duration-700 md:group-hover:scale-110"
-								/>
-							{:else}
-								<div
-									class="flex h-full w-full items-center justify-center text-theme-tertiary bg-theme-surface font-bold text-xl"
+							{#snippet menuAction()}
+								<button
+									onclick={(e) => openGridVolumeMenu(e, vol)}
+									class="p-2 text-theme-secondary hover:text-accent active:bg-theme-main rounded-full transition-colors"
+									title="Actions"
 								>
-									{vol.folderName[0]}
-								</div>
-							{/if}
-
-							<div
-								class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-40"
-							></div>
-
-							{#if stats.isRead}
-								<div
-									class="absolute top-2 left-2 bg-status-success text-white text-[10px] font-bold px-2 py-0.5 rounded shadow-lg z-20"
-								>
-									READ
-								</div>
-							{/if}
-						</div>
-
-						{#if stats.percent > 0 || stats.isRead}
-							<div class="h-1.5 w-full bg-black/40 relative z-20">
-								<div
-									class={`absolute inset-0 blur-[4px] brightness-150 transition-all duration-700 ease-out ${
-										stats.isRead ? 'bg-status-success' : 'bg-progress'
-									}`}
-									style={`width: ${stats.isRead ? 100 : stats.percent}%; opacity: 0.8;`}
-								></div>
-
-								<div
-									class={`absolute inset-0 transition-all duration-700 ease-out z-10 ${
-										stats.isRead ? 'bg-status-success' : 'bg-progress'
-									}`}
-									style={`width: ${stats.isRead ? 100 : stats.percent}%`}
-								></div>
-							</div>
-						{/if}
-
-						<div class="p-3 bg-theme-surface flex flex-col gap-2 relative z-20">
-							<div class="flex justify-between items-start gap-2">
-								<div
-									class="text-sm font-bold text-theme-primary leading-tight line-clamp-2 flex-grow"
-								>
-									{vol.title || vol.folderName}
-								</div>
-
-								{#if !uiState.isSelectionMode}
-									<button
-										onclick={(e) => {
-											e.preventDefault();
-											e.stopPropagation();
-											openGridVolumeMenu(e, vol);
-										}}
-										class="pointer-events-auto -mt-1 -mr-1 p-2 text-theme-secondary hover:text-accent active:bg-theme-main rounded-full transition-colors"
-										title="openGridVolumeMenu"
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										width="20"
+										height="20"
+										viewBox="0 0 24 24"
+										fill="none"
+										stroke="currentColor"
+										stroke-width="2"
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										><circle cx="12" cy="12" r="1" /><circle cx="12" cy="5" r="1" /><circle
+											cx="12"
+											cy="19"
+											r="1"
+										/></svg
 									>
-										<svg
-											xmlns="http://www.w3.org/2000/svg"
-											width="20"
-											height="20"
-											viewBox="0 0 24 24"
-											fill="none"
-											stroke="currentColor"
-											stroke-width="2"
-											stroke-linecap="round"
-											stroke-linejoin="round"
-											><circle cx="12" cy="12" r="1" /><circle cx="12" cy="5" r="1" /><circle
-												cx="12"
-												cy="19"
-												r="1"
-											/></svg
-										>
-									</button>
-								{/if}
-							</div>
+								</button>
+							{/snippet}
 
-							<div class="flex items-center justify-between">
-								<div
-									class={`text-[11px] font-bold uppercase tracking-wider transition-colors ${stats.isRead ? 'text-status-success' : 'text-theme-secondary'}`}
-								>
-									{vol.pageCount} Pages
-								</div>
-
-								{#if !uiState.isSelectionMode}
-									<button
-										onclick={(e) => {
-											e.preventDefault();
-											e.stopPropagation();
-											toggleComplete(vol.id);
-										}}
-										class={`pointer-events-auto p-1.5 rounded-md transition-all ${stats.isRead ? 'text-status-success' : 'text-theme-tertiary hover:text-white'}`}
-										title="ToggleComplete"
-									>
-										<svg
-											xmlns="http://www.w3.org/2000/svg"
-											width="16"
-											height="16"
-											viewBox="0 0 24 24"
-											fill="none"
-											stroke="currentColor"
-											stroke-width="2.5"
-											stroke-linecap="round"
-											stroke-linejoin="round"
-										>
-											<path d="M20 6L9 17l-5-5" />
-										</svg>
-									</button>
-								{/if}
-							</div>
-						</div>
-					</div>
-				{/each}
-			</div>
-		{:else}
-			<div class="flex flex-col gap-3">
-				{#each processedVolumes as vol (vol.id)}
-					{@const stats = getVolumeStats(vol)}
-					{@const isSelected = uiState.selectedIds.has(vol.id)}
-					{@const isDimmed = uiState.isSelectionMode && !isSelected}
-
-					<div
-						class={`group relative bg-theme-surface rounded-xl border flex items-center transition-all duration-300 overflow-hidden h-32 
-            ${
-							isSelected
-								? 'border-accent ring-1 ring-accent shadow-[0_0_20px_rgba(99,102,241,0.4)] z-30'
-								: 'border-theme-border z-10'
-						} 
-            ${isDimmed ? 'opacity-40 grayscale-[0.4]' : 'opacity-100'}`}
-					>
-						<a
-							href={`/volume/${vol.id}`}
-							onclick={(e) => handleVolumeClick(e, vol.id)}
-							class="absolute inset-0 z-0 block"
-							aria-label={`View ${vol.title}`}
-						></a>
-
-						<div
-							class="relative h-full aspect-[7/11] bg-theme-main flex-shrink-0 pointer-events-none border-r border-theme-border overflow-hidden z-10"
-						>
-							{#if vol.coverImageName}
-								<img
-									src={`/api/files/volume/${vol.id}/image/${vol.coverImageName}`}
-									alt=""
-									class="h-full w-full object-cover transition-transform duration-700 md:group-hover:scale-110"
-								/>
-							{:else}
-								<div
-									class="h-full w-full flex items-center justify-center text-2xl font-bold text-theme-tertiary"
-								>
-									#
-								</div>
-							{/if}
-							<div
-								class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-60"
-							></div>
-						</div>
-
-						<div class="flex-grow min-w-0 py-4 px-6 pointer-events-none z-10">
-							<div class="flex items-center gap-3">
-								<div
-									class="text-lg font-bold text-theme-primary truncate group-hover:text-accent transition-colors"
-								>
-									{vol.title || vol.folderName}
-								</div>
+							{#snippet quickAction()}
 								<button
 									onclick={(e) => {
 										e.preventDefault();
 										e.stopPropagation();
-										openRenameVolume(e, vol);
+										toggleComplete(vol.id);
 									}}
-									class="pointer-events-auto relative z-20 text-theme-secondary hover:text-white opacity-0 group-hover:opacity-100 transition-opacity"
+									class={`p-1.5 rounded-md transition-all ${stats.isRead ? 'text-status-success' : 'text-theme-tertiary hover:text-white'}`}
+									title="ToggleComplete"
+								>
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										width="16"
+										height="16"
+										viewBox="0 0 24 24"
+										fill="none"
+										stroke="currentColor"
+										stroke-width="2.5"
+										stroke-linecap="round"
+										stroke-linejoin="round"
+									>
+										<path d="M20 6L9 17l-5-5" />
+									</svg>
+								</button>
+							{/snippet}
+
+							{#snippet titleAction()}
+								<button
+									onclick={(e) => openRenameVolume(e, vol)}
+									class="text-theme-secondary hover:text-white transition-colors"
 									title="Rename"
 								>
 									<svg
@@ -715,113 +467,93 @@
 										><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" /></svg
 									>
 								</button>
-							</div>
-							<div class="text-sm flex gap-4 items-center mt-1">
-								<span
-									class={`font-bold transition-colors ${stats.isRead ? 'text-status-success' : 'text-theme-secondary'}`}
+							{/snippet}
+
+							{#snippet listActions()}
+								<div
+									class="flex flex-col sm:flex-row items-center justify-center h-full gap-1 sm:gap-4 px-3 py-2"
 								>
-									{vol.pageCount} Pages
-								</span>
-								{#if vol.progress[0]?.timeRead}
-									<span class="text-theme-tertiary font-medium"
-										>• {formatTime(vol.progress[0].timeRead)} read</span
+									<button
+										onclick={(e) => {
+											e.preventDefault();
+											e.stopPropagation();
+											toggleComplete(vol.id);
+										}}
+										class={`p-2 rounded-full border transition-all duration-200 active:scale-90 ${
+											stats.isRead
+												? 'bg-status-success border-status-success text-white'
+												: 'border-theme-border text-theme-secondary hover:text-white hover:border-white'
+										}`}
+										title={stats.isRead ? 'Mark Unread' : 'Mark Read'}
 									>
-								{/if}
-							</div>
-						</div>
+										<svg
+											xmlns="http://www.w3.org/2000/svg"
+											width="16"
+											height="16"
+											viewBox="0 0 24 24"
+											fill="none"
+											stroke="currentColor"
+											stroke-width="3"
+											stroke-linecap="round"
+											stroke-linejoin="round"
+										>
+											<polyline points="20 6 9 17 4 12" />
+										</svg>
+									</button>
 
-						<div
-							class="flex items-center gap-5 pr-6 pl-6 border-l border-theme-border-light h-12 relative z-20"
-						>
-							<button
-								onclick={(e) => {
-									e.preventDefault();
-									e.stopPropagation();
-									toggleComplete(vol.id);
-								}}
-								class={`pointer-events-auto p-2.5 rounded-full border transition-all duration-200 active:scale-90 ${stats.isRead ? 'bg-status-success border-status-success text-white' : 'border-theme-border text-theme-secondary hover:text-white hover:border-white'}`}
-								title={stats.isRead ? 'Mark Unread' : 'Mark Read'}
-							>
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									width="20"
-									height="20"
-									viewBox="0 0 24 24"
-									fill="none"
-									stroke="currentColor"
-									stroke-width="3"
-									stroke-linecap="round"
-									stroke-linejoin="round"><polyline points="20 6 9 17 4 12" /></svg
-								>
-							</button>
+									<button
+										onclick={(e) => openDownloadMenu(e, vol.id, 'volume')}
+										class="p-1.5 text-theme-secondary hover:text-white transition-colors"
+										title="Download"
+									>
+										<svg
+											xmlns="http://www.w3.org/2000/svg"
+											width="20"
+											height="20"
+											viewBox="0 0 24 24"
+											fill="none"
+											stroke="currentColor"
+											stroke-width="2"
+											stroke-linecap="round"
+											stroke-linejoin="round"
+										>
+											<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+											<polyline points="7 10 12 15 17 10" />
+											<line x1="12" x2="12" y1="15" y2="3" />
+										</svg>
+									</button>
 
-							<button
-								onclick={(e) => {
-									e.preventDefault();
-									e.stopPropagation();
-									openDownloadMenu(e, vol.id, 'volume');
-								}}
-								class="pointer-events-auto text-theme-secondary hover:text-white transition-colors"
-								title="Download"
-							>
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									width="22"
-									height="22"
-									viewBox="0 0 24 24"
-									fill="none"
-									stroke="currentColor"
-									stroke-width="2"
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline
-										points="7 10 12 15 17 10"
-									/><line x1="12" x2="12" y1="15" y2="3" /></svg
-								>
-							</button>
-
-							<button
-								onclick={(e) => {
-									e.preventDefault();
-									e.stopPropagation();
-									handleDeleteVolume(vol.id, vol.title || vol.folderName);
-								}}
-								class="pointer-events-auto text-theme-secondary hover:text-status-danger transition-colors"
-								title="Delete"
-							>
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									width="22"
-									height="22"
-									viewBox="0 0 24 24"
-									fill="none"
-									stroke="currentColor"
-									stroke-width="2"
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									><path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path
-										d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"
-									/></svg
-								>
-							</button>
-						</div>
-
-						{#if stats.percent > 0 || stats.isRead}
-							<div class="absolute bottom-0 left-[81.5px] right-0 h-1.5 bg-black/40 z-10">
-								<div
-									class={`absolute inset-0 blur-[4px] brightness-150 opacity-80 transition-all duration-700 ${stats.isRead ? 'bg-status-success' : 'bg-progress'}`}
-									style={`width: ${stats.isRead ? 100 : stats.percent}%`}
-								></div>
-								<div
-									class={`absolute inset-0 transition-all duration-700 ${stats.isRead ? 'bg-status-success' : 'bg-progress'}`}
-									style={`width: ${stats.isRead ? 100 : stats.percent}%`}
-								></div>
-							</div>
-						{/if}
-					</div>
-				{/each}
-			</div>
-		{/if}
+									<button
+										onclick={(e) => {
+											e.preventDefault();
+											e.stopPropagation();
+											handleDeleteVolume(vol.id, vol.title || vol.folderName);
+										}}
+										class="p-1.5 text-theme-secondary hover:text-status-danger transition-colors"
+										title="Delete"
+									>
+										<svg
+											xmlns="http://www.w3.org/2000/svg"
+											width="20"
+											height="20"
+											viewBox="0 0 24 24"
+											fill="none"
+											stroke="currentColor"
+											stroke-width="2"
+											stroke-linecap="round"
+											stroke-linejoin="round"
+										>
+											<path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+											<path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+										</svg>
+									</button>
+								</div>
+							{/snippet}
+						</LibraryEntry>
+					{/each}
+				</div>
+			{/if}
+		</LibraryListWrapper>
 	{/if}
 
 	<EditSeriesModal
