@@ -20,21 +20,21 @@
 	}>();
 
 	const colors = {
-		default: 'text-theme-secondary hover:bg-theme-surface-hover hover:text-white',
-		primary: 'text-theme-primary hover:bg-theme-surface-hover hover:text-accent',
-		danger: 'text-status-danger hover:bg-status-danger/10',
-		success: 'text-status-success hover:bg-status-success/10',
-		unread: 'text-status-unread hover:bg-status-unread/10'
+		default: 'text-theme-primary hover:bg-theme-surface-hover/70 hover:text-white',
+		primary: 'text-theme-primary hover:bg-theme-surface-hover/70 hover:text-accent',
+		danger: 'text-status-danger hover:bg-status-danger/20',
+		success: 'text-status-success hover:bg-status-success/20',
+		unread: 'text-status-unread hover:bg-status-unread/20'
 	};
 	const usedColor = colors[variant as 'default' | 'danger' | 'success' | 'primary' | 'unread'];
 
 	const iconBg = {
 		default:
-			'bg-theme-surface-hover/50 text-theme-secondary group-hover:bg-theme-surface-hover group-hover:text-white',
-		primary: 'bg-accent/10 text-accent',
-		danger: 'bg-status-danger/10 text-status-danger',
-		success: 'bg-status-success/10 text-status-success',
-		unread: 'bg-status-unread/10 text-status-unread'
+			'bg-theme-surface-hover/80 text-theme-primary group-hover:bg-theme-surface-hover group-hover:text-white shadow-md',
+		primary: 'bg-accent/30 text-accent shadow-md shadow-accent/20',
+		danger: 'bg-status-danger/30 text-status-danger shadow-md shadow-status-danger/20',
+		success: 'bg-status-success/30 text-status-success shadow-md shadow-status-success/20',
+		unread: 'bg-status-unread/30 text-status-unread shadow-md shadow-status-unread/20'
 	};
 	const usedIconBg = iconBg[variant as 'default' | 'danger' | 'success' | 'primary' | 'unread'];
 
@@ -48,7 +48,7 @@
 
 <button
 	onclick={handleClick}
-	class={`group w-full px-5 py-2.5 text-left text-sm font-bold flex items-center gap-3 transition-colors ${usedColor} ${className}`}
+	class={`group w-full px-5 py-2.5 mx-2 my-1 text-left text-sm font-bold flex items-center gap-3 transition-colors rounded-xl ${usedColor} ${className}`}
 >
 	{#if icon}
 		<div class={`p-1.5 rounded-lg transition-colors flex-shrink-0 ${usedIconBg}`}>
