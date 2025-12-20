@@ -4,15 +4,17 @@
 	let {
 		children,
 		title,
-		fontSize = '12px'
+		fontSize = '12px',
+		className = ''
 	} = $props<{
 		children: Snippet;
 		title?: string;
 		fontSize?: string;
+		className?: string;
 	}>();
 </script>
 
-<div class="flex flex-col">
+<div class="flex flex-col {className}">
 	{#if title}
 		<div class={`px-3 py-2`}>
 			<span class="text-[{fontSize}] font-black text-theme-tertiary uppercase tracking-[0.2em]">

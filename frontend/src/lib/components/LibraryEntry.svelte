@@ -26,6 +26,7 @@
 		href = '#',
 		mainStat = '',
 		subStat = '',
+		lastReadText = '1 day ago',
 		onSelect,
 		menuAction,
 		quickAction,
@@ -42,6 +43,7 @@
 		href?: string;
 		mainStat?: string | number;
 		subStat?: string;
+		lastReadText?: string;
 		onSelect?: (e: MouseEvent) => void;
 		menuAction?: Snippet;
 		quickAction?: Snippet;
@@ -49,6 +51,15 @@
 		listActions?: Snippet;
 		imageOverlay?: Snippet;
 	}>();
+
+	// Determine read status for badge
+	const getStatusBadge = () => {
+		if (progress.isRead) return { label: 'READ', color: 'bg-status-success' };
+		if (progress.percent > 0) return { label: 'READING', color: 'bg-accent' };
+		return { label: 'UNREAD', color: 'bg-status-unread' };
+	};
+
+	const status = $derived(getStatusBadge());
 
 	const gridAspectClass = type === 'series' ? 'aspect-[7/11]' : 'aspect-[2/3]';
 </script>
@@ -60,7 +71,7 @@
 			isSelected
 				? 'border-accent ring-1 ring-accent shadow-[0_0_20px_rgba(99,102,241,0.4)] z-30 scale-[1.02]'
 				: 'border-theme-border-light hover:border-theme-secondary/50 z-10'
-		} 
+		}
     ${isSelectionMode && !isSelected ? 'opacity-40 grayscale-[0.4]' : 'opacity-100'}`}
 	>
 		<a
@@ -102,54 +113,83 @@
 				</div>
 			</div>
 
-			{#if progress.isRead}
+			<!-- Volume count badge in bottom right -->
+			{#if mainStat}
 				<div
-					class="absolute top-2 left-2 bg-status-success text-white text-[10px] font-bold px-2 py-0.5 rounded shadow-lg z-20"
+					class="absolute bottom-2 right-2 bg-black/90 backdrop-blur-sm text-white text-[10px] font-bold px-2.5 py-1 rounded shadow-lg z-20 uppercase tracking-wide"
 				>
-					READ
+					{mainStat}
 				</div>
 			{/if}
 
 			<div class="absolute inset-0 z-20 pointer-events-none">
 				{@render imageOverlay?.()}
 			</div>
-		</div>
 
-		{#if progress.showBar || progress.isRead}
-			<div class="h-1.5 w-full bg-black/40 relative z-20">
+			<!-- 3-dot menu button in top-right corner -->
+			{#if !isSelectionMode && menuAction}
 				<div
-					class={`absolute inset-0 blur-[4px] brightness-150 transition-all duration-700 ease-out ${
-						progress.isRead ? 'bg-status-success' : 'bg-progress'
-					}`}
-					style={`width: ${progress.isRead ? 100 : progress.percent}%; opacity: 0.8;`}
-				></div>
-
-				<div
-					class={`absolute inset-0 transition-all duration-700 ease-out z-10 ${
-						progress.isRead ? 'bg-status-success' : 'bg-progress'
-					}`}
-					style={`width: ${progress.isRead ? 100 : progress.percent}%`}
-				></div>
-			</div>
-		{/if}
-
-		<div
-			class="px-3 py-2 bg-theme-surface flex items-center justify-between gap-2 relative z-20 border-t border-white/5"
-		>
-			<div
-				class={`text-[11px] font-bold uppercase tracking-wider transition-colors ${
-					progress.isRead ? 'text-status-success' : 'text-theme-secondary'
-				}`}
-			>
-				{mainStat}
-			</div>
-
-			{#if !isSelectionMode}
-				<div class="pointer-events-auto flex items-center gap-1 -mr-1 z-30">
-					{@render quickAction?.()}
-					{@render menuAction?.()}
+					class="absolute top-0 right-0 opacity-0 group-hover:opacity-100 transition-opacity flex justify-end p-2 pointer-events-auto z-30"
+				>
+					{@render menuAction()}
 				</div>
 			{/if}
+		</div>
+
+		<!-- Status and Progress Bar -->
+		<div
+			class="px-3 py-2 bg-theme-surface flex items-center justify-between gap-3 relative z-20 border-t border-white/5"
+		>
+			<div class="flex flex-col gap-0.5 min-w-0 flex-1">
+				<div
+					class={`text-[10px] font-black uppercase tracking-wider ${status.color === 'bg-status-success' ? 'text-status-success' : status.color === 'bg-accent' ? 'text-accent' : 'text-status-unread'}`}
+				>
+					{status.label}
+				</div>
+				<div class="text-[10px] text-theme-tertiary font-medium">
+					Read: <span class="text-theme-secondary">{lastReadText}</span>
+				</div>
+			</div>
+
+			<!-- Circular Progress Spinner -->
+			<div class="flex-shrink-0 relative w-10 h-10">
+				<!-- Background circle -->
+				<svg class="w-10 h-10 transform -rotate-90" viewBox="0 0 40 40">
+					<circle
+						cx="20"
+						cy="20"
+						r="16"
+						stroke="currentColor"
+						stroke-width="3.5"
+						fill="none"
+						class="text-theme-border-light"
+					/>
+					<!-- Progress circle -->
+					<circle
+						cx="20"
+						cy="20"
+						r="16"
+						stroke="currentColor"
+						stroke-width="3.5"
+						fill="none"
+						class={status.color === 'bg-status-success'
+							? 'text-status-success'
+							: status.color === 'bg-accent'
+								? 'text-accent'
+								: 'text-status-unread'}
+						stroke-dasharray="100.48"
+						stroke-dashoffset={100.48 - (100.48 * (progress.isRead ? 100 : progress.percent)) / 100}
+						stroke-linecap="round"
+						style="transition: stroke-dashoffset 0.7s ease-out;"
+					/>
+				</svg>
+				<!-- Percentage text -->
+				<div
+					class="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-theme-primary"
+				>
+					{Math.round(progress.isRead ? 100 : progress.percent)}%
+				</div>
+			</div>
 		</div>
 	</div>
 {:else}

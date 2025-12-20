@@ -13,6 +13,14 @@
 	let finalX = $state(0);
 	let finalY = $state(0);
 
+	const handleResize = () => {
+		if ($contextMenu.isOpen && $contextMenu.anchorElement) {
+			// Recalculate position based on anchor element
+			const rect = $contextMenu.anchorElement.getBoundingClientRect();
+			contextMenu.updatePosition(rect.right, rect.bottom + 10);
+		}
+	};
+
 	// Position Calculation Effect
 	$effect(() => {
 		if ($contextMenu.isOpen && menuElement && browser) {
@@ -50,7 +58,7 @@
 	};
 </script>
 
-<svelte:window onclick={handleWindowClick} onkeydown={handleKeydown} />
+<svelte:window onclick={handleWindowClick} onkeydown={handleKeydown} onresize={handleResize} />
 
 {#if $contextMenu.isOpen && $contextMenu.component}
 	{@const ActiveComponent = $contextMenu.component}
