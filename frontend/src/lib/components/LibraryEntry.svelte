@@ -113,16 +113,25 @@
 		<div
 			class="px-3 py-2 bg-theme-surface flex items-center justify-between gap-3 relative z-20 border-t border-white/5"
 		>
-			<div class="flex flex-col gap-0.5 min-w-0 flex-1">
+			<div class="flex flex-col gap-1.5 min-w-0 flex-1">
 				{#if mainStat}
 					<div
-						class={`text-[12px] font-black uppercase tracking-wider ${status.color === 'bg-status-success' ? 'text-status-success' : status.color === 'bg-accent' ? 'text-accent' : 'text-status-unread'}`}
+						class={`text-[12px] font-bold uppercase tracking-[0.1em] leading-none ${
+							status.color === 'bg-status-success'
+								? 'text-status-success'
+								: status.color === 'bg-accent'
+									? 'text-accent'
+									: 'text-status-unread'
+						}`}
 					>
 						{mainStat}
 					</div>
+
+					<div class="w-full h-[1px] bg-theme-secondary/10"></div>
 				{/if}
-				<div class="text-[10px] text-theme-tertiary font-medium">
-					<span class="text-theme-secondary">{lastReadText}</span>
+
+				<div class="text-[11px] text-theme-secondary font-medium leading-none">
+					{subStat}
 				</div>
 			</div>
 

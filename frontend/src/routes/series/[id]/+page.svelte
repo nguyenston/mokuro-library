@@ -429,8 +429,8 @@
 							}}
 							href={`/volume/${vol.id}`}
 							mainStat={`${vol.progress[0]?.page ?? 0}/${vol.pageCount} P`}
-							subStat={vol.progress[0]?.timeRead
-								? `${formatTime(vol.progress[0].timeRead)} read`
+							subStat={vol.progress[0]?.lastReadAt
+								? `READ ${new Date(vol.progress[0].lastReadAt).toLocaleDateString()}`
 								: ''}
 							onSelect={(e) => handleVolumeClick(e, vol.id)}
 						>

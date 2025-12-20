@@ -304,7 +304,7 @@
 						href={`/series/${series.id}`}
 						mainStat={`${series.volumes.length} ${series.volumes.length === 1 ? 'Vol' : 'Vols'}`}
 						subStat={series.lastReadAt
-							? `Last read ${new Date(series.lastReadAt).toLocaleDateString()}`
+							? `READ ${new Date(series.lastReadAt).toLocaleDateString()}`
 							: ''}
 						onSelect={(e) => handleCardClick(e, series.id)}
 					>
