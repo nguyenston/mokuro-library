@@ -53,8 +53,7 @@
 			minScale: 0.5,
 			cursor: 'default',
 			origin: '50% 50%',
-			disableYAxis: false,
-			contain: 'outside'
+			disableYAxis: false
 		},
 		onInit: (pz) => (panzoomInstance = pz)
 	}}
