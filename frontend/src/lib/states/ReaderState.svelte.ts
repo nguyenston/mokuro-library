@@ -1,8 +1,7 @@
 import type { VolumeResponse, MokuroData, MokuroPage, MokuroBlock } from '$lib/types';
 import { user, updateSettings, type ReaderSettingsData } from '$lib/authStore';
 import { apiFetch } from '$lib/api';
-import { get } from 'svelte/store';
-import { browser } from '$app/environment';
+import { fromStore, get } from 'svelte/store';
 
 export type LayoutMode = 'single' | 'double' | 'vertical';
 export type ReadingDirection = 'ltr' | 'rtl';
@@ -14,6 +13,7 @@ class ReaderState {
   currentPageIndex = $state(0);
   isLoading = $state(true);
   error = $state<string | null>(null);
+  user = fromStore(user);
 
   // --- Persisted Settings ---
   layoutMode = $state<LayoutMode>('single');
@@ -34,6 +34,7 @@ class ReaderState {
   isSaving = $state(false);
   saveSuccess = $state(false);
 
+
   // --- Internals ---
   private initialPageIndex = 0;
   private settingsInitialized = false;
@@ -48,7 +49,7 @@ class ReaderState {
       // 1. Sync Settings from User Store (One-way: DB -> State)
       // This ensures settings are loaded even if we are just on the Settings page
       $effect(() => {
-        const userData = get(user); // Access store value
+        const userData = this.user.current;
         if (userData && !this.settingsInitialized) {
           const s = userData.settings;
 
@@ -81,6 +82,7 @@ class ReaderState {
 
         if (this.settingsSaveTimer) clearTimeout(this.settingsSaveTimer);
         this.settingsSaveTimer = setTimeout(() => {
+          this.settingsSaveTimer = null;
           this.saveSettings();
         }, 2000);
       });
@@ -113,6 +115,7 @@ class ReaderState {
     // 1. Flush pending volume progress save
     if (this.progressSaveTimer) {
       clearTimeout(this.progressSaveTimer);
+      this.progressSaveTimer = null;
       if (this.volume?.id) this.saveProgress(this.volume.id);
     }
 
@@ -122,7 +125,6 @@ class ReaderState {
       this.cleanupEffectRoot = null;
     }
 
-    this.progressSaveTimer = null;
 
     // 3. Reset Volume State Only
     this.volume = null;
@@ -180,7 +182,7 @@ class ReaderState {
 
   private async saveSettings() {
     try {
-      const currentSettings: Partial<ReaderSettingsData> = {
+      const currentSettings: ReaderSettingsData = {
         layoutMode: this.layoutMode,
         readingDirection: this.readingDirection,
         doublePageOffset: this.doublePageOffset,
