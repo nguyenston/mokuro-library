@@ -6,7 +6,6 @@
 	import { invalidateAll } from '$app/navigation';
 	import { checkAuth, user } from '$lib/authStore';
 	import { uiState } from '$lib/states/uiState.svelte';
-	import { themeStore } from '$lib/stores/themeStore.svelte';
 
 	// Components
 	import Header from '$lib/components/Header.svelte';
@@ -47,7 +46,7 @@
 			isOpen={uiState.isUploadOpen}
 			onClose={() => (uiState.isUploadOpen = false)}
 			onUploadSuccess={() => {
-				invalidateAll();
+				uiState.refreshLibrary();
 			}}
 		/>
 
@@ -55,7 +54,10 @@
 
 		<AboutModal isOpen={uiState.isAboutOpen} onClose={() => (uiState.isAboutOpen = false)} />
 
-		<AppearanceModal isOpen={uiState.isAppearanceOpen} onClose={() => (uiState.isAppearanceOpen = false)} />
+		<AppearanceModal
+			isOpen={uiState.isAppearanceOpen}
+			onClose={() => (uiState.isAppearanceOpen = false)}
+		/>
 	{/if}
 
 	<ContextMenu />

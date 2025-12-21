@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { confirmation } from '$lib/confirmationStore';
-	import { fade } from 'svelte/transition';
+	import { fade, scale } from 'svelte/transition';
 
 	let isProcessing = $state(false);
 
@@ -11,7 +11,6 @@
 			await $confirmation.onConfirm();
 		} catch (error) {
 			console.error('Confirmation action failed:', error);
-			// We could show an error here, but for now just close
 		} finally {
 			isProcessing = false;
 			confirmation.close();
@@ -20,46 +19,48 @@
 </script>
 
 {#if $confirmation.isOpen}
-	<!-- click on background to close-->
-	<button
-		transition:fade={{ duration: 150 }}
-		class="fixed inset-0 z-40 h-full w-full bg-black/50"
-		onclick={confirmation.close}
-		aria-label="Close modal"
-	></button>
-
 	<div
-		transition:fade={{ duration: 150 }}
-		class="fixed top-1/2 left-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg bg-white p-6 shadow-xl dark:bg-gray-800"
-		role="alertdialog"
-		aria-labelledby="dialog-title"
-		aria-describedby="dialog-description"
+		class="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-0"
+		role="dialog"
+		aria-modal="true"
 	>
-		<h2 id="dialog-title" class="text-xl font-semibold text-gray-900 dark:text-white">
-			{$confirmation.title}
-		</h2>
+		<button
+			transition:fade={{ duration: 150 }}
+			class="absolute inset-0 bg-black/60 backdrop-blur-sm cursor-default"
+			onclick={confirmation.close}
+			aria-label="Close modal"
+		></button>
 
-		<p id="dialog-description" class="mt-2 text-sm text-gray-600 dark:text-gray-400">
-			{$confirmation.message}
-		</p>
+		<div
+			transition:scale={{ duration: 200, start: 0.95 }}
+			class="relative w-full max-w-md rounded-3xl bg-black/40 backdrop-blur-3xl border border-white/10 p-8 shadow-2xl"
+		>
+			<div class="mb-2">
+				<h2 class="text-2xl font-bold text-white">
+					{$confirmation.title}
+				</h2>
+			</div>
 
-		<div class="mt-6 flex justify-end gap-3">
-			<button
-				type="button"
-				onclick={confirmation.close}
-				disabled={isProcessing}
-				class="rounded-md bg-gray-200 px-4 py-2 text-sm font-medium text-gray-800 hover:bg-gray-300 disabled:opacity-50 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
-			>
-				Cancel
-			</button>
-			<button
-				type="button"
-				onclick={handleConfirm}
-				disabled={isProcessing}
-				class="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 disabled:opacity-50"
-			>
-				{isProcessing ? $confirmation.processingLabel : $confirmation.confirmLabel}
-			</button>
+			<p class="text-sm text-gray-300 leading-relaxed mb-8">
+				{$confirmation.message}
+			</p>
+
+			<div class="flex justify-end gap-3">
+				<button
+					onclick={confirmation.close}
+					disabled={isProcessing}
+					class="px-5 py-2.5 rounded-xl border border-transparent text-sm font-semibold text-gray-400 hover:text-white hover:bg-white/5 transition-colors disabled:opacity-50"
+				>
+					Cancel
+				</button>
+				<button
+					onclick={handleConfirm}
+					disabled={isProcessing}
+					class="px-5 py-2.5 rounded-xl bg-red-600 text-white text-sm font-semibold hover:bg-red-500 shadow-lg shadow-red-600/20 transition-all transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+				>
+					{isProcessing ? $confirmation.processingLabel : $confirmation.confirmLabel}
+				</button>
+			</div>
 		</div>
 	</div>
 {/if}

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
 	import type { MokuroBlock } from '$lib/types';
+	import MenuSlider from '$lib/components/menu/MenuSlider.svelte';
 
 	// --- Props ---
 	let {
@@ -60,13 +61,8 @@
 
 	// --- Handlers ---
 
-	/**
-	 * This is the "on:input" handler.
-	 * It fires continuously as the slider moves.
-	 */
-	const handleSliderInput = (e: Event) => {
-		const target = e.target as HTMLInputElement;
-		internalFontSize = parseFloat(target.value);
+	const handleSliderInput = (e: Event & { currentTarget: HTMLInputElement }) => {
+		internalFontSize = parseFloat(e.currentTarget.value);
 
 		if (block) {
 			block.font_size = internalFontSize;
@@ -75,34 +71,21 @@
 	};
 </script>
 
-<!-- 
-  This outer div is necessary for the "click-outside"
-  logic in ContextMenu.svelte to work correctly.
-  We add a unique data-attribute.
--->
 <div data-font-slider-popover>
 	{#if isOpen}
 		<div
 			bind:this={sliderElement}
-			class="fixed z-50 w-56 rounded-md bg-white p-4 shadow-lg ring-1 ring-black ring-opacity-5 dark:bg-gray-800"
+			class="fixed z-50 w-64 rounded-2xl bg-black/60 backdrop-blur-3xl border border-white/10 p-5 shadow-2xl"
 			style="left: {finalX}px; top: {finalY}px;"
 		>
-			<label
-				for="fontSizeSlider"
-				class="mb-2 flex justify-between text-sm font-medium text-gray-900 dark:text-white"
-			>
-				<span>Font Size</span>
-				<span class="font-bold">{internalFontSize.toFixed(0)}px</span>
-			</label>
-			<input
-				id="fontSizeSlider"
-				type="range"
-				min="8"
-				max="48"
-				step="1"
-				value={internalFontSize}
-				oninput={handleSliderInput}
-				class="h-2 w-full cursor-pointer appearance-none rounded-lg bg-gray-200 accent-indigo-600 dark:bg-gray-700"
+			<MenuSlider
+				label="Font Size"
+				bind:value={internalFontSize}
+				min={8}
+				max={48}
+				step={1}
+				displayValue="{internalFontSize.toFixed(0)}px"
+				onInput={handleSliderInput}
 			/>
 		</div>
 	{/if}

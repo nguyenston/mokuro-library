@@ -1,17 +1,18 @@
 <script lang="ts">
 	import { type Snippet } from 'svelte';
-	import { contextMenu } from '$lib/contextMenuStore';
 
 	let {
 		label,
 		icon,
 		onClick,
-		variant = 'default'
+		variant = 'default',
+		active = false
 	} = $props<{
 		label: string;
 		icon: Snippet;
 		onClick: () => void;
 		variant?: 'default' | 'primary' | 'success' | 'warning' | 'stats' | 'appearance';
+		active?: boolean;
 	}>();
 
 	// Map variants to specific color styles for the icon circle
@@ -23,21 +24,27 @@
 		stats: 'bg-icon-stats/40 text-icon-stats border-2 border-icon-stats/50',
 		appearance: 'bg-icon-appearance/40 text-icon-appearance border-2 border-icon-appearance/50'
 	};
+
 	const usedStyle =
 		styles[variant as 'default' | 'primary' | 'success' | 'warning' | 'stats' | 'appearance'];
-
-	const handleClick = () => {
-		onClick();
-		// We don't auto-close here because some grid items (like Download) might toggle a submenu
-	};
 </script>
 
 <button
-	onclick={handleClick}
-	class="flex flex-col items-center justify-center p-3 rounded-xl bg-theme-surface-hover/50 hover:bg-theme-surface-hover/80 border-2 border-theme-border hover:border-theme-border transition-all group"
+	onclick={onClick}
+	class={`flex flex-col items-center justify-center p-3 rounded-xl border-2 transition-all group relative overflow-hidden ${
+		active
+			? 'bg-accent/10 border-accent'
+			: 'bg-theme-surface-hover/50 hover:bg-theme-surface-hover/80 border-theme-border hover:border-theme-border-light'
+	}`}
 >
-	<div class={`p-2.5 rounded-full mb-2 transition-transform group-hover:scale-110 shadow-lg ${usedStyle}`}>
+	<div
+		class={`p-2.5 rounded-full mb-2 transition-transform group-hover:scale-110 shadow-lg ${
+			active ? '!bg-accent !text-white !border-accent' : usedStyle
+		}`}
+	>
 		{@render icon()}
 	</div>
-	<span class="text-xs font-bold text-theme-primary">{label}</span>
+	<span class={`text-xs font-bold ${active ? 'text-accent' : 'text-theme-primary'}`}>
+		{label}
+	</span>
 </button>

@@ -122,6 +122,9 @@
 	// --- Data Fetching & URL Sync ---
 	$effect(() => {
 		if ($user && browser) {
+			// Dependency tracking: include libraryVersion to force re-fetches
+			const _version = uiState.libraryVersion;
+
 			const currentParams = new URLSearchParams(page.url.searchParams);
 			const newParams = new URLSearchParams(currentParams);
 

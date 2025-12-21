@@ -10,7 +10,7 @@ class UiState {
   // --- Context & Navigation ---
   context = $state<AppContext>('library');
   appTitle = $state('Mokuro');
-  activeId = $state<string | null>(null); // active series id
+  activeId = $state<string | null>(null);
 
   // --- Search & View ---
   searchQuery = $state('');
@@ -20,6 +20,10 @@ class UiState {
   sortKey = $state<SortKey>('title');
   sortOrder = $state<SortOrder>('asc');
   filterStatus = $state<FilterStatus>('all');
+
+  // --- Data Freshness ---
+  // Simple counter to force re-fetches
+  libraryVersion = $state(0);
 
   // --- Selection Mode ---
   isSelectionMode = $state(false);
@@ -47,6 +51,10 @@ class UiState {
 
   // --- Actions ---
 
+  refreshLibrary() {
+    this.libraryVersion += 1;
+  }
+
   setContext(ctx: AppContext, title: string, sorts: { key: SortKey; label: string }[], id: string | null = null) {
     this.context = ctx;
     this.appTitle = title;
@@ -59,7 +67,6 @@ class UiState {
     this.selectedIds.clear();
     this.filterStatus = 'all';
 
-    // Default sort based on context
     if (ctx === 'library') {
       this.sortKey = 'title';
       this.sortOrder = 'asc';
