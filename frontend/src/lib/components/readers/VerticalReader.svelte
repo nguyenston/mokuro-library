@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount, tick } from 'svelte';
 	import { browser } from '$app/environment';
-	import type { ReaderState } from '$lib/states/ReaderState.svelte';
+	import { readerState } from '$lib/states/ReaderState.svelte';
 	import type { MokuroBlock, MokuroPage } from '$lib/types';
 	import type { PanzoomObject } from '@panzoom/panzoom';
 	import CachedImage from '$lib/components/CachedImage.svelte';
@@ -9,15 +9,12 @@
 	import { panzoom } from '$lib/actions/panzoom';
 
 	let {
-		reader,
-
 		panzoomInstance = $bindable(),
 		showTriggerOutline,
 		onOcrChange,
 		onLineFocus,
 		onOcrChangeMode
 	} = $props<{
-		reader: ReaderState;
 		panzoomInstance: PanzoomObject | null;
 		showTriggerOutline: boolean;
 		onOcrChange: () => void;
@@ -41,7 +38,7 @@
 	const DESTROY_MARGIN = '500px 0px';
 
 	const setupObservers = async () => {
-		if (!panzoomElement || !reader.mokuroData || !verticalScrollerElement) return;
+		if (!panzoomElement || !readerState.mokuroData || !verticalScrollerElement) return;
 
 		// Cleanup old observers
 		renderObserver?.disconnect();
@@ -49,7 +46,7 @@
 		progressObserver?.disconnect();
 
 		// Reset state
-		visiblePages = Array(reader.mokuroData.pages.length).fill(false);
+		visiblePages = Array(readerState.mokuroData.pages.length).fill(false);
 
 		// Wait for Svelte to render the placeholder divs
 		await tick();
@@ -95,7 +92,7 @@
 					const index = (bestEntry.target as HTMLElement).dataset.pageIndex;
 					if (index) {
 						// Update state silently (without triggering navigation animations)
-						reader.setPage(parseInt(index, 10));
+						readerState.setPage(parseInt(index, 10));
 					}
 				}
 			},
@@ -109,8 +106,8 @@
 		});
 
 		// Initial scroll to saved position
-		if (pageElements[reader.currentPageIndex]) {
-			pageElements[reader.currentPageIndex].scrollIntoView({ block: 'start' });
+		if (pageElements[readerState.currentPageIndex]) {
+			pageElements[readerState.currentPageIndex].scrollIntoView({ block: 'start' });
 		}
 	};
 
@@ -172,7 +169,7 @@
 
 	// Re-run observers if the data changes (e.g. forced refresh)
 	$effect(() => {
-		if (reader.mokuroData) {
+		if (readerState.mokuroData) {
 			setupObservers();
 		}
 	});
@@ -204,13 +201,17 @@
 		if (!browser) return;
 		try {
 			const nightEnabled = JSON.parse(localStorage.getItem('mokuro_night_mode_enabled') ?? 'false');
-			const scheduleEnabled = JSON.parse(localStorage.getItem('mokuro_night_mode_schedule_enabled') ?? 'false');
+			const scheduleEnabled = JSON.parse(
+				localStorage.getItem('mokuro_night_mode_schedule_enabled') ?? 'false'
+			);
 			const brightness = JSON.parse(localStorage.getItem('mokuro_night_mode_brightness') ?? '100');
 			const startHour = JSON.parse(localStorage.getItem('mokuro_night_mode_start_hour') ?? '22');
 			const endHour = JSON.parse(localStorage.getItem('mokuro_night_mode_end_hour') ?? '6');
 
 			const invertEnabled = JSON.parse(localStorage.getItem('mokuro_invert_enabled') ?? 'false');
-			const invertScheduleEnabled = JSON.parse(localStorage.getItem('mokuro_invert_schedule_enabled') ?? 'false');
+			const invertScheduleEnabled = JSON.parse(
+				localStorage.getItem('mokuro_invert_schedule_enabled') ?? 'false'
+			);
 			const invertIntensity = JSON.parse(localStorage.getItem('mokuro_invert_intensity') ?? '100');
 			const invertStart = JSON.parse(localStorage.getItem('mokuro_invert_start_hour') ?? '22');
 			const invertEnd = JSON.parse(localStorage.getItem('mokuro_invert_end_hour') ?? '6');
@@ -222,7 +223,8 @@
 			if (nightEnabled) {
 				let active = true;
 				if (scheduleEnabled) {
-					active = startHour <= endHour ? h >= startHour && h < endHour : h >= startHour || h < endHour;
+					active =
+						startHour <= endHour ? h >= startHour && h < endHour : h >= startHour || h < endHour;
 				}
 				if (active) b = brightness;
 			}
@@ -232,11 +234,14 @@
 			if (invertEnabled) {
 				let active = true;
 				if (invertScheduleEnabled) {
-					active = invertStart <= invertEnd ? h >= invertStart && h < invertEnd : h >= invertStart || h < invertEnd;
+					active =
+						invertStart <= invertEnd
+							? h >= invertStart && h < invertEnd
+							: h >= invertStart || h < invertEnd;
 				}
 				if (active) {
 					inv = 100;
-					invBright = 40 + (invertIntensity * 0.6);
+					invBright = 40 + invertIntensity * 0.6;
 				}
 			}
 
@@ -276,22 +281,22 @@
 				onInit: (pz) => (panzoomInstance = pz)
 			}}
 		>
-			{#if reader.mokuroData}
-				{#each reader.mokuroData.pages as page, i (page.img_path)}
+			{#if readerState.mokuroData}
+				{#each readerState.mokuroData.pages as page, i (page.img_path)}
 					<div
 						class="relative flex-shrink-0 bg-white mb-2 shadow-lg reader-page"
 						style={`aspect-ratio: ${page.img_width} / ${page.img_height};`}
 						data-page-index={i}
 					>
 						{#if visiblePages[i]}
-							<CachedImage src={`/api/files/volume/${reader.id}/image/${page.img_path}`} />
+							<CachedImage src={`/api/files/volume/${readerState.id}/image/${page.img_path}`} />
 							<OcrOverlay
 								{page}
 								{panzoomInstance}
-								ocrMode={reader.ocrMode}
-								isSmartResizeMode={reader.isSmartResizeMode}
+								ocrMode={readerState.ocrMode}
+								isSmartResizeMode={readerState.isSmartResizeMode}
 								{showTriggerOutline}
-								readingDirection={reader.readingDirection}
+								readingDirection={readerState.readingDirection}
 								{onOcrChange}
 								{onLineFocus}
 								onChangeMode={onOcrChangeMode}
@@ -306,6 +311,7 @@
 
 <style>
 	.reader-page {
-		filter: brightness(var(--reader-brightness, 100%)) brightness(var(--reader-invert-brightness, 100%)) invert(var(--reader-invert, 0%));
+		filter: brightness(var(--reader-brightness, 100%))
+			brightness(var(--reader-invert-brightness, 100%)) invert(var(--reader-invert, 0%));
 	}
 </style>

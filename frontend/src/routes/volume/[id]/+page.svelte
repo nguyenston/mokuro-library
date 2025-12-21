@@ -142,7 +142,9 @@
 
 			const storedHUD = localStorage.getItem('mokuro_hide_hud');
 			if (storedHUD) {
-				try { hideHUD = JSON.parse(storedHUD); } catch {}
+				try {
+					hideHUD = JSON.parse(storedHUD);
+				} catch {}
 			}
 			mq.addEventListener('change', listener);
 
@@ -193,7 +195,10 @@
 		>
 			<div class="flex-1 justify-start overflow-hidden">
 				<button
-					onclick={(e) => { e.stopPropagation(); goto(`/series/${readerState.seriesId}`); }}
+					onclick={(e) => {
+						e.stopPropagation();
+						goto(`/series/${readerState.seriesId}`);
+					}}
 					class="group relative cursor-pointer flex-1 truncate whitespace-nowrap pr-2 text-sm font-medium text-white shadow-black drop-shadow-md hover:text-indigo-400 sm:text-base bg-transparent border-none p-0"
 				>
 					<div class="absolute -inset-4 bg-transparent"></div>
@@ -250,7 +255,10 @@
 
 				{#if readerState.hasUnsavedChanges}
 					<button
-						onclick={(e) => { e.stopPropagation(); readerState.saveOcr(); }}
+						onclick={(e) => {
+							e.stopPropagation();
+							readerState.saveOcr();
+						}}
 						disabled={readerState.isSaving}
 						class="text-gray-400 hover:text-white disabled:opacity-50 cursor-pointer p-1"
 						title="Save OCR"
@@ -272,7 +280,10 @@
 				{/if}
 
 				<button
-					onclick={(e) => { e.stopPropagation(); readerState.toggleSmartResizeMode(); }}
+					onclick={(e) => {
+						e.stopPropagation();
+						readerState.toggleSmartResizeMode();
+					}}
 					class="flex justify-center items-center rounded p-1 transition-colors aspect-square w-8 cursor-pointer"
 					class:bg-amber-300={readerState.isSmartResizeMode}
 					class:hover:bg-gray-700={!readerState.isSmartResizeMode}
@@ -289,7 +300,10 @@
 				</button>
 
 				<button
-					onclick={(e) => { e.stopPropagation(); readerState.setOcrMode(readerState.ocrMode === 'BOX' ? 'READ' : 'BOX'); }}
+					onclick={(e) => {
+						e.stopPropagation();
+						readerState.setOcrMode(readerState.ocrMode === 'BOX' ? 'READ' : 'BOX');
+					}}
 					class="flex justify-center items-center rounded p-1 transition-colors aspect-square w-8 cursor-pointer"
 					class:bg-indigo-600={readerState.ocrMode !== 'READ'}
 					class:hover:bg-gray-700={readerState.ocrMode === 'READ'}
@@ -322,7 +336,10 @@
 				</button>
 
 				<button
-					onclick={(e) => { e.stopPropagation(); settingsOpen = true; }}
+					onclick={(e) => {
+						e.stopPropagation();
+						settingsOpen = true;
+					}}
 					class="text-gray-400 hover:text-white cursor-pointer p-1"
 					title="Settings"
 				>
@@ -346,7 +363,6 @@
 		<main class="flex flex-1 items-center justify-center overflow-hidden h-full">
 			{#if readerState.layoutMode === 'vertical'}
 				<VerticalReader
-					reader={readerState}
 					bind:panzoomInstance
 					showTriggerOutline={readerState.showTriggerOutline}
 					{onOcrChange}
@@ -355,7 +371,6 @@
 				/>
 			{:else if readerState.layoutMode === 'double'}
 				<DoublePageReader
-					reader={readerState}
 					bind:panzoomInstance
 					navZoneWidth={readerState.navZoneWidth}
 					showTriggerOutline={readerState.showTriggerOutline}
@@ -365,7 +380,6 @@
 				/>
 			{:else}
 				<SinglePageReader
-					reader={readerState}
 					bind:panzoomInstance
 					navZoneWidth={readerState.navZoneWidth}
 					showTriggerOutline={readerState.showTriggerOutline}
@@ -384,8 +398,12 @@
 				aria-label="Close settings"
 			></button>
 
-			<div class="fixed right-0 top-0 z-[70] h-full" onclick={(e) => e.stopPropagation()} role="presentation">
-				<ReaderSettings onClose={() => (settingsOpen = false)} inReader={true} bind:hideHUD={hideHUD} />
+			<div
+				class="fixed right-0 top-0 z-[70] h-full"
+				onclick={(e) => e.stopPropagation()}
+				role="presentation"
+			>
+				<ReaderSettings onClose={() => (settingsOpen = false)} inReader={true} bind:hideHUD />
 			</div>
 		{/if}
 		<LineOrderModal />

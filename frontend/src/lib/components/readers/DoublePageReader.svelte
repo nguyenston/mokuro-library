@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
-	import type { ReaderState } from '$lib/states/ReaderState.svelte';
+	import { readerState } from '$lib/states/ReaderState.svelte';
 	import type { MokuroBlock, MokuroPage } from '$lib/types';
 	import type { PanzoomObject } from '@panzoom/panzoom';
 	import CachedImage from '$lib/components/CachedImage.svelte';
@@ -8,7 +8,6 @@
 	import { panzoom } from '$lib/actions/panzoom';
 
 	let {
-		reader,
 		panzoomInstance = $bindable(),
 		navZoneWidth,
 
@@ -18,7 +17,6 @@
 		onLineFocus,
 		onOcrChangeMode
 	} = $props<{
-		reader: ReaderState;
 		panzoomInstance: PanzoomObject | null;
 		navZoneWidth: number;
 		showTriggerOutline: boolean;
@@ -28,24 +26,28 @@
 	}>();
 
 	const handleClickLeft = () => {
-		reader.readingDirection === 'rtl' ? reader.nextPage() : reader.prevPage();
+		readerState.readingDirection === 'rtl' ? readerState.nextPage() : readerState.prevPage();
 	};
 
 	const handleClickRight = () => {
-		reader.readingDirection === 'rtl' ? reader.prevPage() : reader.nextPage();
+		readerState.readingDirection === 'rtl' ? readerState.prevPage() : readerState.nextPage();
 	};
 
 	function applyReaderSettings() {
 		if (!browser) return;
 		try {
 			const nightEnabled = JSON.parse(localStorage.getItem('mokuro_night_mode_enabled') ?? 'false');
-			const scheduleEnabled = JSON.parse(localStorage.getItem('mokuro_night_mode_schedule_enabled') ?? 'false');
+			const scheduleEnabled = JSON.parse(
+				localStorage.getItem('mokuro_night_mode_schedule_enabled') ?? 'false'
+			);
 			const brightness = JSON.parse(localStorage.getItem('mokuro_night_mode_brightness') ?? '100');
 			const startHour = JSON.parse(localStorage.getItem('mokuro_night_mode_start_hour') ?? '22');
 			const endHour = JSON.parse(localStorage.getItem('mokuro_night_mode_end_hour') ?? '6');
 
 			const invertEnabled = JSON.parse(localStorage.getItem('mokuro_invert_enabled') ?? 'false');
-			const invertScheduleEnabled = JSON.parse(localStorage.getItem('mokuro_invert_schedule_enabled') ?? 'false');
+			const invertScheduleEnabled = JSON.parse(
+				localStorage.getItem('mokuro_invert_schedule_enabled') ?? 'false'
+			);
 			const invertIntensity = JSON.parse(localStorage.getItem('mokuro_invert_intensity') ?? '100');
 			const invertStart = JSON.parse(localStorage.getItem('mokuro_invert_start_hour') ?? '22');
 			const invertEnd = JSON.parse(localStorage.getItem('mokuro_invert_end_hour') ?? '6');
@@ -57,7 +59,8 @@
 			if (nightEnabled) {
 				let active = true;
 				if (scheduleEnabled) {
-					active = startHour <= endHour ? h >= startHour && h < endHour : h >= startHour || h < endHour;
+					active =
+						startHour <= endHour ? h >= startHour && h < endHour : h >= startHour || h < endHour;
 				}
 				if (active) b = brightness;
 			}
@@ -67,11 +70,14 @@
 			if (invertEnabled) {
 				let active = true;
 				if (invertScheduleEnabled) {
-					active = invertStart <= invertEnd ? h >= invertStart && h < invertEnd : h >= invertStart || h < invertEnd;
+					active =
+						invertStart <= invertEnd
+							? h >= invertStart && h < invertEnd
+							: h >= invertStart || h < invertEnd;
 				}
 				if (active) {
 					inv = 100;
-					invBright = 40 + (invertIntensity * 0.6);
+					invBright = 40 + invertIntensity * 0.6;
 				}
 			}
 
@@ -115,8 +121,8 @@
 
 	<div
 		class="relative flex h-full flex-1 items-center justify-center gap-0"
-		class:flex-row-reverse={reader.readingDirection === 'rtl'}
-		class:flex-row={reader.readingDirection === 'ltr'}
+		class:flex-row-reverse={readerState.readingDirection === 'rtl'}
+		class:flex-row={readerState.readingDirection === 'ltr'}
 		use:panzoom={{
 			options: {
 				canvas: true,
@@ -129,19 +135,19 @@
 			onInit: (pz) => (panzoomInstance = pz)
 		}}
 	>
-		{#each reader.visiblePages as page, i (page.img_path)}
+		{#each readerState.visiblePages as page, i (page.img_path)}
 			<div
 				class="relative flex-shrink-0 shadow-2xl reader-page"
 				style={`aspect-ratio: ${page.img_width} / ${page.img_height}; height: 100%;`}
 			>
-				<CachedImage src={`/api/files/volume/${reader.id}/image/${page.img_path}`} />
+				<CachedImage src={`/api/files/volume/${readerState.id}/image/${page.img_path}`} />
 				<OcrOverlay
-					page={reader.visiblePages[i]}
+					page={readerState.visiblePages[i]}
 					{panzoomInstance}
-					ocrMode={reader.ocrMode}
-					isSmartResizeMode={reader.isSmartResizeMode}
+					ocrMode={readerState.ocrMode}
+					isSmartResizeMode={readerState.isSmartResizeMode}
 					{showTriggerOutline}
-					readingDirection={reader.readingDirection}
+					readingDirection={readerState.readingDirection}
 					{onOcrChange}
 					{onLineFocus}
 					onChangeMode={onOcrChangeMode}
@@ -158,6 +164,7 @@
 
 <style>
 	.reader-page {
-		filter: brightness(var(--reader-brightness, 100%)) brightness(var(--reader-invert-brightness, 100%)) invert(var(--reader-invert, 0%));
+		filter: brightness(var(--reader-brightness, 100%))
+			brightness(var(--reader-invert-brightness, 100%)) invert(var(--reader-invert, 0%));
 	}
 </style>
