@@ -18,10 +18,10 @@
 	// Map variants to specific color styles for the icon circle
 	const styles = {
 		default: 'bg-theme-surface-hover/80 text-theme-primary',
-		primary: 'bg-accent/40 text-accent border-2 border-accent/50',
-		success: 'bg-status-success/35 text-status-success border-2 border-status-success/50',
-		warning: 'bg-status-warning/35 text-status-warning border-2 border-status-warning/50',
-		stats: 'bg-icon-stats/40 text-icon-stats border-2 border-icon-stats/50',
+		primary: 'bg-accent/20 text-accent border-2 border-accent/50',
+		success: 'bg-status-success/20 text-status-success border-2 border-status-success/50',
+		warning: 'bg-status-warning/20 text-status-warning border-2 border-status-warning/50',
+		stats: 'bg-icon-stats/20 text-icon-stats border-2 border-icon-stats/50',
 		appearance: 'bg-icon-appearance/40 text-icon-appearance border-2 border-icon-appearance/50'
 	};
 

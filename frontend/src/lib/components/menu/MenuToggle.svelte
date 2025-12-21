@@ -1,10 +1,10 @@
 <script lang="ts">
 	let {
-		label,
+		label = '',
 		description = '',
 		checked = $bindable()
 	} = $props<{
-		label: string;
+		label?: string;
 		description?: string;
 		checked: boolean;
 	}>();

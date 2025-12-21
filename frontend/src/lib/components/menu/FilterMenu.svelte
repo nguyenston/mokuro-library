@@ -98,7 +98,7 @@
 				class={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-sm font-bold transition-all duration-200
                     ${
 											isActive
-												? 'bg-accent/40 text-accent border-2 border-accent/60 shadow-lg shadow-accent/40'
+												? 'bg-accent/20 text-accent border-2 border-accent/60 shadow-lg shadow-accent/40'
 												: 'text-theme-primary hover:bg-theme-surface-hover/70 hover:text-white border-2 border-transparent'
 										}`}
 			>
