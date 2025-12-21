@@ -8,7 +8,7 @@
 
 	import OcrLine from './OcrLine.svelte';
 	import ResizeHandles from './ResizeHandles.svelte';
-	import TouchToggle from '$lib/components/TouchToggle.svelte';
+	import TouchToggle from './TouchToggle.svelte';
 
 	// --- Props ---
 	let { block, ocrState, onDelete } = $props<{
