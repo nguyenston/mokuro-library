@@ -334,6 +334,8 @@
 		if (browser && $user === null) goto('/login');
 	});
 	$effect(() => {
+		// Dependency tracking: include libraryVersion to force re-fetches
+		const _version = uiState.libraryVersion;
 		if (seriesId && $user) fetchSeriesData(seriesId);
 		return () => flushPendingToggleComplete();
 	});

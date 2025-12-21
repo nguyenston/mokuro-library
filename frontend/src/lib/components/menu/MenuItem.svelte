@@ -48,7 +48,7 @@
 
 <button
 	onclick={handleClick}
-	class={`group w-full px-5 py-2.5 mx-2 my-1 text-left text-sm font-bold flex items-center gap-3 transition-colors rounded-xl ${usedColor} ${className}`}
+	class={`group w-full flex items-center justify-between px-2 py-2 rounded-xl text-sm font-bold mx-auto my-1 text-left text-sm gap-3 transition-colors rounded-xl ${usedColor} ${className}`}
 >
 	{#if icon}
 		<div class={`p-1.5 rounded-lg transition-colors flex-shrink-0 ${usedIconBg}`}>
