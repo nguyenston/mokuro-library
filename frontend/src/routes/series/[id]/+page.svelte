@@ -6,6 +6,7 @@
 	import { confirmation } from '$lib/confirmationStore';
 	import { contextMenu } from '$lib/contextMenuStore';
 	import { uiState } from '$lib/states/uiState.svelte';
+	import { metadataOps } from '$lib/states/metadataOperations.svelte';
 
 	import EditSeriesModal from '$lib/components/EditSeriesModal.svelte';
 	import RenameModal from '$lib/components/RenameModal.svelte';
@@ -38,7 +39,7 @@
 		description: string | null;
 		coverPath: string | null;
 		volumes: Volume[];
-		isBookmarked?: boolean;
+		bookmarked?: boolean;
 	}
 
 	let { params } = $props<{ params: { id: string } }>();
@@ -57,9 +58,6 @@
 	let renameTarget = $state<{ id: string; title: string | null; type: 'series' | 'volume' } | null>(
 		null
 	);
-
-	let pendingToggleComplete = new Map<string, boolean>();
-	let toggleCompleteTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
 	// --- Helpers ---
 	const formatTime = (seconds: number) => {
@@ -276,43 +274,24 @@
 		]);
 	};
 
-	const toggleComplete = async (volumeId: string) => {
+	const toggleComplete = (vol: Volume) => {
 		if (!series) return;
-		const volumeIndex = series.volumes.findIndex((v) => v.id === volumeId);
-		if (volumeIndex === -1) return;
 
-		const vol = series.volumes[volumeIndex];
-		vol.progress[0] = vol.progress[0] ?? { page: 1, completed: false, timeRead: 0, charsRead: 0 };
+		// Initialize progress if it doesn't exist
+		if (!vol.progress[0]) {
+			vol.progress[0] = { page: 1, completed: false, timeRead: 0, charsRead: 0 };
+		}
+
 		const newStatus = !vol.progress[0].completed;
 
-		series.volumes[volumeIndex].progress[0].completed = newStatus;
+		// 1. Optimistic UI Update
+		vol.progress[0].completed = newStatus;
 
-		if (toggleCompleteTimers.has(volumeId)) clearTimeout(toggleCompleteTimers.get(volumeId)!);
-		pendingToggleComplete.set(volumeId, newStatus);
-
-		const timerId = setTimeout(async () => {
-			toggleCompleteTimers.delete(volumeId);
-			pendingToggleComplete.delete(volumeId);
-			try {
-				await apiFetch(`/api/metadata/volume/${volumeId}/progress`, {
-					method: 'PATCH',
-					body: { completed: newStatus }
-				});
-			} catch (e) {
-				console.error(e);
-			}
-		}, 1000);
-		toggleCompleteTimers.set(volumeId, timerId);
-	};
-
-	const flushPendingToggleComplete = () => {
-		for (const [volumeId, status] of pendingToggleComplete.entries()) {
-			if (toggleCompleteTimers.has(volumeId)) clearTimeout(toggleCompleteTimers.get(volumeId)!);
-			apiFetch(`/api/metadata/volume/${volumeId}/progress`, {
-				method: 'PATCH',
-				body: { completed: status }
-			}).catch(console.error);
-		}
+		// 2. Sync with Debounce
+		metadataOps.syncVolumeCompletion(vol.id, newStatus, () => {
+			// Revert on failure
+			if (vol.progress[0]) vol.progress[0].completed = !newStatus;
+		});
 	};
 
 	const handleVolumeClick = (e: MouseEvent, volId: string) => {
@@ -325,8 +304,16 @@
 
 	const toggleBookmark = async () => {
 		if (!series) return;
-		// TODO: actually implement this with backend
-		series.isBookmarked = !series.isBookmarked;
+		// 1. Optimistic Update
+		const oldState = series.bookmarked;
+		series.bookmarked = !series.bookmarked;
+
+		// 2. Sync with Debounce
+		metadataOps.syncBookmark(series.id, series.bookmarked, () => {
+			// Revert on failure
+			if (!series) return;
+			series.bookmarked = oldState;
+		});
 	};
 
 	// --- Effects ---
@@ -337,7 +324,10 @@
 		// Dependency tracking: include libraryVersion to force re-fetches
 		const _version = uiState.libraryVersion;
 		if (seriesId && $user) fetchSeriesData(seriesId);
-		return () => flushPendingToggleComplete();
+		// CLEANUP: Flush pending writes when leaving this page
+		return () => {
+			metadataOps.flush();
+		};
 	});
 </script>
 
@@ -362,7 +352,7 @@
 			onCoverUpload={handleCoverUpload}
 			onEditMetadata={() => (isEditModalOpen = true)}
 			onBookmarkToggle={toggleBookmark}
-			isBookmarked={series.isBookmarked ?? false}
+			isBookmarked={series.bookmarked ?? false}
 		/>
 
 		<LibraryListWrapper>
@@ -426,7 +416,7 @@
 									onclick={(e) => {
 										e.preventDefault();
 										e.stopPropagation();
-										toggleComplete(vol.id);
+										toggleComplete(vol);
 									}}
 									class={`z-30 col-start-1 row-start-1 flex items-center justify-center w-9 h-9 rounded-full transition-transform duration-200 active:scale-90 active:w-10 active:h-10 pointer-events-auto ${
 										stats.isRead
@@ -481,7 +471,7 @@
 										onclick={(e) => {
 											e.preventDefault();
 											e.stopPropagation();
-											toggleComplete(vol.id);
+											toggleComplete(vol);
 										}}
 										class={`p-2 rounded-full border transition-all duration-200 active:scale-90 ${
 											stats.isRead

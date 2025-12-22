@@ -43,6 +43,7 @@ export interface UploadJob {
   metadata: {
     seriesTitle?: string | null;
     seriesDescription?: string | null;
+    seriesBookmarked?: boolean;
     volumeTitle?: string | null;
     volumeProgress?: { page: number; completed: boolean } | null;
   };
@@ -59,6 +60,7 @@ export interface SeriesMetadata {
   series: {
     title: string | null;
     description?: string | null;
+    bookmarked?: boolean;
   };
   volumes: Record<
     string,

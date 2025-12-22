@@ -115,6 +115,8 @@ async function traverse(
 
         const seriesTitle = currentMetadata?.series?.title ?? null;
         const seriesDescription = currentMetadata?.series?.description ?? null;
+        const seriesBookmarked = currentMetadata?.series?.bookmarked ?? false;
+
         const volMeta = currentMetadata?.volumes?.[node.name];
         const volumeTitle = volMeta?.displayTitle ?? null;
         const volumeProgress = volMeta?.progress ?? null;
@@ -127,7 +129,13 @@ async function traverse(
           progress: 0,
           seriesFolderName: seriesFolder,
           volumeFolderName: volumeFolder,
-          metadata: { seriesTitle, seriesDescription, volumeTitle, volumeProgress }
+          metadata: {
+            seriesTitle,
+            seriesDescription,
+            seriesBookmarked,
+            volumeTitle,
+            volumeProgress
+          }
         });
       }
     }

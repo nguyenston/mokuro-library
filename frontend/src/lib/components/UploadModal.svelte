@@ -71,12 +71,18 @@
 				formData.append('series_folder_name', job.seriesFolderName);
 				formData.append('volume_folder_name', job.volumeFolderName);
 
-				if (job.metadata.seriesTitle || job.metadata.volumeTitle || job.metadata.volumeProgress) {
+				if (
+					job.metadata.seriesTitle ||
+					job.metadata.volumeTitle ||
+					job.metadata.volumeProgress ||
+					job.metadata.seriesBookmarked
+				) {
 					formData.append(
 						'metadata',
 						JSON.stringify({
 							series_title: job.metadata.seriesTitle,
 							series_description: job.metadata.seriesDescription,
+							series_bookmarked: job.metadata.seriesBookmarked,
 							volume_title: job.metadata.volumeTitle,
 							volume_progress: job.metadata.volumeProgress
 						})
