@@ -3,6 +3,28 @@
 	import MenuWrapper from '$lib/components/menu/MenuWrapper.svelte';
 	import MenuGroup from '$lib/components/menu/MenuGroup.svelte';
 	import MenuGrid from '$lib/components/menu/MenuGrid.svelte';
+
+	// Configuration for filter button styles
+	const filterConfig = {
+		unread: {
+			activeColor: 'text-status-unread',
+			activeBorder: 'border-status-unread/70',
+			activeBg: 'bg-status-unread/30',
+			shadow: 'shadow-status-unread/30'
+		},
+		reading: {
+			activeColor: 'text-accent',
+			activeBorder: 'border-accent/70',
+			activeBg: 'bg-accent/25',
+			shadow: 'shadow-accent/40'
+		},
+		read: {
+			activeColor: 'text-status-success',
+			activeBorder: 'border-status-success/70',
+			activeBg: 'bg-status-success/30',
+			shadow: 'shadow-status-success/30'
+		}
+	} as const;
 </script>
 
 <MenuWrapper className="w-80 !bg-theme-surface !border-theme-border shadow-2xl">
@@ -128,44 +150,26 @@
 		{/each}
 	</MenuGroup>
 
-	<MenuGrid title="Filter Status" className="lg:hidden">
-		{#each ['all', 'in_progress', 'unread', 'read'] as filter}
+	<MenuGrid
+		title="Filter Status"
+		className="lg:hidden"
+		items={['unread', 'reading', 'read']}
+		layout={[3]}
+	>
+		{#snippet children(filter)}
 			{@const isActive = uiState.filterStatus === filter}
+			{@const styles = filterConfig[filter as keyof typeof filterConfig]}
 
-			{@const activeClass =
-				filter === 'unread'
-					? 'bg-status-unread/30 text-status-unread border-2 border-status-unread/70 shadow-lg shadow-status-unread/30'
-					: filter === 'in_progress'
-						? 'bg-accent/25 text-accent border-2 border-accent/70 shadow-lg shadow-accent/40'
-						: filter === 'read'
-							? 'bg-status-success/30 text-status-success border-2 border-status-success/70 shadow-lg shadow-status-success/30'
-							: 'bg-theme-primary/25 text-theme-primary border-2 border-theme-primary/50 shadow-lg shadow-theme-primary/20'}
+			{@const activeClass = isActive
+				? `${styles.activeBg} ${styles.activeColor} ${styles.activeBorder} shadow-lg ${styles.shadow}`
+				: 'bg-theme-surface-hover/50 border-theme-border text-theme-primary hover:bg-theme-surface-hover/80 hover:text-white'}
 
 			<button
-				onclick={() => (uiState.filterStatus = filter as any)}
-				class={`flex flex-col items-center justify-center gap-2 p-3 rounded-xl border-2 transition-all duration-200
-                ${
-									isActive
-										? activeClass
-										: 'bg-theme-surface-hover/50 border-theme-border text-theme-primary hover:bg-theme-surface-hover/80 hover:text-white'
-								}`}
+				onclick={() =>
+					(uiState.filterStatus = isActive ? 'all' : (filter as 'unread' | 'reading' | 'read'))}
+				class={`flex flex-col items-center justify-center gap-2 p-3 rounded-xl border-2 transition-all duration-200 ${activeClass}`}
 			>
-				{#if filter === 'all'}
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						width="20"
-						height="20"
-						viewBox="0 0 24 24"
-						fill="none"
-						stroke="currentColor"
-						stroke-width="2"
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						><rect width="18" height="18" x="3" y="3" rx="2" /><path d="M3 9h18" /><path
-							d="M9 21V9"
-						/></svg
-					>
-				{:else if filter === 'unread'}
+				{#if filter === 'unread'}
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
 						width="20"
@@ -177,7 +181,7 @@
 						stroke-linecap="round"
 						stroke-linejoin="round"><circle cx="12" cy="12" r="10" /></svg
 					>
-				{:else if filter === 'in_progress'}
+				{:else if filter === 'reading'}
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
 						width="20"
@@ -188,10 +192,10 @@
 						stroke-width="2"
 						stroke-linecap="round"
 						stroke-linejoin="round"
-						><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" /><path
-							d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"
-						/></svg
 					>
+						<circle cx="12" cy="12" r="10" />
+						<path d="M7 12 Q 9.5 8 12 12 T 17 12" />
+					</svg>
 				{:else}
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
@@ -213,6 +217,6 @@
 					{filter.replace('_', ' ')}
 				</span>
 			</button>
-		{/each}
+		{/snippet}
 	</MenuGrid>
 </MenuWrapper>
