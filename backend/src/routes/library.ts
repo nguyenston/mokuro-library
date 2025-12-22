@@ -77,7 +77,7 @@ interface LibraryQuery {
   q?: string;
   sort?: 'title' | 'created' | 'updated' | 'recent';
   order?: 'asc' | 'desc';
-  status?: 'all' | 'read' | 'unread' | 'in_progress';
+  status?: 'all' | 'read' | 'unread' | 'reading';
   bookmarked?: string;
 }
 
@@ -125,7 +125,7 @@ const libraryRoutes: FastifyPluginAsync = async (
 
     if (status !== 'all') {
       if (status === 'unread') where.status = 0;
-      else if (status === 'in_progress') where.status = 1;
+      else if (status === 'reading') where.status = 1;
       else if (status === 'read') where.status = 2;
     }
     // 3. Build OrderBy Clause
