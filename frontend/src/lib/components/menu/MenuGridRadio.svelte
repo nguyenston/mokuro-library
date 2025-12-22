@@ -1,8 +1,8 @@
 <script lang="ts" generics="T">
 	import { type Snippet } from 'svelte';
 	import SettingTooltip from './SettingTooltip.svelte';
+	import MenuGrid from './MenuGrid.svelte';
 
-	// Allow the option object to carry extra data (like color arrays)
 	type Option<T> = {
 		value: T;
 		label: string;
@@ -15,10 +15,10 @@
 		tooltip,
 		value = $bindable(),
 		options,
-		layout, // Optional: if provided, splits into rows. If undefined, uses single grid.
-		gridClass = 'grid gap-3', // Class for the container in single-grid mode
-		itemClass = 'flex flex-col items-center justify-center gap-3 p-3.5', // Default to "Reader" style
-		children // Optional snippet for custom content: (option, selected)
+		layout,
+		gridClass = 'grid gap-3', // Kept for API compatibility, but passed as class to MenuGrid
+		itemClass = 'flex flex-col items-center justify-center gap-3 p-3.5',
+		children
 	} = $props<{
 		title?: string;
 		tooltip?: string;
@@ -30,23 +30,6 @@
 		children?: Snippet<[Option<T>, boolean]>;
 	}>();
 
-	// Helper to split options into rows based on layout configuration (Legacy/Specific layouts)
-	function getRows() {
-		if (!layout) return [];
-		let rows = [];
-		let currentIndex = 0;
-		for (const count of layout) {
-			rows.push({
-				items: options.slice(currentIndex, currentIndex + count),
-				cols: count
-			});
-			currentIndex += count;
-		}
-		return rows;
-	}
-
-	const rows = $derived(getRows());
-	// Find the label of the currently selected option for the header
 	const selectedLabel = $derived(options.find((o: Option<T>) => o.value === value)?.label ?? '');
 </script>
 
@@ -69,21 +52,17 @@
 		</div>
 	{/if}
 
-	{#if layout}
-		{#each rows as row}
-			<div class="grid gap-3" style="grid-template-columns: repeat({row.cols}, minmax(0, 1fr));">
-				{#each row.items as option}
-					{@render renderItem(option)}
-				{/each}
-			</div>
-		{/each}
-	{:else}
-		<div class={gridClass}>
-			{#each options as option}
-				{@render renderItem(option)}
-			{/each}
-		</div>
-	{/if}
+	<MenuGrid
+		items={options}
+		{layout}
+		innerClass="flex flex-col gap-3"
+		gap="gap-3"
+		className={layout ? '' : gridClass}
+	>
+		{#snippet children(option: Option<T>)}
+			{@render renderItem(option)}
+		{/snippet}
+	</MenuGrid>
 </div>
 
 {#snippet renderItem(option: Option<T>)}
