@@ -25,7 +25,7 @@
 
 	<div
 		class="w-11 h-6 rounded-full transition-all duration-200 relative flex-shrink-0 {checked
-			? 'bg-accent/40 border-2 border-accent'
+			? 'bg-accent/20 border-2 border-accent'
 			: 'bg-black/40 border-2 border-white/10'}"
 	>
 		<div
