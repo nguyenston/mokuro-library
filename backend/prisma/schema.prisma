@@ -24,6 +24,9 @@ model Series {
   description String?
   bookmarked  Boolean   @default(false)
 
+  // 0 = Unread, 1 = In Progress, 2 = Read
+  status      Int       @default(0)
+
   // Always contains either 'title' or 'folderName'
   sortTitle   String
 

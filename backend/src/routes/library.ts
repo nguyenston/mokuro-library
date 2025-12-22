@@ -3,7 +3,7 @@ import { pipeline, Readable } from 'stream';
 import util from 'util';
 import fs from 'fs';
 import path from 'path';
-import os from 'os';
+import { updateSeriesStatus } from '../utils/seriesStatus';
 import { Prisma } from '../generated/prisma/client';
 
 // Promisify pipeline for async/await
@@ -77,6 +77,8 @@ interface LibraryQuery {
   q?: string;
   sort?: 'title' | 'created' | 'updated' | 'recent';
   order?: 'asc' | 'desc';
+  status?: 'all' | 'read' | 'unread' | 'in_progress';
+  bookmarked?: string;
 }
 
 interface MokuroPage { }
@@ -105,6 +107,8 @@ const libraryRoutes: FastifyPluginAsync = async (
     const q = request.query.q?.trim() ?? '';
     const sort = request.query.sort ?? 'title';
     const order = request.query.order ?? 'asc';
+    const status = request.query.status ?? 'all';
+    const bookmarked = request.query.bookmarked === 'false';
 
     // 2. Build Where Clause (Search)
     const where: Prisma.SeriesWhereInput = {
@@ -113,6 +117,16 @@ const libraryRoutes: FastifyPluginAsync = async (
 
     if (q) {
       where.sortTitle = { contains: q };
+    }
+
+    if (bookmarked) {
+      where.bookmarked = true;
+    }
+
+    if (status !== 'all') {
+      if (status === 'unread') where.status = 0;
+      else if (status === 'in_progress') where.status = 1;
+      else if (status === 'read') where.status = 2;
     }
     // 3. Build OrderBy Clause
     let orderBy: Prisma.SeriesOrderByWithRelationInput | Prisma.SeriesOrderByWithRelationInput[];
@@ -414,6 +428,10 @@ const libraryRoutes: FastifyPluginAsync = async (
             completed: metadata.volume_progress.isCompleted
           }
         });
+
+        // Recalculate Status (e.g. adding a volume might un-complete a series)
+        // TODO: this is O(N^2)! although the number of volumes per series shouldn't go that high
+        await updateSeriesStatus(fastify.prisma, series.id);
       }
       return reply.status(200).send({
         message: 'Upload processed.',
@@ -993,6 +1011,9 @@ const libraryRoutes: FastifyPluginAsync = async (
             id: volumeId
           }
         });
+
+        // 3.1. Recalculate status of the parent series
+        await updateSeriesStatus(fastify.prisma, volume.seriesId);
 
         // 4. If this was the last volume, clean up the parent series directory
         if (volumeCount === 1 && !seriesCoverPath) {
