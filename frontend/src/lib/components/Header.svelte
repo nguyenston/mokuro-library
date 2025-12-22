@@ -136,6 +136,22 @@
 		// Open aligned to the bottom-right of the button
 		contextMenu.open(rect.right, rect.bottom + 10, AppMenu, { edgeAlign: 'right' }, element);
 	};
+
+	// --- Configuration for filter button styles
+	const filterConfig = {
+		unread: {
+			activeColor: 'text-status-unread',
+			activeBorder: 'border-status-unread/50'
+		},
+		reading: {
+			activeColor: 'text-accent',
+			activeBorder: 'border-accent/50'
+		},
+		read: {
+			activeColor: 'text-status-success',
+			activeBorder: 'border-status-success/50'
+		}
+	} as const; // 'as const' helps with type inference if needed
 </script>
 
 <header
@@ -357,50 +373,23 @@
 
 					<!-- Filter Status Buttons (Desktop only) -->
 					<div class="hidden lg:flex items-center gap-2">
-						{#each ['all', 'unread', 'in_progress', 'read'] as filter, index}
+						{#each ['unread', 'reading', 'read'] as filter}
 							{@const isActive = uiState.filterStatus === filter}
-							{@const iconColor =
-								filter === 'unread'
-									? isActive
-										? 'text-status-unread'
-										: 'text-theme-secondary'
-									: filter === 'in_progress'
-										? isActive
-											? 'text-accent'
-											: 'text-theme-secondary'
-										: filter === 'read'
-											? isActive
-												? 'text-status-success'
-												: 'text-theme-secondary'
-											: isActive
-												? 'text-theme-primary'
-												: 'text-theme-secondary'}
+							{@const styles = filterConfig[filter as keyof typeof filterConfig]}
 
-							{@const borderColor =
-								filter === 'unread'
-									? isActive
-										? 'border-status-unread/50'
-										: 'border-theme-border-light'
-									: filter === 'in_progress'
-										? isActive
-											? 'border-accent/50'
-											: 'border-theme-border-light'
-										: filter === 'read'
-											? isActive
-												? 'border-status-success/50'
-												: 'border-theme-border-light'
-											: isActive
-												? 'border-theme-primary/30'
-												: 'border-theme-border-light'}
+							{@const iconColor = isActive ? styles.activeColor : 'text-theme-secondary'}
+							{@const borderColor = isActive ? styles.activeBorder : 'border-theme-border-light'}
 
 							<button
-								onclick={() =>
-									(uiState.filterStatus = filter as 'all' | 'unread' | 'in_progress' | 'read')}
+								onclick={() => {
+									// Toggle: If clicking the active one, revert to 'all'
+									uiState.filterStatus = isActive ? 'all' : (filter as any);
+								}}
 								class="w-10 h-10 flex items-center justify-center rounded-2xl border-2 transition-all duration-200 hover:border-theme-primary/50 {iconColor} {borderColor}"
 								title={filter.replace('_', ' ')}
 								aria-label="Filter by {filter.replace('_', ' ')}"
 							>
-								{#if filter === 'all'}
+								{#if filter === 'unread'}
 									<svg
 										xmlns="http://www.w3.org/2000/svg"
 										width="20"
@@ -411,23 +400,10 @@
 										stroke-width="2"
 										stroke-linecap="round"
 										stroke-linejoin="round"
-										><rect width="18" height="18" x="3" y="3" rx="2" /><path d="M3 9h18" /><path
-											d="M9 21V9"
-										/></svg
 									>
-								{:else if filter === 'unread'}
-									<svg
-										xmlns="http://www.w3.org/2000/svg"
-										width="20"
-										height="20"
-										viewBox="0 0 24 24"
-										fill="none"
-										stroke="currentColor"
-										stroke-width="2"
-										stroke-linecap="round"
-										stroke-linejoin="round"><circle cx="12" cy="12" r="10" /></svg
-									>
-								{:else if filter === 'in_progress'}
+										<circle cx="12" cy="12" r="10" />
+									</svg>
+								{:else if filter === 'reading'}
 									<svg
 										xmlns="http://www.w3.org/2000/svg"
 										width="20"
@@ -438,10 +414,10 @@
 										stroke-width="2"
 										stroke-linecap="round"
 										stroke-linejoin="round"
-										><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" /><path
-											d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"
-										/></svg
 									>
+										<circle cx="12" cy="12" r="10" />
+										<path d="M7 12 Q 9.5 8 12 12 T 17 12" />
+									</svg>
 								{:else}
 									<svg
 										xmlns="http://www.w3.org/2000/svg"
@@ -453,10 +429,10 @@
 										stroke-width="2"
 										stroke-linecap="round"
 										stroke-linejoin="round"
-										><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline
-											points="22 4 12 14.01 9 11.01"
-										/></svg
 									>
+										<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+										<polyline points="22 4 12 14.01 9 11.01" />
+									</svg>
 								{/if}
 							</button>
 						{/each}

@@ -92,7 +92,7 @@
 				const { isRead, percent } = getVolumeStats(v);
 				if (uiState.filterStatus === 'read') return isRead;
 				if (uiState.filterStatus === 'unread') return !isRead && percent === 0;
-				if (uiState.filterStatus === 'in_progress') return !isRead && percent > 0;
+				if (uiState.filterStatus === 'reading') return !isRead && percent > 0;
 				return true;
 			});
 		}

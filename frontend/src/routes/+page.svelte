@@ -10,6 +10,7 @@
 	import { metadataOps } from '$lib/states/metadataOperations.svelte';
 	import PaginationControls from '$lib/components/PaginationControls.svelte';
 	import LibraryEntry from '$lib/components/LibraryEntry.svelte';
+	import { type FilterStatus } from '$lib/states/uiState.svelte';
 
 	// --- Type Definitions ---
 	interface UserProgress {
@@ -108,9 +109,9 @@
 
 			// Filter (Note: Backend currently ignores 'status', but we keep it in URL for future)
 			const status = params.get('status');
-			// if (status && uiState.filterStatus !== status) {
-			// 	uiState.filterStatus = status;
-			// }
+			if (status && uiState.filterStatus !== status) {
+				uiState.filterStatus = status as FilterStatus;
+			}
 		}
 	});
 

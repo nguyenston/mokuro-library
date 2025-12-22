@@ -4,7 +4,7 @@ export type AppContext = 'library' | 'series' | 'reader' | 'settings';
 export type ViewMode = 'grid' | 'list';
 export type SortOrder = 'asc' | 'desc';
 export type SortKey = 'title' | 'updated' | 'lastRead' | 'progress';
-export type FilterStatus = 'all' | 'in_progress' | 'read' | 'unread';
+export type FilterStatus = 'all' | 'reading' | 'read' | 'unread';
 
 class UiState {
   // --- Context & Navigation ---
