@@ -20,6 +20,7 @@ class UiState {
   sortKey = $state<SortKey>('title');
   sortOrder = $state<SortOrder>('asc');
   filterStatus = $state<FilterStatus>('all');
+  filterBookmarked = $state(false);
 
   // --- Data Freshness ---
   // Simple counter to force re-fetches
@@ -66,6 +67,7 @@ class UiState {
     this.isSelectionMode = false;
     this.selectedIds.clear();
     this.filterStatus = 'all';
+    this.filterBookmarked = false;
 
     if (ctx === 'library') {
       this.sortKey = 'title';

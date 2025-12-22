@@ -436,6 +436,30 @@
 								{/if}
 							</button>
 						{/each}
+
+						<!-- Bookmarked filter button -->
+						<button
+							onclick={() => (uiState.filterBookmarked = !uiState.filterBookmarked)}
+							class="w-10 h-10 flex items-center justify-center rounded-2xl border-2 transition-all duration-200 hover:border-theme-primary/50 {uiState.filterBookmarked
+								? 'text-status-warning border-status-warning/50'
+								: 'text-theme-secondary border-theme-border-light'}"
+							title="Filter Bookmarked"
+							aria-label="Filter Bookmarked"
+						>
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								width="20"
+								height="20"
+								viewBox="0 0 24 24"
+								fill={uiState.filterBookmarked ? 'currentColor' : 'none'}
+								stroke="currentColor"
+								stroke-width="2"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+							>
+								<path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+							</svg>
+						</button>
 					</div>
 				{/if}
 

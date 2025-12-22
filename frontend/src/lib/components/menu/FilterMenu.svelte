@@ -3,6 +3,8 @@
 	import MenuWrapper from '$lib/components/menu/MenuWrapper.svelte';
 	import MenuGroup from '$lib/components/menu/MenuGroup.svelte';
 	import MenuGrid from '$lib/components/menu/MenuGrid.svelte';
+	import MenuSeparator from './MenuSeparator.svelte';
+	import MenuToggle from './MenuToggle.svelte';
 
 	// Configuration for filter button styles
 	const filterConfig = {
@@ -150,73 +152,81 @@
 		{/each}
 	</MenuGroup>
 
-	<MenuGrid
-		title="Filter Status"
-		className="lg:hidden"
-		items={['unread', 'reading', 'read']}
-		layout={[3]}
-	>
-		{#snippet children(filter)}
-			{@const isActive = uiState.filterStatus === filter}
-			{@const styles = filterConfig[filter as keyof typeof filterConfig]}
+	<div class="lg:hidden">
+		<MenuSeparator />
+		<MenuGroup title="Filter Status">
+			<MenuGrid items={['unread', 'reading', 'read']} layout={[3]}>
+				{#snippet children(filter)}
+					{@const isActive = uiState.filterStatus === filter}
+					{@const styles = filterConfig[filter as keyof typeof filterConfig]}
 
-			{@const activeClass = isActive
-				? `${styles.activeBg} ${styles.activeColor} ${styles.activeBorder} shadow-lg ${styles.shadow}`
-				: 'bg-theme-surface-hover/50 border-theme-border text-theme-primary hover:bg-theme-surface-hover/80 hover:text-white'}
+					{@const activeClass = isActive
+						? `${styles.activeBg} ${styles.activeColor} ${styles.activeBorder} shadow-lg ${styles.shadow}`
+						: 'bg-theme-surface-hover/50 border-theme-border text-theme-primary hover:bg-theme-surface-hover/80 hover:text-white'}
 
-			<button
-				onclick={() =>
-					(uiState.filterStatus = isActive ? 'all' : (filter as 'unread' | 'reading' | 'read'))}
-				class={`flex flex-col items-center justify-center gap-2 p-3 rounded-xl border-2 transition-all duration-200 ${activeClass}`}
-			>
-				{#if filter === 'unread'}
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						width="20"
-						height="20"
-						viewBox="0 0 24 24"
-						fill="none"
-						stroke="currentColor"
-						stroke-width="2"
-						stroke-linecap="round"
-						stroke-linejoin="round"><circle cx="12" cy="12" r="10" /></svg
+					<button
+						onclick={() =>
+							(uiState.filterStatus = isActive ? 'all' : (filter as 'unread' | 'reading' | 'read'))}
+						class={`flex flex-col items-center justify-center gap-2 p-3 rounded-xl border-2 transition-all duration-200 ${activeClass}`}
 					>
-				{:else if filter === 'reading'}
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						width="20"
-						height="20"
-						viewBox="0 0 24 24"
-						fill="none"
-						stroke="currentColor"
-						stroke-width="2"
-						stroke-linecap="round"
-						stroke-linejoin="round"
-					>
-						<circle cx="12" cy="12" r="10" />
-						<path d="M7 12 Q 9.5 8 12 12 T 17 12" />
-					</svg>
-				{:else}
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						width="20"
-						height="20"
-						viewBox="0 0 24 24"
-						fill="none"
-						stroke="currentColor"
-						stroke-width="2"
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline
-							points="22 4 12 14.01 9 11.01"
-						/></svg
-					>
-				{/if}
+						{#if filter === 'unread'}
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								width="20"
+								height="20"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+								stroke-linecap="round"
+								stroke-linejoin="round"><circle cx="12" cy="12" r="10" /></svg
+							>
+						{:else if filter === 'in_progress'}
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								width="20"
+								height="20"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+							>
+								<circle cx="12" cy="12" r="10" />
+								<path d="M7 12 Q 9.5 8 12 12 T 17 12" />
+							</svg>
+						{:else}
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								width="20"
+								height="20"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline
+									points="22 4 12 14.01 9 11.01"
+								/></svg
+							>
+						{/if}
 
-				<span class="text-[10px] font-bold uppercase tracking-wider capitalize">
-					{filter.replace('_', ' ')}
-				</span>
-			</button>
-		{/snippet}
-	</MenuGrid>
+						<span class="text-[10px] font-bold uppercase tracking-wider capitalize">
+							{filter.replace('_', ' ')}
+						</span>
+					</button>
+				{/snippet}
+			</MenuGrid>
+
+			<div class="h-2"></div>
+
+			<MenuToggle
+				label="Bookmarked Only"
+				description="Show only bookmarked series"
+				bind:checked={uiState.filterBookmarked}
+			/>
+		</MenuGroup>
+	</div>
 </MenuWrapper>
