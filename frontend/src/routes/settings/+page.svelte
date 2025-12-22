@@ -96,7 +96,7 @@
 					onclick={() => (activeCategory = category.id)}
 					class="w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all border-2 {activeCategory ===
 					category.id
-						? 'bg-accent/20 text-accent border-accent/50 shadow-lg shadow-accent/20'
+						? 'bg-accent-surface text-accent border-accent/50 shadow-lg shadow-accent/20'
 						: 'text-theme-primary hover:text-white hover:bg-theme-surface-hover/70 border-theme-border'}"
 				>
 					<svg

@@ -205,7 +205,7 @@
 								class={`w-full px-3 py-2 text-center text-[12px] font-bold transition-colors
                                 ${
 																	meta.limit === opt
-																		? 'bg-accent/10 text-accent'
+																		? 'bg-accent-surface text-accent'
 																		: 'text-theme-secondary hover:text-white hover:bg-white/5'
 																}`}
 							>

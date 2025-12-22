@@ -31,7 +31,7 @@
 </svelte:head>
 
 <div
-	class="min-h-screen bg-theme-main text-theme-primary font-sans selection:bg-accent/30 selection:text-white"
+	class="min-h-screen bg-theme-main text-theme-primary font-sans selection:bg-accent-surface selection:text-white"
 >
 	{#if $user && uiState.context !== 'reader'}
 		<Header />
