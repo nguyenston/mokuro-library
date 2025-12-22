@@ -43,6 +43,7 @@ interface UploadMetadata {
   series_title?: string;
   series_description?: string;
   volume_title?: string;
+  series_bookmarked?: boolean;
   // Progress Interface
   volume_progress?: {
     page: number;
@@ -342,6 +343,7 @@ const libraryRoutes: FastifyPluginAsync = async (
             title: metadata.series_title || null,
             description: metadata.series_description || null,
             sortTitle: metadata.series_title || seriesFolder,
+            bookmarked: metadata.series_bookmarked ?? false,
             // If we found a file matching "SeriesName.jpg", use it as cover
             coverPath: potentialSeriesCoverPath
           }
@@ -357,7 +359,8 @@ const libraryRoutes: FastifyPluginAsync = async (
           updateData.sortTitle = metadata.series_title;
         }
 
-        if (metadata.series_description && !series.description) { // <--- ADDED
+        // Update description if provided and missing
+        if (metadata.series_description && !series.description) {
           updateData.description = metadata.series_description;
         }
 

@@ -47,6 +47,7 @@ interface MokuroSeriesMetadata {
     title: string | null;
     description: string | null;
     originalFolderName: string;
+    bookmarked: boolean;
   };
   volumes: {
     [fileName: string]: {
@@ -201,6 +202,7 @@ const generateSeriesMetadata = (
     series: {
       title: series.title,
       description: series.description,
+      bookmarked: series.bookmarked ?? false,
       originalFolderName: series.folderName
     },
     volumes: volumeMap

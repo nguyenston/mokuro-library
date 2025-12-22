@@ -19,7 +19,8 @@ const seriesUpdateSchema = {
   type: 'object',
   properties: {
     title: { type: ['string', 'null'] }, // Allow string or explicit null
-    description: { type: ['string', 'null'] }
+    description: { type: ['string', 'null'] },
+    bookmarked: { type: ['boolean', 'null'] }
   }
 };
 
@@ -52,6 +53,7 @@ interface IdParams {
 interface SeriesUpdateBody {
   title?: string | null;
   description?: string | null;
+  bookmarked?: boolean;
 }
 
 const metadataRoutes: FastifyPluginAsync = async (
@@ -220,14 +222,14 @@ const metadataRoutes: FastifyPluginAsync = async (
 
   /**
    * PATCH /api/metadata/series/:id
-   * Updates Series metadata (Title, Description).
+   * Updates Series metadata (Title, Description, Bookmarked).
    */
   fastify.patch<{ Params: IdParams; Body: SeriesUpdateBody }>(
     '/series/:id',
     { schema: { body: seriesUpdateSchema } },
     async (request, reply) => {
       const { id } = request.params;
-      const { title, description } = request.body;
+      const { title, description, bookmarked } = request.body;
 
       try {
         const series = await fastify.prisma.series.findFirst({
@@ -253,6 +255,10 @@ const metadataRoutes: FastifyPluginAsync = async (
 
         if (description !== undefined) {
           dataToUpdate.description = description;
+        }
+
+        if (bookmarked !== undefined) {
+          dataToUpdate.bookmarked = bookmarked;
         }
 
         await fastify.prisma.series.update({

@@ -17,11 +17,12 @@ datasource db {
 // Stores metadata about a manga series
 model Series {
   id          String    @id @default(cuid())
-  title       String?   // defaults to folderName
-  folderName  String
+  title       String?   // nullable
+  folderName  String    // always exists
   coverPath   String?   // Path to the cover image
 
   description String?
+  bookmarked  Boolean   @default(false)
 
   // Always contains either 'title' or 'folderName'
   sortTitle   String
