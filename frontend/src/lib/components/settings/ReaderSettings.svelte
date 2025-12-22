@@ -22,114 +22,8 @@
 	}
 	const zoomProxy = new ZoomProxy();
 
-	// Placeholder local states for settings NOT yet in ReaderState
-	// These remain local until we decide to persist them in the backend
-	let autoFullscreenState = $state(initFromStorage('mokuro_auto_fullscreen', false));
-	const autoFullscreenProxy = {
-		get value() { return autoFullscreenState; },
-		set value(v: boolean) {
-			autoFullscreenState = v;
-			if (browser) {
-				localStorage.setItem('mokuro_auto_fullscreen', JSON.stringify(v));
-				if (v) {
-					if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(() => {});
-				} else {
-					if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
-				}
-			}
-		}
-	};
 	let showCharacterCount = $state(false);
 	let showTimer = $state(false);
-
-	// Helper to initialize state from localStorage
-	function initFromStorage<T>(key: string, fallback: T): T {
-		if (browser) {
-			const stored = localStorage.getItem(key);
-			if (stored !== null) {
-				try {
-					return JSON.parse(stored);
-				} catch (e) {
-					console.error('Failed to parse setting', key, e);
-				}
-			}
-		}
-		return fallback;
-	}
-
-	// New settings for Night Mode
-	let nightModeEnabled = $state(initFromStorage('mokuro_night_mode_enabled', false));
-	let nightModeScheduleEnabled = $state(initFromStorage('mokuro_night_mode_schedule_enabled', false));
-	let nightModeBrightness = $state(initFromStorage('mokuro_night_mode_brightness', 100)); // 0-100%
-	let nightModeStartHour = $state(initFromStorage('mokuro_night_mode_start_hour', 22)); // 0-23
-	let nightModeEndHour = $state(initFromStorage('mokuro_night_mode_end_hour', 6)); // 0-23
-
-	// New settings for Invert Colors
-	let invertColorsEnabled = $state(initFromStorage('mokuro_invert_enabled', false));
-	let invertColorsScheduleEnabled = $state(initFromStorage('mokuro_invert_schedule_enabled', false));
-	let invertColorsIntensity = $state(initFromStorage('mokuro_invert_intensity', 100)); // 0-100%
-	let invertColorsStartHour = $state(initFromStorage('mokuro_invert_start_hour', 22)); // 0-23
-	let invertColorsEndHour = $state(initFromStorage('mokuro_invert_end_hour', 6)); // 0-23
-
-	// Time tracking for schedules
-	let now = $state(new Date());
-
-	$effect(() => {
-		const interval = setInterval(() => {
-			now = new Date();
-		}, 60000);
-		return () => clearInterval(interval);
-	});
-
-	let isNightModeActive = $derived.by(() => {
-		if (!nightModeEnabled) return false;
-		if (!nightModeScheduleEnabled) return true;
-		const h = now.getHours();
-		if (nightModeStartHour <= nightModeEndHour) {
-			return h >= nightModeStartHour && h < nightModeEndHour;
-		} else {
-			return h >= nightModeStartHour || h < nightModeEndHour;
-		}
-	});
-
-	let isInvertActive = $derived.by(() => {
-		if (!invertColorsEnabled) return false;
-		if (!invertColorsScheduleEnabled) return true;
-		const h = now.getHours();
-		if (invertColorsStartHour <= invertColorsEndHour) {
-			return h >= invertColorsStartHour && h < invertColorsEndHour;
-		} else {
-			return h >= invertColorsStartHour || h < invertColorsEndHour;
-		}
-	});
-
-	$effect(() => {
-		const b = isNightModeActive ? nightModeBrightness : 100;
-		
-		// Smart Invert Logic:
-		// If active, fully invert (100%), but use intensity to adjust brightness (so it's not too harsh).
-		// We map intensity 0-100 to brightness 40%-100% to ensure text remains visible.
-		const inv = isInvertActive ? 100 : 0;
-		const invBright = isInvertActive ? (40 + (invertColorsIntensity * 0.6)) : 100;
-
-		document.documentElement.style.setProperty('--reader-brightness', `${b}%`);
-		document.documentElement.style.setProperty('--reader-invert', `${inv}%`);
-		document.documentElement.style.setProperty('--reader-invert-brightness', `${invBright}%`);
-
-		if (browser) {
-			localStorage.setItem('mokuro_night_mode_enabled', JSON.stringify(nightModeEnabled));
-			localStorage.setItem('mokuro_night_mode_schedule_enabled', JSON.stringify(nightModeScheduleEnabled));
-			localStorage.setItem('mokuro_night_mode_brightness', JSON.stringify(nightModeBrightness));
-			localStorage.setItem('mokuro_night_mode_start_hour', JSON.stringify(nightModeStartHour));
-			localStorage.setItem('mokuro_night_mode_end_hour', JSON.stringify(nightModeEndHour));
-
-			localStorage.setItem('mokuro_invert_enabled', JSON.stringify(invertColorsEnabled));
-			localStorage.setItem('mokuro_invert_schedule_enabled', JSON.stringify(invertColorsScheduleEnabled));
-			localStorage.setItem('mokuro_invert_intensity', JSON.stringify(invertColorsIntensity));
-			localStorage.setItem('mokuro_invert_start_hour', JSON.stringify(invertColorsStartHour));
-			localStorage.setItem('mokuro_invert_end_hour', JSON.stringify(invertColorsEndHour));
-		}
-	});
 </script>
 
 {#snippet singleIcon()}
@@ -250,7 +144,7 @@ Higher = easier nav, smaller OCR area."
 
 	<div class="grid grid-cols-2 gap-4">
 		<MenuToggle label="First Page is Cover" bind:checked={readerState.firstPageIsCover} />
-		<MenuToggle label="Auto fullscreen" bind:checked={autoFullscreenProxy.value} />
+		<MenuToggle label="Auto fullscreen" bind:checked={readerState.autoFullscreen} />
 		<MenuToggle label="Hide HUD unless hovered" bind:checked={hideHUD} />
 		<MenuToggle label="Show Character Count" bind:checked={showCharacterCount} />
 		<MenuToggle label="Show Timer" bind:checked={showTimer} />
@@ -262,43 +156,47 @@ Higher = easier nav, smaller OCR area."
 		<div class="flex items-center justify-between">
 			<h3 class="text-lg font-semibold text-white">Night Mode</h3>
 			<div class="clean-toggle">
-				<MenuToggle bind:checked={nightModeEnabled} />
+				<MenuToggle bind:checked={readerState.nightMode.enabled} />
 			</div>
 		</div>
 		<MenuSlider
 			label="Brightness (%)"
 			tooltip="Adjust the brightness level for night mode."
-			bind:value={nightModeBrightness}
+			bind:value={readerState.nightMode.intensity}
 			min={0}
 			max={100}
 			step={1}
-			displayValue="{nightModeBrightness}%"
+			displayValue="{readerState.nightMode.intensity}%"
 		/>
 		<div class="space-y-2">
 			<div class="flex items-center justify-between">
 				<span class="text-sm text-theme-secondary">Schedule (Local Time)</span>
 				<div class="clean-toggle">
-					<MenuToggle bind:checked={nightModeScheduleEnabled} />
+					<MenuToggle bind:checked={readerState.nightMode.scheduleEnabled} />
 				</div>
 			</div>
 			<div class="grid grid-cols-2 gap-4">
 				<div class="flex flex-col">
-					<label for="nightModeStartHour" class="text-sm text-theme-secondary mb-1">Start Hour (0-23)</label>
+					<label for="nightModeStartHour" class="text-sm text-theme-secondary mb-1"
+						>Start Hour (0-23)</label
+					>
 					<input
 						type="number"
 						id="nightModeStartHour"
-						bind:value={nightModeStartHour}
+						bind:value={readerState.nightMode.startHour}
 						min={0}
 						max={23}
 						class="w-full p-2 rounded-md bg-theme-surface border border-theme-border-light text-theme-primary"
 					/>
 				</div>
 				<div class="flex flex-col">
-					<label for="nightModeEndHour" class="text-sm text-theme-secondary mb-1">End Hour (0-23)</label>
+					<label for="nightModeEndHour" class="text-sm text-theme-secondary mb-1"
+						>End Hour (0-23)</label
+					>
 					<input
 						type="number"
 						id="nightModeEndHour"
-						bind:value={nightModeEndHour}
+						bind:value={readerState.nightMode.endHour}
 						min={0}
 						max={23}
 						class="w-full p-2 rounded-md bg-theme-surface border border-theme-border-light text-theme-primary"
@@ -313,43 +211,47 @@ Higher = easier nav, smaller OCR area."
 		<div class="flex items-center justify-between">
 			<h3 class="text-lg font-semibold text-white">Invert Colors</h3>
 			<div class="clean-toggle">
-				<MenuToggle bind:checked={invertColorsEnabled} />
+				<MenuToggle bind:checked={readerState.invertColor.enabled} />
 			</div>
 		</div>
 		<MenuSlider
 			label="Intensity (%)"
 			tooltip="Adjust the intensity of color inversion."
-			bind:value={invertColorsIntensity}
+			bind:value={readerState.invertColor.intensity}
 			min={0}
 			max={100}
 			step={1}
-			displayValue="{invertColorsIntensity}%"
+			displayValue="{readerState.invertColor.intensity}%"
 		/>
 		<div class="space-y-2">
 			<div class="flex items-center justify-between">
 				<span class="text-sm text-theme-secondary">Schedule (Local Time)</span>
 				<div class="clean-toggle">
-					<MenuToggle bind:checked={invertColorsScheduleEnabled} />
+					<MenuToggle bind:checked={readerState.invertColor.scheduleEnabled} />
 				</div>
 			</div>
 			<div class="grid grid-cols-2 gap-4">
 				<div class="flex flex-col">
-					<label for="invertColorsStartHour" class="text-sm text-theme-secondary mb-1">Start Hour (0-23)</label>
+					<label for="invertColorsStartHour" class="text-sm text-theme-secondary mb-1"
+						>Start Hour (0-23)</label
+					>
 					<input
 						type="number"
 						id="invertColorsStartHour"
-						bind:value={invertColorsStartHour}
+						bind:value={readerState.invertColor.startHour}
 						min={0}
 						max={23}
 						class="w-full p-2 rounded-md bg-theme-surface border border-theme-border-light text-theme-primary"
 					/>
 				</div>
 				<div class="flex flex-col">
-					<label for="invertColorsEndHour" class="text-sm text-theme-secondary mb-1">End Hour (0-23)</label>
+					<label for="invertColorsEndHour" class="text-sm text-theme-secondary mb-1"
+						>End Hour (0-23)</label
+					>
 					<input
 						type="number"
 						id="invertColorsEndHour"
-						bind:value={invertColorsEndHour}
+						bind:value={readerState.invertColor.endHour}
 						min={0}
 						max={23}
 						class="w-full p-2 rounded-md bg-theme-surface border border-theme-border-light text-theme-primary"
@@ -365,7 +267,9 @@ Higher = easier nav, smaller OCR area."
 		class="w-full max-w-2xl h-full flex flex-col rounded-l-2xl border-l border-t border-b border-theme-border bg-theme-surface shadow-2xl"
 	>
 		<!-- Header -->
-		<div class="flex items-center justify-between px-6 py-4 bg-theme-main border-b border-theme-border flex-shrink-0">
+		<div
+			class="flex items-center justify-between px-6 py-4 bg-theme-main border-b border-theme-border flex-shrink-0"
+		>
 			<div class="flex items-center gap-3">
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
@@ -427,7 +331,7 @@ Higher = easier nav, smaller OCR area."
 	<div class="w-full p-8 max-w-4xl">
 		<div class="mb-8">
 			<h1 class="text-3xl font-bold text-white mb-2">Reader Settings</h1>
-			<p class="text-base text-theme-secondary">Configure how you read your content by default.</p>
+			<p class="text-base text-theme-secondary">Configure how you read your content.</p>
 		</div>
 
 		<div class="space-y-5">
@@ -464,6 +368,7 @@ Higher = easier nav, smaller OCR area."
 	/* Apply filters to reader content (pages and OCR) */
 	:global(.reader-page) {
 		/* Apply invert first so brightness dims the result (keeping bg black), not the source */
-		filter: brightness(var(--reader-brightness, 100%)) brightness(var(--reader-invert-brightness, 100%)) invert(var(--reader-invert, 0%));
+		filter: brightness(var(--reader-brightness, 100%))
+			brightness(var(--reader-invert-brightness, 100%)) invert(var(--reader-invert, 0%));
 	}
 </style>

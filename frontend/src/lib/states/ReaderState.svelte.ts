@@ -2,6 +2,7 @@ import type { VolumeResponse, MokuroData, MokuroPage, MokuroBlock } from '$lib/t
 import { user, updateSettings, type ReaderSettingsData } from '$lib/authStore';
 import { apiFetch } from '$lib/api';
 import { fromStore, get } from 'svelte/store';
+import { browser } from '$app/environment';
 
 export type LayoutMode = 'single' | 'double' | 'vertical';
 export type ReadingDirection = 'ltr' | 'rtl';
@@ -21,10 +22,52 @@ class ReaderState {
   retainZoom = $state(false);
   navZoneWidth = $state(15);
   showTriggerOutline = $state(false);
+  autoFullscreen = $state(false);
+  nightMode = $state({
+    enabled: false,
+    scheduleEnabled: false,
+    intensity: 100,
+    startHour: 22,
+    endHour: 6,
+  });
+  invertColor = $state({
+    enabled: false,
+    scheduleEnabled: false,
+    intensity: 100,
+    startHour: 22,
+    endHour: 6,
+  });
 
   // --- Session State (Not Persisted) ---
   ocrMode = $state<'READ' | 'BOX' | 'TEXT'>('READ');
   isSmartResizeMode = $state(false);
+  now = $state(new Date()); // for scheduled settings
+
+  isNightModeActive = $derived.by(() => {
+    if (!readerState.nightMode.enabled) return false;
+    if (!readerState.nightMode.scheduleEnabled) return true;
+    const h = this.now.getHours();
+    const startHour = readerState.nightMode.startHour;
+    const endHour = readerState.nightMode.endHour;
+    if (startHour <= endHour) {
+      return h >= startHour && h < endHour;
+    } else {
+      return h >= startHour || h < endHour;
+    }
+  });
+
+  isInvertActive = $derived.by(() => {
+    if (!readerState.invertColor.enabled) return false;
+    if (!readerState.invertColor.scheduleEnabled) return true;
+    const h = this.now.getHours();
+    const startHour = readerState.invertColor.startHour;
+    const endHour = readerState.invertColor.endHour;
+    if (startHour <= endHour) {
+      return h >= startHour && h < endHour;
+    } else {
+      return h >= startHour || h < endHour;
+    }
+  });
 
   // --- Editing / UI State ---
   focusedBlock = $state<MokuroBlock | null>(null);
@@ -55,6 +98,9 @@ class ReaderState {
           // Apply DB values to state
           if (s.layoutMode) this.layoutMode = s.layoutMode;
           if (s.readingDirection) this.readingDirection = s.readingDirection;
+          if (s.autoFullscreen !== undefined) this.autoFullscreen = s.autoFullscreen;
+          if (s.nightMode) this.nightMode = s.nightMode;
+          if (s.invertColor) this.invertColor = s.invertColor;
           if (s.firstPageIsCover !== undefined) this.firstPageIsCover = s.firstPageIsCover;
           if (s.retainZoom !== undefined) this.retainZoom = s.retainZoom;
           if (s.navZoneWidth !== undefined) this.navZoneWidth = s.navZoneWidth;
@@ -70,6 +116,9 @@ class ReaderState {
         const _ = {
           l: this.layoutMode,
           d: this.readingDirection,
+          a: this.autoFullscreen,
+          b: this.nightMode,
+          i: this.invertColor,
           c: this.firstPageIsCover,
           z: this.retainZoom,
           n: this.navZoneWidth,
@@ -85,6 +134,15 @@ class ReaderState {
           this.saveSettings();
         }, 2000);
       });
+
+      // Update "now" for scheduled settings
+      $effect(() => {
+        const interval = setInterval(() => {
+          this.now = new Date();
+        }, 60000);
+        return () => clearInterval(interval);
+      });
+
     });
   }
 
@@ -95,6 +153,10 @@ class ReaderState {
     this.cleanup(); // Reset volume data
     this.isLoading = true;
     this.error = null;
+
+    const handleError = (e: any) => console.log(`Set fullscreen state failed ${e}`);
+    if (browser && readerState.autoFullscreen && !document.fullscreenElement)
+      document.documentElement.requestFullscreen().catch(handleError);
 
     try {
       await this.loadVolumeData(volumeId);
@@ -124,13 +186,17 @@ class ReaderState {
       this.cleanupEffectRoot = null;
     }
 
-
     // 3. Reset Volume State Only
     this.volume = null;
     this.focusedBlock = null;
     this.focusedPage = null;
     this.hasUnsavedChanges = false;
-    // DO NOT reset settingsInitialized or settingsSaveTimer
+
+    // 4. Exit fullscreen if automated
+    const handleError = (e: any) => console.log(`Set fullscreen state failed ${e}`);
+    if (!browser) return;
+    if (readerState.autoFullscreen && document.fullscreenElement)
+      document.exitFullscreen().catch(handleError);
   }
 
   private async loadVolumeData(volumeId: string) {
@@ -161,6 +227,20 @@ class ReaderState {
           }, 2000);
         }
       });
+
+      $effect(() => {
+        const b = this.isNightModeActive ? this.nightMode.intensity : 100;
+
+        // Smart Invert Logic:
+        // If active, fully invert (100%), but use intensity to adjust brightness (so it's not too harsh).
+        // We map intensity 0-100 to brightness 40%-100% to ensure text remains visible.
+        const inv = this.isInvertActive ? 100 : 0;
+        const invBright = this.isInvertActive ? 40 + this.invertColor.intensity * 0.6 : 100;
+
+        document.documentElement.style.setProperty('--reader-brightness', `${b}%`);
+        document.documentElement.style.setProperty('--reader-invert', `${inv}%`);
+        document.documentElement.style.setProperty('--reader-invert-brightness', `${invBright}%`);
+      });
     });
   }
 
@@ -184,6 +264,9 @@ class ReaderState {
       const currentSettings: ReaderSettingsData = {
         layoutMode: this.layoutMode,
         readingDirection: this.readingDirection,
+        autoFullscreen: this.autoFullscreen,
+        nightMode: this.nightMode,
+        invertColor: this.invertColor,
         firstPageIsCover: this.firstPageIsCover,
         retainZoom: this.retainZoom,
         navZoneWidth: this.navZoneWidth,

@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { onMount, tick } from 'svelte';
-	import { browser } from '$app/environment';
 	import { readerState } from '$lib/states/ReaderState.svelte';
 	import type { MokuroBlock, MokuroPage } from '$lib/types';
 	import type { PanzoomObject } from '@panzoom/panzoom';
@@ -196,68 +195,6 @@
 		// Apply changes
 		panzoomInstance.zoom(newScale);
 	};
-
-	function applyReaderSettings() {
-		if (!browser) return;
-		try {
-			const nightEnabled = JSON.parse(localStorage.getItem('mokuro_night_mode_enabled') ?? 'false');
-			const scheduleEnabled = JSON.parse(
-				localStorage.getItem('mokuro_night_mode_schedule_enabled') ?? 'false'
-			);
-			const brightness = JSON.parse(localStorage.getItem('mokuro_night_mode_brightness') ?? '100');
-			const startHour = JSON.parse(localStorage.getItem('mokuro_night_mode_start_hour') ?? '22');
-			const endHour = JSON.parse(localStorage.getItem('mokuro_night_mode_end_hour') ?? '6');
-
-			const invertEnabled = JSON.parse(localStorage.getItem('mokuro_invert_enabled') ?? 'false');
-			const invertScheduleEnabled = JSON.parse(
-				localStorage.getItem('mokuro_invert_schedule_enabled') ?? 'false'
-			);
-			const invertIntensity = JSON.parse(localStorage.getItem('mokuro_invert_intensity') ?? '100');
-			const invertStart = JSON.parse(localStorage.getItem('mokuro_invert_start_hour') ?? '22');
-			const invertEnd = JSON.parse(localStorage.getItem('mokuro_invert_end_hour') ?? '6');
-
-			const now = new Date();
-			const h = now.getHours();
-
-			let b = 100;
-			if (nightEnabled) {
-				let active = true;
-				if (scheduleEnabled) {
-					active =
-						startHour <= endHour ? h >= startHour && h < endHour : h >= startHour || h < endHour;
-				}
-				if (active) b = brightness;
-			}
-
-			let inv = 0;
-			let invBright = 100;
-			if (invertEnabled) {
-				let active = true;
-				if (invertScheduleEnabled) {
-					active =
-						invertStart <= invertEnd
-							? h >= invertStart && h < invertEnd
-							: h >= invertStart || h < invertEnd;
-				}
-				if (active) {
-					inv = 100;
-					invBright = 40 + invertIntensity * 0.6;
-				}
-			}
-
-			document.documentElement.style.setProperty('--reader-brightness', `${b}%`);
-			document.documentElement.style.setProperty('--reader-invert', `${inv}%`);
-			document.documentElement.style.setProperty('--reader-invert-brightness', `${invBright}%`);
-		} catch (e) {
-			console.error('Error applying reader settings', e);
-		}
-	}
-
-	$effect(() => {
-		applyReaderSettings();
-		const interval = setInterval(applyReaderSettings, 60000);
-		return () => clearInterval(interval);
-	});
 </script>
 
 <div

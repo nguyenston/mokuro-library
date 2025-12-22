@@ -9,6 +9,21 @@ export interface ReaderSettingsData {
   retainZoom?: boolean;
   navZoneWidth?: number;
   showTriggerOutline?: boolean;
+  autoFullscreen?: boolean;
+  nightMode?: {
+    enabled: boolean;
+    scheduleEnabled: boolean;
+    intensity: number;
+    startHour: number;
+    endHour: number;
+  };
+  invertColor?: {
+    enabled: boolean;
+    scheduleEnabled: boolean;
+    intensity: number;
+    startHour: number;
+    endHour: number;
+  }
 }
 
 // Define the type for our user object
