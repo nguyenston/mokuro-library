@@ -7,7 +7,7 @@
 	import { apiFetch } from '$lib/api';
 	import { confirmation } from '$lib/confirmationStore';
 	import { uiState } from '$lib/states/uiState.svelte';
-	import { contextMenu } from '$lib/contextMenuStore';
+	import { metadataOps } from '$lib/states/metadataOperations.svelte';
 	import PaginationControls from '$lib/components/PaginationControls.svelte';
 	import LibraryEntry from '$lib/components/LibraryEntry.svelte';
 
@@ -33,7 +33,7 @@
 		volumes: Volume[];
 		updatedAt: string;
 		lastReadAt?: string | null;
-		isBookmarked?: boolean;
+		bookmarked?: boolean;
 	}
 
 	// --- State ---
@@ -117,6 +117,10 @@
 		if (browser && $user === null) {
 			goto('/login');
 		}
+		// CLEANUP: Flush pending writes when leaving the library view
+		return () => {
+			metadataOps.flush();
+		};
 	});
 
 	// --- Data Fetching & URL Sync ---
@@ -188,9 +192,19 @@
 		}
 	};
 
-	const toggleBookmark = async (series: Series) => {
-		// TODO: actually implement this with backend
-		series.isBookmarked = !series.isBookmarked;
+	const toggleBookmark = async (e: Event, series: Series) => {
+		e.preventDefault();
+		e.stopPropagation();
+
+		// 1. Optimistic Update
+		const oldState = series.bookmarked;
+		series.bookmarked = !series.bookmarked;
+
+		// 2. Sync with Debounce
+		metadataOps.syncBookmark(series.id, series.bookmarked, () => {
+			// Revert on failure
+			series.bookmarked = oldState;
+		});
 	};
 
 	// --- Actions ---
@@ -335,28 +349,24 @@
 						>
 							{#snippet circleAction()}
 								<button
-									onclick={(e) => {
-										e.preventDefault();
-										e.stopPropagation();
-										toggleBookmark(series);
-									}}
+									onclick={(e) => toggleBookmark(e, series)}
 									class={`z-30 col-start-1 row-start-1 relative flex items-center justify-center w-9 h-9 rounded-full transition-all duration-200 pointer-events-auto hover:bg-white/10 active:scale-75 ${
-										series.isBookmarked ? 'text-status-warning' : 'text-theme-secondary'
+										series.bookmarked ? 'text-status-warning' : 'text-theme-secondary'
 									}`}
-									title={series.isBookmarked ? 'Remove Bookmark' : 'Add Bookmark'}
+									title={series.bookmarked ? 'Remove Bookmark' : 'Add Bookmark'}
 								>
 									<svg
 										xmlns="http://www.w3.org/2000/svg"
 										height="18"
 										width="18"
 										viewBox="0 0 24 24"
-										fill={series.isBookmarked ? 'currentColor' : 'none'}
+										fill={series.bookmarked ? 'currentColor' : 'none'}
 										stroke="currentColor"
 										stroke-width="2.5"
 										stroke-linecap="round"
 										stroke-linejoin="round"
 										class={`relative transition-all ${
-											series.isBookmarked ? 'animate-pop neon-glow' : 'neon-off'
+											series.bookmarked ? 'animate-pop neon-glow' : 'neon-off'
 										}`}
 									>
 										<path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
@@ -366,28 +376,24 @@
 
 							{#snippet listActions()}
 								<button
-									onclick={(e) => {
-										e.preventDefault();
-										e.stopPropagation();
-										toggleBookmark(series);
-									}}
+									onclick={(e) => toggleBookmark(e, series)}
 									class={`z-30 col-start-1 row-start-1 relative flex items-center justify-center w-9 h-9 rounded-full transition-all duration-200 pointer-events-auto hover:bg-white/10 active:scale-75 ${
-										series.isBookmarked ? 'text-status-warning' : 'text-theme-secondary'
+										series.bookmarked ? 'text-status-warning' : 'text-theme-secondary'
 									}`}
-									title={series.isBookmarked ? 'Remove Bookmark' : 'Add Bookmark'}
+									title={series.bookmarked ? 'Remove Bookmark' : 'Add Bookmark'}
 								>
 									<svg
 										xmlns="http://www.w3.org/2000/svg"
 										height="18"
 										width="18"
 										viewBox="0 0 24 24"
-										fill={series.isBookmarked ? 'currentColor' : 'none'}
+										fill={series.bookmarked ? 'currentColor' : 'none'}
 										stroke="currentColor"
 										stroke-width="2.5"
 										stroke-linecap="round"
 										stroke-linejoin="round"
 										class={`relative transition-all ${
-											series.isBookmarked ? 'animate-pop neon-glow' : 'neon-off'
+											series.bookmarked ? 'animate-pop neon-glow' : 'neon-off'
 										}`}
 									>
 										<path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
