@@ -24,14 +24,13 @@
 	</div>
 
 	<div
-		class="w-11 h-6 rounded-full transition-all duration-200 relative flex-shrink-0 {checked
-			? 'bg-accent/20 border-2 border-accent'
+		class="w-10 h-6 rounded-full transition-all duration-200 relative flex-shrink-0 {checked
+			? 'bg-accent-surface border-2 border-accent'
 			: 'bg-black/40 border-2 border-white/10'}"
 	>
 		<div
-			class="absolute top-0.5 w-4 h-4 rounded-full transition-all duration-200 {checked
-				? 'right-0.5 bg-accent shadow-lg shadow-accent/50'
-				: 'left-0.5 bg-gray-600'}"
+			class="absolute top-0.5 left-0.5 w-4 h-4 rounded-full transition-transform duration-300 ease-in-out
+    {checked ? 'translate-x-4 bg-accent shadow-lg shadow-accent/50' : 'translate-x-0 bg-gray-600'}"
 		></div>
 	</div>
 </button>

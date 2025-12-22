@@ -49,7 +49,11 @@
 
 	let recentActivity = $state<RecentActivity[]>([
 		{ username: 'Maxou', action: 'Read pages 0-24 of The Eminence in Shadow', timeAgo: 'just now' },
-		{ username: 'MightyMoogle', action: 'Finished Shiroyama to Mita-san', timeAgo: 'in 1 hr 27 mins' },
+		{
+			username: 'MightyMoogle',
+			action: 'Finished Shiroyama to Mita-san',
+			timeAgo: 'in 1 hr 27 mins'
+		},
 		{ username: 'Admin', action: 'Read pages 1040-1055 of One Piece', timeAgo: '2 hours ago' },
 		{ username: 'Viewer', action: 'Read pages 1-15 of Berserk', timeAgo: '5 hours ago' }
 	]);
@@ -226,17 +230,17 @@
 						<div class="text-2xl font-bold text-white">{statistics.totalUsers}</div>
 						<div class="flex gap-1.5">
 							<div
-								class="w-6 h-6 rounded-full bg-accent/20 border border-accent/50 flex items-center justify-center text-[10px] font-bold text-accent"
+								class="w-6 h-6 rounded-full bg-accent-surface border border-accent/50 flex items-center justify-center text-[10px] font-bold text-accent"
 							>
 								A
 							</div>
 							<div
-								class="w-6 h-6 rounded-full bg-accent/20 border border-accent/50 flex items-center justify-center text-[10px] font-bold text-accent"
+								class="w-6 h-6 rounded-full bg-accent-surface border border-accent/50 flex items-center justify-center text-[10px] font-bold text-accent"
 							>
 								E
 							</div>
 							<div
-								class="w-6 h-6 rounded-full bg-accent/20 border border-accent/50 flex items-center justify-center text-[10px] font-bold text-accent"
+								class="w-6 h-6 rounded-full bg-accent-surface border border-accent/50 flex items-center justify-center text-[10px] font-bold text-accent"
 							>
 								V
 							</div>
@@ -322,7 +326,9 @@
 						style="left: {cumulativePositions.database}%; width: {storagePercentages.database}%"
 					></div>
 				</div>
-				<span class="ml-4 text-sm font-bold text-white whitespace-nowrap">{storageUsage.total} GB</span>
+				<span class="ml-4 text-sm font-bold text-white whitespace-nowrap"
+					>{storageUsage.total} GB</span
+				>
 			</div>
 
 			<div class="grid grid-cols-2 md:grid-cols-5 gap-3">
@@ -366,12 +372,16 @@
 				>
 					<polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
 				</svg>
-				<p class="text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em]">Recent Activity</p>
+				<p class="text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em]">
+					Recent Activity
+				</p>
 			</div>
 
 			<div class="space-y-3">
 				{#each recentActivity as activity (activity.username)}
-					<div class="flex items-center gap-4 p-3 rounded-xl bg-theme-surface hover:bg-theme-surface-hover transition-colors">
+					<div
+						class="flex items-center gap-4 p-3 rounded-xl bg-theme-surface hover:bg-theme-surface-hover transition-colors"
+					>
 						<div
 							class="w-10 h-10 rounded-full bg-accent/20 border border-accent/50 flex items-center justify-center text-xs font-bold text-accent flex-shrink-0"
 						>
@@ -388,4 +398,3 @@
 		</div>
 	</div>
 </div>
-

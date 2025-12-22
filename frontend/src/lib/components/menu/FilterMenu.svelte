@@ -98,7 +98,7 @@
 				class={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-sm font-bold transition-all duration-200
                     ${
 											isActive
-												? 'bg-accent/20 text-accent border-2 border-accent/60 shadow-lg shadow-accent/40'
+												? 'bg-accent-surface text-accent border-2 border-accent/60 shadow-lg shadow-accent/40'
 												: 'text-theme-primary hover:bg-theme-surface-hover/70 hover:text-white border-2 border-transparent'
 										}`}
 			>
@@ -136,7 +136,7 @@
 				filter === 'unread'
 					? 'bg-status-unread/30 text-status-unread border-2 border-status-unread/70 shadow-lg shadow-status-unread/30'
 					: filter === 'in_progress'
-						? 'bg-accent/40 text-accent border-2 border-accent/70 shadow-lg shadow-accent/40'
+						? 'bg-accent/25 text-accent border-2 border-accent/70 shadow-lg shadow-accent/40'
 						: filter === 'read'
 							? 'bg-status-success/30 text-status-success border-2 border-status-success/70 shadow-lg shadow-status-success/30'
 							: 'bg-theme-primary/25 text-theme-primary border-2 border-theme-primary/50 shadow-lg shadow-theme-primary/20'}

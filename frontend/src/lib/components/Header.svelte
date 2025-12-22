@@ -34,7 +34,7 @@
 					// Only update direction if there's meaningful scroll movement
 					isScrollingDown = scrollDifference > 0;
 				}
-				
+
 				scrollY = currentScrollY;
 				lastScrollY = currentScrollY;
 			} else {
@@ -58,20 +58,20 @@
 	// When scrolling up: show immediately
 	const headerOffset = $derived.by(() => {
 		if (uiState.context !== 'library') return 0;
-		
+
 		// If scrolling up or at top, always show (return to 0)
 		if (!isScrollingDown || scrollY < 20) {
 			return 0;
 		}
-		
+
 		// When scrolling down, gradually hide based on scroll amount
 		const startHide = 20;
 		const fullHide = 100;
 		const headerHeight = 64; // h-16 = 4rem = 64px
-		
+
 		// Calculate progress from startHide to fullHide
 		const progress = Math.min(1, (scrollY - startHide) / (fullHide - startHide));
-		
+
 		// Translate by progress * headerHeight (negative to move up)
 		// When fully hidden, use a value larger than header height to ensure it's completely off-screen
 		return -progress * (headerHeight + 10); // +10px extra to ensure it's fully hidden
@@ -142,7 +142,10 @@
 	class="sticky top-0 z-40 w-full bg-theme-main/95 backdrop-blur-md transition-transform duration-300 ease-out"
 	style="transform: translateY({headerOffset}px);"
 >
-	<div class="mx-auto flex h-16 items-center justify-between px-4 sm:px-6" style="max-width: 1400px;">
+	<div
+		class="mx-auto flex h-16 items-center justify-between px-4 sm:px-6"
+		style="max-width: 1400px;"
+	>
 		<div class="flex flex-shrink-0 items-center gap-4 z-10">
 			{#if uiState.isSelectionMode}
 				<div
@@ -188,7 +191,7 @@
 								<path d="m15 18-6-6 6-6" />
 							</svg>
 
-							<span class="text-sm font-medium">Back to Library</span>
+							<span class="inline md:hidden lg:inline text-sm font-medium">Back to Library</span>
 						</button>
 					{/if}
 				</div>
@@ -202,68 +205,69 @@
 				style="max-width: 32rem; padding-left: 1rem; padding-right: 1rem;"
 			>
 				<div class="relative group">
-				<div
-					class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-theme-secondary group-focus-within:text-accent"
-				>
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						width="18"
-						height="18"
-						viewBox="0 0 24 24"
-						fill="none"
-						stroke="currentColor"
-						stroke-width="2"
-						stroke-linecap="round"
-						stroke-linejoin="round"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></svg
+					<div
+						class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-theme-secondary group-focus-within:text-accent"
 					>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							width="18"
+							height="18"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></svg
+						>
+					</div>
+
+					<input
+						type="text"
+						value={searchValue}
+						oninput={handleSearchInput}
+						placeholder={uiState.context === 'library' ? 'Search library...' : 'Search volumes...'}
+						aria-label="Search"
+						class="block w-full rounded-full border border-theme-border-light bg-theme-main h-10 pl-12 pr-16 text-base text-theme-primary placeholder-theme-secondary focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent shadow-inner transition-all text-center placeholder:text-center"
+						style="line-height: 2.5rem;"
+					/>
+
+					<button
+						onclick={toggleFilterMenu}
+						class="absolute top-1/2 -translate-y-1/2 right-3 flex items-center justify-center w-9 h-9 rounded-lg transition-colors text-theme-secondary hover:text-white hover:bg-theme-surface-hover"
+						title="Filter & Sort"
+						aria-label="Filter and Sort Options"
+					>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							width="18"
+							height="18"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							><line x1="21" x2="14" y1="4" y2="4" /><line x1="10" x2="3" y1="4" y2="4" /><line
+								x1="21"
+								x2="12"
+								y1="12"
+								y2="12"
+							/><line x1="8" x2="3" y1="12" y2="12" /><line x1="21" x2="16" y1="20" y2="20" /><line
+								x1="12"
+								x2="3"
+								y1="20"
+								y2="20"
+							/><line x1="14" x2="14" y1="2" y2="6" /><line x1="8" x2="8" y1="10" y2="14" /><line
+								x1="16"
+								x2="16"
+								y1="18"
+								y2="22"
+							/></svg
+						>
+					</button>
 				</div>
-
-				<input
-					type="text"
-					value={searchValue}
-					oninput={handleSearchInput}
-					placeholder={uiState.context === 'library' ? 'Search library...' : 'Search volumes...'}
-					aria-label="Search"
-					class="block w-full rounded-full border border-theme-border-light bg-theme-main h-10 pl-12 pr-16 text-base text-theme-primary placeholder-theme-secondary focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent shadow-inner transition-all text-center placeholder:text-center"
-					style="line-height: 2.5rem;"
-				/>
-
-				<button
-					onclick={toggleFilterMenu}
-					class="absolute top-1/2 -translate-y-1/2 right-3 flex items-center justify-center w-9 h-9 rounded-lg transition-colors text-theme-secondary hover:text-white hover:bg-theme-surface-hover"
-					title="Filter & Sort"
-					aria-label="Filter and Sort Options"
-				>
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						width="18"
-						height="18"
-						viewBox="0 0 24 24"
-						fill="none"
-						stroke="currentColor"
-						stroke-width="2"
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						><line x1="21" x2="14" y1="4" y2="4" /><line x1="10" x2="3" y1="4" y2="4" /><line
-							x1="21"
-							x2="12"
-							y1="12"
-							y2="12"
-						/><line x1="8" x2="3" y1="12" y2="12" /><line x1="21" x2="16" y1="20" y2="20" /><line
-							x1="12"
-							x2="3"
-							y1="20"
-							y2="20"
-						/><line x1="14" x2="14" y1="2" y2="6" /><line x1="8" x2="8" y1="10" y2="14" /><line
-							x1="16"
-							x2="16"
-							y1="18"
-							y2="22"
-						/></svg
-					>
-				</button>
 			</div>
-		</div>
 		{/if}
 
 		<div class="flex flex-shrink-0 items-center gap-2 z-10">
@@ -311,7 +315,8 @@
 							stroke="currentColor"
 							stroke-width="2"
 							stroke-linecap="round"
-							stroke-linejoin="round"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></svg
+							stroke-linejoin="round"
+							><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></svg
 						>
 					</button>
 
@@ -352,109 +357,109 @@
 
 					<!-- Filter Status Buttons (Desktop only) -->
 					<div class="hidden lg:flex items-center gap-2">
-					{#each ['all', 'unread', 'in_progress', 'read'] as filter, index}
-						{@const isActive = uiState.filterStatus === filter}
-						{@const iconColor =
-							filter === 'unread'
-								? isActive
-									? 'text-status-unread'
-									: 'text-theme-secondary'
-								: filter === 'in_progress'
+						{#each ['all', 'unread', 'in_progress', 'read'] as filter, index}
+							{@const isActive = uiState.filterStatus === filter}
+							{@const iconColor =
+								filter === 'unread'
 									? isActive
-										? 'text-accent'
+										? 'text-status-unread'
 										: 'text-theme-secondary'
-									: filter === 'read'
+									: filter === 'in_progress'
 										? isActive
-											? 'text-status-success'
+											? 'text-accent'
 											: 'text-theme-secondary'
-										: isActive
-											? 'text-theme-primary'
-											: 'text-theme-secondary'}
+										: filter === 'read'
+											? isActive
+												? 'text-status-success'
+												: 'text-theme-secondary'
+											: isActive
+												? 'text-theme-primary'
+												: 'text-theme-secondary'}
 
-						{@const borderColor =
-							filter === 'unread'
-								? isActive
-									? 'border-status-unread/50'
-									: 'border-theme-border-light'
-								: filter === 'in_progress'
+							{@const borderColor =
+								filter === 'unread'
 									? isActive
-										? 'border-accent/50'
+										? 'border-status-unread/50'
 										: 'border-theme-border-light'
-									: filter === 'read'
+									: filter === 'in_progress'
 										? isActive
-											? 'border-status-success/50'
+											? 'border-accent/50'
 											: 'border-theme-border-light'
-										: isActive
-											? 'border-theme-primary/30'
-											: 'border-theme-border-light'}
+										: filter === 'read'
+											? isActive
+												? 'border-status-success/50'
+												: 'border-theme-border-light'
+											: isActive
+												? 'border-theme-primary/30'
+												: 'border-theme-border-light'}
 
-						<button
-							onclick={() =>
-								(uiState.filterStatus = filter as 'all' | 'unread' | 'in_progress' | 'read')}
-							class="w-10 h-10 flex items-center justify-center rounded-2xl border-2 transition-all duration-200 hover:border-theme-primary/50 {iconColor} {borderColor}"
-							title={filter.replace('_', ' ')}
-							aria-label="Filter by {filter.replace('_', ' ')}"
-						>
-							{#if filter === 'all'}
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									width="20"
-									height="20"
-									viewBox="0 0 24 24"
-									fill="none"
-									stroke="currentColor"
-									stroke-width="2"
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									><rect width="18" height="18" x="3" y="3" rx="2" /><path d="M3 9h18" /><path
-										d="M9 21V9"
-									/></svg
-								>
-							{:else if filter === 'unread'}
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									width="20"
-									height="20"
-									viewBox="0 0 24 24"
-									fill="none"
-									stroke="currentColor"
-									stroke-width="2"
-									stroke-linecap="round"
-									stroke-linejoin="round"><circle cx="12" cy="12" r="10" /></svg
-								>
-							{:else if filter === 'in_progress'}
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									width="20"
-									height="20"
-									viewBox="0 0 24 24"
-									fill="none"
-									stroke="currentColor"
-									stroke-width="2"
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" /><path
-										d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"
-									/></svg
-								>
-							{:else}
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									width="20"
-									height="20"
-									viewBox="0 0 24 24"
-									fill="none"
-									stroke="currentColor"
-									stroke-width="2"
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline
-										points="22 4 12 14.01 9 11.01"
-									/></svg
-								>
-							{/if}
-						</button>
-					{/each}
+							<button
+								onclick={() =>
+									(uiState.filterStatus = filter as 'all' | 'unread' | 'in_progress' | 'read')}
+								class="w-10 h-10 flex items-center justify-center rounded-2xl border-2 transition-all duration-200 hover:border-theme-primary/50 {iconColor} {borderColor}"
+								title={filter.replace('_', ' ')}
+								aria-label="Filter by {filter.replace('_', ' ')}"
+							>
+								{#if filter === 'all'}
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										width="20"
+										height="20"
+										viewBox="0 0 24 24"
+										fill="none"
+										stroke="currentColor"
+										stroke-width="2"
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										><rect width="18" height="18" x="3" y="3" rx="2" /><path d="M3 9h18" /><path
+											d="M9 21V9"
+										/></svg
+									>
+								{:else if filter === 'unread'}
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										width="20"
+										height="20"
+										viewBox="0 0 24 24"
+										fill="none"
+										stroke="currentColor"
+										stroke-width="2"
+										stroke-linecap="round"
+										stroke-linejoin="round"><circle cx="12" cy="12" r="10" /></svg
+									>
+								{:else if filter === 'in_progress'}
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										width="20"
+										height="20"
+										viewBox="0 0 24 24"
+										fill="none"
+										stroke="currentColor"
+										stroke-width="2"
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" /><path
+											d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"
+										/></svg
+									>
+								{:else}
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										width="20"
+										height="20"
+										viewBox="0 0 24 24"
+										fill="none"
+										stroke="currentColor"
+										stroke-width="2"
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline
+											points="22 4 12 14.01 9 11.01"
+										/></svg
+									>
+								{/if}
+							</button>
+						{/each}
 					</div>
 				{/if}
 
