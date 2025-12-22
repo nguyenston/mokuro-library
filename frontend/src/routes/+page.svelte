@@ -107,10 +107,15 @@
 				uiState.sortOrder = order;
 			}
 
-			// Filter (Note: Backend currently ignores 'status', but we keep it in URL for future)
+			// Filters
 			const status = params.get('status');
 			if (status && uiState.filterStatus !== status) {
 				uiState.filterStatus = status as FilterStatus;
+			}
+
+			const bookmarked = params.get('bookmarked');
+			if (bookmarked === 'true') {
+				uiState.filterBookmarked = true;
 			}
 		}
 	});
@@ -149,11 +154,18 @@
 			newParams.set('sort', backendSort);
 			newParams.set('order', uiState.sortOrder);
 
-			// 3. Status (Client-side tracking for now)
+			// 3. Status
 			if (uiState.filterStatus !== 'all') {
 				newParams.set('status', uiState.filterStatus);
 			} else {
 				newParams.delete('status');
+			}
+
+			// 4. Bookmarked
+			if (uiState.filterBookmarked) {
+				newParams.set('bookmarked', 'true');
+			} else {
+				newParams.delete('bookmarked');
 			}
 
 			// B. Handle Pagination Reset
@@ -162,8 +174,8 @@
 				currentParams.get('q') !== newParams.get('q') ||
 				currentParams.get('sort') !== newParams.get('sort') ||
 				currentParams.get('order') !== newParams.get('order') ||
-				currentParams.get('status') !== newParams.get('status');
-
+				currentParams.get('status') !== newParams.get('status') ||
+				currentParams.get('bookmarked') !== newParams.get('bookmarked');
 			if (criteriaChanged) {
 				newParams.set('page', '1');
 			}
