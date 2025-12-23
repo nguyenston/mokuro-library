@@ -79,7 +79,7 @@
 </script>
 
 <div class="flex min-h-[calc(100vh-4rem)] max-w-7xl mx-auto bg-theme-main">
-	<aside class="w-[72px] md:w-64 bg-theme-main px-2 py-6 md:p-6">
+	<aside class="w-[72px] md:w-66 bg-theme-main pl-4 py-6 md:p-6">
 		<div class="mb-6 md:px-0 text-center md:text-left overflow-hidden">
 			<p
 				class="hidden md:block text-[11px] font-black text-theme-tertiary uppercase tracking-[0.2em] whitespace-nowrap"
@@ -162,7 +162,7 @@
 		</nav>
 	</aside>
 
-	<main class="flex-1 p-6 overflow-y-auto">
+	<main class="flex-1 px-1 py-6 md:p-6 overflow-y-auto">
 		{#each categories as category}
 			{#if activeCategory === category.id}
 				<div class="animate-in fade-in slide-in-from-bottom-2 duration-300">
