@@ -52,7 +52,7 @@ function createContextMenu() {
           isOpen: true,
           position: { x, y },
           component: SimpleMenu,
-          props: { options: componentOrOptions },
+          props: { ...props, options: componentOrOptions },
           anchorElement
         });
       } else {

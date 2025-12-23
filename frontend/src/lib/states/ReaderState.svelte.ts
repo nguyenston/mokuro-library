@@ -1,4 +1,4 @@
-import type { VolumeResponse, MokuroData, MokuroPage, MokuroBlock } from '$lib/types';
+import type { VolumeReaderResponse, MokuroData, MokuroPage, MokuroBlock } from '$lib/types';
 import { user, updateSettings, type ReaderSettingsData } from '$lib/authStore';
 import { apiFetch } from '$lib/api';
 import { fromStore, get } from 'svelte/store';
@@ -10,7 +10,7 @@ export type ReadingDirection = 'ltr' | 'rtl';
 
 class ReaderState {
   // --- Core State ---
-  volume = $state<VolumeResponse | null>(null);
+  volume = $state<VolumeReaderResponse | null>(null);
   currentPageIndex = $state(0);
   isLoading = $state(true);
   error = $state<string | null>(null);
@@ -206,7 +206,7 @@ class ReaderState {
 
   private async loadVolumeData(volumeId: string) {
     const [volData, progressData] = await Promise.all([
-      apiFetch(`/api/library/volume/${volumeId}`) as Promise<VolumeResponse>,
+      apiFetch(`/api/library/volume/${volumeId}`) as Promise<VolumeReaderResponse>,
       apiFetch(`/api/metadata/volume/${volumeId}/progress`)
     ]);
 
