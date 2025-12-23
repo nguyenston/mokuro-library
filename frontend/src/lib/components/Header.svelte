@@ -437,6 +437,7 @@
 							</button>
 						{/each}
 
+						<div class="w-[2px] h-6 bg-white/10 mx-1"></div>
 						<!-- Bookmarked filter button -->
 						<button
 							onclick={() => (uiState.filterBookmarked = !uiState.filterBookmarked)}

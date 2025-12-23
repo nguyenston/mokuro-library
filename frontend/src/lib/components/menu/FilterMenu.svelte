@@ -25,6 +25,12 @@
 			activeBorder: 'border-status-success/70',
 			activeBg: 'bg-status-success/30',
 			shadow: 'shadow-status-success/30'
+		},
+		bookmarked: {
+			activeColor: 'text-status-warning',
+			activeBorder: 'border-status-warning/70',
+			activeBg: 'bg-status-warning/20',
+			shadow: 'shadow-status-warning/30'
 		}
 	} as const;
 </script>
@@ -154,8 +160,8 @@
 
 	<div class="lg:hidden">
 		<MenuSeparator />
-		<MenuGroup title="Filter Status">
-			<MenuGrid items={['unread', 'reading', 'read']} layout={[3]}>
+		{#snippet statusFilter()}
+			<MenuGrid items={['unread', 'reading', 'read']} innerClass="" layout={[3]}>
 				{#snippet children(filter)}
 					{@const isActive = uiState.filterStatus === filter}
 					{@const styles = filterConfig[filter as keyof typeof filterConfig]}
@@ -181,7 +187,7 @@
 								stroke-linecap="round"
 								stroke-linejoin="round"><circle cx="12" cy="12" r="10" /></svg
 							>
-						{:else if filter === 'in_progress'}
+						{:else if filter === 'reading'}
 							<svg
 								xmlns="http://www.w3.org/2000/svg"
 								width="20"
@@ -219,14 +225,48 @@
 					</button>
 				{/snippet}
 			</MenuGrid>
+		{/snippet}
 
-			<div class="h-2"></div>
+		{#snippet bookmarkFilter()}
+			{@const isBookmarked = uiState.filterBookmarked}
+			{@const bmStyles = filterConfig.bookmarked}
 
-			<MenuToggle
-				label="Bookmarked Only"
-				description="Show only bookmarked series"
-				bind:checked={uiState.filterBookmarked}
-			/>
+			{@const bmActiveClass = isBookmarked
+				? `${bmStyles.activeBg} ${bmStyles.activeColor} ${bmStyles.activeBorder} shadow-lg ${bmStyles.shadow}`
+				: 'bg-theme-surface-hover/50 border-theme-border text-theme-primary hover:bg-theme-surface-hover/80 hover:text-white'}
+
+			<button
+				onclick={() => (uiState.filterBookmarked = !uiState.filterBookmarked)}
+				class={`w-full flex flex-col items-center justify-center gap-2 p-3 rounded-xl border-2 transition-all duration-200 ${bmActiveClass}`}
+			>
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					width="20"
+					height="20"
+					viewBox="0 0 24 24"
+					fill={isBookmarked ? 'currentColor' : 'none'}
+					stroke="currentColor"
+					stroke-width="2"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+				>
+					<path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+				</svg>
+
+				<span class="text-[10px] font-bold uppercase tracking-wider"> Bookmarked Only </span>
+			</button>
+		{/snippet}
+
+		<MenuGroup title="Filter Status">
+			<MenuGrid items={['status', 'bookmark']} layout={[1, 1]}>
+				{#snippet children(index)}
+					{#if index === 'status'}
+						{@render statusFilter()}
+					{:else}
+						{@render bookmarkFilter()}
+					{/if}
+				{/snippet}
+			</MenuGrid>
 		</MenuGroup>
 	</div>
 </MenuWrapper>

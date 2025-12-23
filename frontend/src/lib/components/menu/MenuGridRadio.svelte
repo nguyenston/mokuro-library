@@ -16,7 +16,6 @@
 		value = $bindable(),
 		options,
 		layout,
-		gridClass = 'grid gap-3', // Kept for API compatibility, but passed as class to MenuGrid
 		itemClass = 'flex flex-col items-center justify-center gap-3 p-3.5',
 		children
 	} = $props<{
@@ -25,7 +24,6 @@
 		value: T;
 		options: Option<T>[];
 		layout?: number[];
-		gridClass?: string;
 		itemClass?: string;
 		children?: Snippet<[Option<T>, boolean]>;
 	}>();
@@ -52,13 +50,7 @@
 		</div>
 	{/if}
 
-	<MenuGrid
-		items={options}
-		{layout}
-		innerClass="flex flex-col gap-3"
-		gap="gap-3"
-		className={layout ? '' : gridClass}
-	>
+	<MenuGrid items={options} {layout} innerClass="gap-3" gap="gap-3">
 		{#snippet children(option: Option<T>)}
 			{@render renderItem(option)}
 		{/snippet}

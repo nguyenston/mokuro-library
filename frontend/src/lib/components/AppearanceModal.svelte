@@ -270,7 +270,7 @@
 				<MenuGridRadio
 					title="Select Theme"
 					bind:value={themeValue.value}
-					gridClass="grid grid-cols-2 gap-3"
+					layout={[2, 2]}
 					itemClass="flex items-center gap-3 px-4 py-3"
 					options={themes.map((t) => ({
 						value: t.id,
