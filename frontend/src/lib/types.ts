@@ -1,4 +1,4 @@
-// --- Type definitions for our .mokuro file ---
+// --- Type definitions Reader GET ---
 export interface MokuroBlock {
   box: [number, number, number, number];
   lines_coords: [[number, number], [number, number], [number, number], [number, number]][];
@@ -20,7 +20,7 @@ export interface MokuroData {
   pages: MokuroPage[];
 }
 
-export interface VolumeResponse {
+export interface VolumeReaderResponse {
   id: string;
   title: string;
   seriesId: string;

@@ -143,7 +143,7 @@
 		// Only on empty background
 		if (event.target !== event.currentTarget) return;
 
-		if (ocrMode !== 'NONE') {
+		if (ocrMode !== 'READ') {
 			event.preventDefault();
 			event.stopPropagation();
 

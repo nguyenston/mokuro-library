@@ -17,7 +17,9 @@
 		if ($contextMenu.isOpen && $contextMenu.anchorElement) {
 			// Recalculate position based on anchor element
 			const rect = $contextMenu.anchorElement.getBoundingClientRect();
-			contextMenu.updatePosition(rect.right, rect.bottom + 10);
+			const finalX = $contextMenu.props.xEdgeAlign === 'right' ? rect.right : rect.left;
+			const finalY = $contextMenu.props.yEdgeAlign === 'top' ? rect.top : rect.bottom;
+			contextMenu.updatePosition(finalX, finalY);
 		}
 	};
 
@@ -38,12 +40,12 @@
 			let nextY = y;
 
 			// Horizontal logic: Flip if no space, but don't go off-screen left
-			if (x + menuWidth > viewportWidth || $contextMenu.props.edgeAlign === 'right') {
+			if (x + menuWidth > viewportWidth || $contextMenu.props.xEdgeAlign === 'right') {
 				nextX = Math.max(0, x - menuWidth);
 			}
 
 			// Vertical logic: Flip if no space, but don't go off-screen top
-			if (y + menuHeight > viewportHeight) {
+			if (y + menuHeight > viewportHeight || $contextMenu.props.yEdgeAlign === 'top') {
 				nextY = Math.max(0, y - menuHeight);
 			}
 
