@@ -262,7 +262,7 @@
 				{#snippet children(index)}
 					{#if index === 'status'}
 						{@render statusFilter()}
-					{:else}
+					{:else if uiState.context === 'library'}
 						{@render bookmarkFilter()}
 					{/if}
 				{/snippet}
