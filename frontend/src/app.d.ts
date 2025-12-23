@@ -8,6 +8,12 @@ declare global {
     // interface PageState {}
     // interface Platform {}
   }
+
+  namespace svelteHTML {
+    interface HTMLAttributes<T> {
+      onlongpress?: (event: CustomEvent) => void;
+    }
+  }
   const __COMMIT_HASH__: string;
 }
 

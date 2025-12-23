@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { type Snippet } from 'svelte';
+	import { longpress } from '$lib/actions/longPress';
 
 	// --- Types ---
 	interface EntryData {
@@ -26,12 +27,11 @@
 		href = '#',
 		mainStat = '',
 		subStat = '',
-		lastReadText = '1 day ago',
 		onSelect,
+		onLongPress,
 		circleAction,
 		titleAction,
-		listActions,
-		imageOverlay
+		listActions
 	} = $props<{
 		entry: EntryData;
 		type?: 'series' | 'volume';
@@ -42,12 +42,11 @@
 		href?: string;
 		mainStat?: string | number;
 		subStat?: string;
-		lastReadText?: string;
 		onSelect?: (e: MouseEvent) => void;
+		onLongPress?: () => void;
 		circleAction?: Snippet;
 		titleAction?: Snippet;
 		listActions?: Snippet;
-		imageOverlay?: Snippet;
 	}>();
 
 	// Determine read status for badge
@@ -64,6 +63,8 @@
 
 {#if viewMode === 'grid'}
 	<div
+		use:longpress
+		onlongpress={onLongPress}
 		class={`group relative bg-black/30 backdrop-blur-2xl rounded-2xl border flex flex-col transition-all duration-300 overflow-hidden shadow-[0_4px_16px_0_rgba(0,0,0,0.3)] hover:shadow-[0_8px_24px_0_rgba(0,0,0,0.4)]
     ${
 			isSelected
@@ -74,9 +75,13 @@
 	>
 		<a
 			{href}
-			onclick={onSelect}
+			onpointerdown={onSelect}
+			onclick={(e) => {
+				if (isSelectionMode) e.preventDefault();
+			}}
 			class="absolute inset-0 z-10"
 			aria-label={`View ${entry.title || entry.folderName}`}
+			data-sveltekit-preload-data="off"
 		></a>
 
 		<div
@@ -177,6 +182,8 @@
 	</div>
 {:else}
 	<div
+		use:longpress
+		onlongpress={onLongPress}
 		class={`group relative bg-black/30 backdrop-blur-2xl rounded-2xl border flex items-center transition-all duration-300 overflow-hidden h-32 shadow-[0_4px_16px_0_rgba(0,0,0,0.3)] hover:shadow-[0_8px_24px_0_rgba(0,0,0,0.4)]
     ${
 			isSelected
@@ -187,9 +194,13 @@
 	>
 		<a
 			{href}
-			onclick={onSelect}
+			onpointerdown={onSelect}
+			onclick={(e) => {
+				if (isSelectionMode) e.preventDefault();
+			}}
 			class="absolute inset-0 z-0 block"
 			aria-label={`View ${entry.title || entry.folderName}`}
+			data-sveltekit-preload-data="off"
 		></a>
 
 		<div

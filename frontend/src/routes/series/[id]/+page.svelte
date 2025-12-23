@@ -9,8 +9,9 @@
 	import { metadataOps } from '$lib/states/metadataOperations.svelte';
 
 	import EditSeriesModal from '$lib/components/EditSeriesModal.svelte';
-	import RenameModal from '$lib/components/RenameModal.svelte';
+	import EditVolumeModal from '$lib/components/EditVolumeModal.svelte';
 	import LibraryEntry from '$lib/components/LibraryEntry.svelte';
+	import LibraryActionBar from '$lib/components/LibraryActionBar.svelte';
 	import LibraryListWrapper from '$lib/components/LibraryListWrapper.svelte';
 	import SeriesHero from '$lib/components/SeriesHero.svelte';
 
@@ -53,11 +54,9 @@
 
 	let coverRefreshTrigger = $state(0);
 
-	let isEditModalOpen = $state(false);
-	let isRenameOpen = $state(false);
-	let renameTarget = $state<{ id: string; title: string | null; type: 'series' | 'volume' } | null>(
-		null
-	);
+	let isEditSeriesOpen = $state(false);
+	let isEditVolumeOpen = $state(false);
+	let editVolumeTarget = $state<{ id: string; title: string | null } | null>(null);
 
 	// --- Helpers ---
 	const formatTime = (seconds: number) => {
@@ -192,50 +191,20 @@
 		);
 	};
 
-	const saveSeriesMetadata = async (newTitle: string | null, newDescription: string | null) => {
-		if (!series) return;
-		try {
-			await apiFetch(`/api/metadata/series/${series.id}`, {
-				method: 'PATCH',
-				body: { title: newTitle, description: newDescription }
-			});
-			await fetchSeriesData(series.id);
-		} catch (e: any) {
-			error = e.message;
+	const handleOpenVolumeEdit = () => {
+		const selectedId = Array.from(uiState.selectedIds)[0];
+		if (!selectedId) return;
+
+		const volume = series?.volumes.find((s) => s.id === selectedId);
+		if (volume) {
+			editVolumeTarget = volume;
+			isEditVolumeOpen = true;
 		}
 	};
 
-	const openRenameVolume = (e: Event, vol: Volume) => {
-		e.preventDefault();
-		e.stopPropagation();
-		renameTarget = { id: vol.id, title: vol.title, type: 'volume' };
-		isRenameOpen = true;
-	};
-
-	const handleRenameSave = async (newTitle: string | null) => {
-		if (!renameTarget) return;
-		const endpoint =
-			renameTarget.type === 'series'
-				? `/api/metadata/series/${renameTarget.id}`
-				: `/api/metadata/volume/${renameTarget.id}`;
-		await apiFetch(endpoint, { method: 'PATCH', body: { title: newTitle } });
-		await fetchSeriesData(seriesId);
-	};
-
-	const handleDeleteSeries = () => {
+	const handleRefresh = () => {
 		if (!series) return;
-		confirmation.open(
-			'Delete Series?',
-			`Are you sure you want to permanently delete "${series.title || series.folderName}" and all ${series.volumes.length} volumes?`,
-			async () => {
-				try {
-					await apiFetch(`/api/library/series/${seriesId}`, { method: 'DELETE' });
-					goto('/');
-				} catch (e: any) {
-					error = e.message;
-				}
-			}
-		);
+		fetchSeriesData(series?.id);
 	};
 
 	const openDownloadMenu = (event: MouseEvent, id: string, kind: 'series' | 'volume') => {
@@ -249,28 +218,6 @@
 				action: () => triggerDownload(`/api/export/${kind}/${id}/zip?include_images=false`)
 			},
 			{ label: 'Download as PDF', action: () => triggerDownload(`/api/export/${kind}/${id}/pdf`) }
-		]);
-	};
-
-	const openGridVolumeMenu = (e: MouseEvent, vol: Volume) => {
-		e.preventDefault();
-		e.stopPropagation();
-		const rect = (e.currentTarget as HTMLButtonElement).getBoundingClientRect();
-		contextMenu.open(rect.left, rect.bottom, [
-			{ label: 'Mark as Unread', action: () => console.log('Mark as Unread - TBD') },
-			{ separator: true },
-			{ label: 'View Files', action: () => console.log('View Files - TBD') },
-			{ label: 'Version History', action: () => console.log('Version History - TBD') },
-			{ separator: true },
-			{
-				label: 'Download',
-				action: () => triggerDownload(`/api/export/volume/${vol.id}/zip`)
-			},
-			{ separator: true },
-			{
-				label: 'Delete Volume',
-				action: () => handleDeleteVolume(vol.id, vol.title || vol.folderName)
-			}
 		]);
 	};
 
@@ -350,7 +297,7 @@
 			{stats}
 			{coverRefreshTrigger}
 			onCoverUpload={handleCoverUpload}
-			onEditMetadata={() => (isEditModalOpen = true)}
+			onEditMetadata={() => (isEditSeriesOpen = true)}
 			onBookmarkToggle={toggleBookmark}
 			isBookmarked={series.bookmarked ?? false}
 		/>
@@ -387,6 +334,9 @@
 						{@const isSelected = uiState.selectedIds.has(vol.id)}
 
 						<LibraryEntry
+							onLongPress={() => {
+								uiState.enterSelectionMode(vol.id);
+							}}
 							entry={{
 								id: vol.id,
 								title: vol.title,
@@ -408,7 +358,7 @@
 							mainStat={`${vol.progress[0]?.page ?? 0}/${vol.pageCount} P`}
 							subStat={vol.progress[0]?.lastReadAt
 								? `READ ${new Date(vol.progress[0].lastReadAt).toLocaleDateString()}`
-								: ''}
+								: 'UNREAD'}
 							onSelect={(e) => handleVolumeClick(e, vol.id)}
 						>
 							{#snippet circleAction()}
@@ -444,8 +394,7 @@
 
 							{#snippet titleAction()}
 								<button
-									onclick={(e) => openRenameVolume(e, vol)}
-									class="text-theme-secondary hover:text-white transition-colors"
+									class="hidden text-theme-secondary hover:text-white transition-colors"
 									title="Rename"
 								>
 									<svg
@@ -550,18 +499,18 @@
 		</LibraryListWrapper>
 	{/if}
 
+	<LibraryActionBar type="volume" onRefresh={handleRefresh} onRename={handleOpenVolumeEdit} />
 	<EditSeriesModal
-		isOpen={isEditModalOpen}
-		onClose={() => (isEditModalOpen = false)}
-		onSave={saveSeriesMetadata}
-		initialTitle={series?.title ?? null}
-		initialDescription={series?.description ?? null}
+		{series}
+		isOpen={isEditSeriesOpen}
+		onClose={() => (isEditSeriesOpen = false)}
+		onRefresh={handleRefresh}
 	/>
 
-	<RenameModal
-		bind:isOpen={isRenameOpen}
-		initialTitle={renameTarget?.title ?? null}
-		onSave={handleRenameSave}
-		onClose={() => (renameTarget = null)}
+	<EditVolumeModal
+		volume={editVolumeTarget}
+		isOpen={isEditVolumeOpen}
+		onClose={() => (isEditVolumeOpen = false)}
+		onRefresh={handleRefresh}
 	/>
 </div>

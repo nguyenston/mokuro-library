@@ -103,11 +103,6 @@
 		}, 400);
 	};
 
-	const handleDownloadSelected = () => {
-		// Placeholder for batch download
-		alert(`Downloading ${uiState.selectedIds.size} items... (Backend implementation pending)`);
-	};
-
 	// --- Menu Openers ---
 	const toggleFilterMenu = (e: MouseEvent) => {
 		e.preventDefault();
@@ -120,7 +115,7 @@
 		const element = e.currentTarget as HTMLElement;
 		const rect = element.getBoundingClientRect();
 		// Open aligned to the bottom-right of the button
-		contextMenu.open(rect.right, rect.bottom + 10, FilterMenu, { edgeAlign: 'right' }, element);
+		contextMenu.open(rect.right, rect.bottom + 10, FilterMenu, { xEdgeAlign: 'right' }, element);
 	};
 
 	const toggleAppMenu = (e: MouseEvent) => {
@@ -134,7 +129,7 @@
 		const element = e.currentTarget as HTMLElement;
 		const rect = element.getBoundingClientRect();
 		// Open aligned to the bottom-right of the button
-		contextMenu.open(rect.right, rect.bottom + 10, AppMenu, { edgeAlign: 'right' }, element);
+		contextMenu.open(rect.right, rect.bottom + 10, AppMenu, { xEdgeAlign: 'right' }, element);
 	};
 
 	// --- Configuration for filter button styles
@@ -163,55 +158,46 @@
 		style="max-width: 1400px;"
 	>
 		<div class="flex flex-shrink-0 items-center gap-4 z-10">
-			{#if uiState.isSelectionMode}
-				<div
-					class="h-8 w-1 rounded-full bg-status-success shadow-[0_0_10px_rgba(16,185,129,0.5)]"
-				></div>
-				<span class="text-lg font-bold text-white">
-					{uiState.selectedIds.size} Selected
-				</span>
-			{:else}
-				<div class="flex items-center gap-4">
-					<div class="flex items-center gap-2">
-						<div
-							class="hidden h-8 w-1 rounded-full bg-accent sm:block shadow-[0_0_10px_rgba(99,102,241,0.5)]"
-						></div>
-						<div class="flex items-center gap-4 min-w-0">
-							<a href="/" class="flex-shrink-0" aria-label="Home">
-								<Logo />
-							</a>
-						</div>
+			<div class="flex items-center gap-4">
+				<div class="flex items-center gap-2">
+					<div
+						class="hidden h-8 w-1 rounded-full bg-accent sm:block shadow-[0_0_10px_rgba(99,102,241,0.5)]"
+					></div>
+					<div class="flex items-center gap-4 min-w-0">
+						<a href="/" class="flex-shrink-0" aria-label="Home">
+							<Logo />
+						</a>
 					</div>
-
-					{#if uiState.context !== 'library'}
-						<div class="h-5 w-px bg-white/10" aria-hidden="true"></div>
-
-						<button
-							onclick={() => goto('/')}
-							class="group flex items-center gap-2 text-theme-secondary hover:text-white"
-							title="Back to Library"
-							aria-label="Back to Library"
-						>
-							<svg
-								xmlns="http://www.w3.org/2000/svg"
-								width="20"
-								height="20"
-								viewBox="0 0 24 24"
-								fill="none"
-								stroke="currentColor"
-								stroke-width="2"
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								class="transition-all duration-200 group-hover:-translate-x-1.5 group-hover:scale-120"
-							>
-								<path d="m15 18-6-6 6-6" />
-							</svg>
-
-							<span class="inline md:hidden lg:inline text-sm font-medium">Back to Library</span>
-						</button>
-					{/if}
 				</div>
-			{/if}
+
+				{#if uiState.context !== 'library'}
+					<div class="h-5 w-px bg-white/10" aria-hidden="true"></div>
+
+					<button
+						onclick={() => goto('/')}
+						class="group flex items-center gap-2 text-theme-secondary hover:text-white"
+						title="Back to Library"
+						aria-label="Back to Library"
+					>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							width="20"
+							height="20"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							class="transition-all duration-200 group-hover:-translate-x-1.5 group-hover:scale-120"
+						>
+							<path d="m15 18-6-6 6-6" />
+						</svg>
+
+						<span class="inline md:hidden lg:inline text-sm font-medium">Back to Library</span>
+					</button>
+				{/if}
+			</div>
 		</div>
 
 		{#if uiState.context !== 'settings'}
@@ -287,188 +273,30 @@
 		{/if}
 
 		<div class="flex flex-shrink-0 items-center gap-2 z-10">
-			{#if uiState.isSelectionMode}
+			{#if uiState.context !== 'settings'}
 				<button
-					onclick={() => uiState.toggleSelectionMode()}
-					class="rounded-md border border-theme-border px-3 py-1.5 text-sm font-medium text-theme-secondary hover:bg-theme-surface-hover hover:text-white"
-				>
-					Cancel
-				</button>
-				<button
-					onclick={handleDownloadSelected}
-					disabled={uiState.selectedIds.size === 0}
-					class="flex items-center gap-2 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-lg shadow-indigo-900/20 hover:bg-accent-hover disabled:opacity-50"
+					class="md:hidden p-2 text-theme-secondary hover:text-white"
+					onclick={() => (isMobileSearchOpen = !isMobileSearchOpen)}
+					aria-label="Toggle Search"
 				>
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
-						width="16"
-						height="16"
+						width="20"
+						height="20"
 						viewBox="0 0 24 24"
 						fill="none"
 						stroke="currentColor"
 						stroke-width="2"
 						stroke-linecap="round"
-						stroke-linejoin="round"
-						><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline
-							points="7 10 12 15 17 10"
-						/><line x1="12" x2="12" y1="15" y2="3" /></svg
+						stroke-linejoin="round"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></svg
 					>
-					<span class="hidden sm:inline">Download</span>
 				</button>
-			{:else}
-				{#if uiState.context !== 'settings'}
-					<button
-						class="md:hidden p-2 text-theme-secondary hover:text-white"
-						onclick={() => (isMobileSearchOpen = !isMobileSearchOpen)}
-						aria-label="Toggle Search"
-					>
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							width="20"
-							height="20"
-							viewBox="0 0 24 24"
-							fill="none"
-							stroke="currentColor"
-							stroke-width="2"
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></svg
-						>
-					</button>
-
-					<button
-						onclick={toggleFilterMenu}
-						class="md:hidden p-2 rounded-lg transition-colors text-theme-secondary hover:text-white hover:bg-theme-surface-hover hover:border-theme-border-light border border-transparent"
-						title="Filter & Sort"
-						aria-label="Filter and Sort Options"
-					>
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							width="20"
-							height="20"
-							viewBox="0 0 24 24"
-							fill="none"
-							stroke="currentColor"
-							stroke-width="2"
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							><line x1="21" x2="14" y1="4" y2="4" /><line x1="10" x2="3" y1="4" y2="4" /><line
-								x1="21"
-								x2="12"
-								y1="12"
-								y2="12"
-							/><line x1="8" x2="3" y1="12" y2="12" /><line x1="21" x2="16" y1="20" y2="20" /><line
-								x1="12"
-								x2="3"
-								y1="20"
-								y2="20"
-							/><line x1="14" x2="14" y1="2" y2="6" /><line x1="8" x2="8" y1="10" y2="14" /><line
-								x1="16"
-								x2="16"
-								y1="18"
-								y2="22"
-							/></svg
-						>
-					</button>
-
-					<!-- Filter Status Buttons (Desktop only) -->
-					<div class="hidden lg:flex items-center gap-2">
-						{#each ['unread', 'reading', 'read'] as filter}
-							{@const isActive = uiState.filterStatus === filter}
-							{@const styles = filterConfig[filter as keyof typeof filterConfig]}
-
-							{@const iconColor = isActive ? styles.activeColor : 'text-theme-secondary'}
-							{@const borderColor = isActive ? styles.activeBorder : 'border-theme-border-light'}
-
-							<button
-								onclick={() => {
-									// Toggle: If clicking the active one, revert to 'all'
-									uiState.filterStatus = isActive ? 'all' : (filter as any);
-								}}
-								class="w-10 h-10 flex items-center justify-center rounded-2xl border-2 transition-all duration-200 hover:border-theme-primary/50 {iconColor} {borderColor}"
-								title={filter.replace('_', ' ')}
-								aria-label="Filter by {filter.replace('_', ' ')}"
-							>
-								{#if filter === 'unread'}
-									<svg
-										xmlns="http://www.w3.org/2000/svg"
-										width="20"
-										height="20"
-										viewBox="0 0 24 24"
-										fill="none"
-										stroke="currentColor"
-										stroke-width="2"
-										stroke-linecap="round"
-										stroke-linejoin="round"
-									>
-										<circle cx="12" cy="12" r="10" />
-									</svg>
-								{:else if filter === 'reading'}
-									<svg
-										xmlns="http://www.w3.org/2000/svg"
-										width="20"
-										height="20"
-										viewBox="0 0 24 24"
-										fill="none"
-										stroke="currentColor"
-										stroke-width="2"
-										stroke-linecap="round"
-										stroke-linejoin="round"
-									>
-										<circle cx="12" cy="12" r="10" />
-										<path d="M7 12 Q 9.5 8 12 12 T 17 12" />
-									</svg>
-								{:else}
-									<svg
-										xmlns="http://www.w3.org/2000/svg"
-										width="20"
-										height="20"
-										viewBox="0 0 24 24"
-										fill="none"
-										stroke="currentColor"
-										stroke-width="2"
-										stroke-linecap="round"
-										stroke-linejoin="round"
-									>
-										<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-										<polyline points="22 4 12 14.01 9 11.01" />
-									</svg>
-								{/if}
-							</button>
-						{/each}
-
-						<div class="w-[2px] h-6 bg-white/10 mx-1"></div>
-						<!-- Bookmarked filter button -->
-						<button
-							onclick={() => (uiState.filterBookmarked = !uiState.filterBookmarked)}
-							class="w-10 h-10 flex items-center justify-center rounded-2xl border-2 transition-all duration-200 hover:border-theme-primary/50 {uiState.filterBookmarked
-								? 'text-status-warning border-status-warning/50'
-								: 'text-theme-secondary border-theme-border-light'}"
-							title="Filter Bookmarked"
-							aria-label="Filter Bookmarked"
-						>
-							<svg
-								xmlns="http://www.w3.org/2000/svg"
-								width="20"
-								height="20"
-								viewBox="0 0 24 24"
-								fill={uiState.filterBookmarked ? 'currentColor' : 'none'}
-								stroke="currentColor"
-								stroke-width="2"
-								stroke-linecap="round"
-								stroke-linejoin="round"
-							>
-								<path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
-							</svg>
-						</button>
-					</div>
-				{/if}
 
 				<button
-					onclick={toggleAppMenu}
-					class="w-12 h-12 flex items-center justify-center rounded-2xl border-2 border-theme-border-light transition-all duration-200 text-theme-secondary hover:text-white hover:border-theme-primary/50"
-					title="Menu"
-					aria-label="Main Menu"
+					onclick={toggleFilterMenu}
+					class="md:hidden p-2 rounded-lg transition-colors text-theme-secondary hover:text-white hover:bg-theme-surface-hover hover:border-theme-border-light border border-transparent"
+					title="Filter & Sort"
+					aria-label="Filter and Sort Options"
 				>
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
@@ -480,19 +308,146 @@
 						stroke-width="2"
 						stroke-linecap="round"
 						stroke-linejoin="round"
-						><line x1="4" x2="20" y1="12" y2="12" /><line x1="4" x2="20" y1="6" y2="6" /><line
-							x1="4"
-							x2="20"
+						><line x1="21" x2="14" y1="4" y2="4" /><line x1="10" x2="3" y1="4" y2="4" /><line
+							x1="21"
+							x2="12"
+							y1="12"
+							y2="12"
+						/><line x1="8" x2="3" y1="12" y2="12" /><line x1="21" x2="16" y1="20" y2="20" /><line
+							x1="12"
+							x2="3"
+							y1="20"
+							y2="20"
+						/><line x1="14" x2="14" y1="2" y2="6" /><line x1="8" x2="8" y1="10" y2="14" /><line
+							x1="16"
+							x2="16"
 							y1="18"
-							y2="18"
+							y2="22"
 						/></svg
 					>
 				</button>
+
+				<!-- Filter Status Buttons (Desktop only) -->
+				<div class="hidden lg:flex items-center gap-2">
+					{#each ['unread', 'reading', 'read'] as filter}
+						{@const isActive = uiState.filterStatus === filter}
+						{@const styles = filterConfig[filter as keyof typeof filterConfig]}
+
+						{@const iconColor = isActive ? styles.activeColor : 'text-theme-secondary'}
+						{@const borderColor = isActive ? styles.activeBorder : 'border-theme-border-light'}
+
+						<button
+							onclick={() => {
+								// Toggle: If clicking the active one, revert to 'all'
+								uiState.filterStatus = isActive ? 'all' : (filter as any);
+							}}
+							class="w-10 h-10 flex items-center justify-center rounded-2xl border-2 transition-all duration-200 hover:border-theme-primary/50 {iconColor} {borderColor}"
+							title={filter.replace('_', ' ')}
+							aria-label="Filter by {filter.replace('_', ' ')}"
+						>
+							{#if filter === 'unread'}
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									width="20"
+									height="20"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="2"
+									stroke-linecap="round"
+									stroke-linejoin="round"
+								>
+									<circle cx="12" cy="12" r="10" />
+								</svg>
+							{:else if filter === 'reading'}
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									width="20"
+									height="20"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="2"
+									stroke-linecap="round"
+									stroke-linejoin="round"
+								>
+									<circle cx="12" cy="12" r="10" />
+									<path d="M7 12 Q 9.5 8 12 12 T 17 12" />
+								</svg>
+							{:else}
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									width="20"
+									height="20"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="2"
+									stroke-linecap="round"
+									stroke-linejoin="round"
+								>
+									<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+									<polyline points="22 4 12 14.01 9 11.01" />
+								</svg>
+							{/if}
+						</button>
+					{/each}
+
+					<div class="w-[2px] h-6 bg-white/10 mx-1"></div>
+					<!-- Bookmarked filter button -->
+					<button
+						onclick={() => (uiState.filterBookmarked = !uiState.filterBookmarked)}
+						class="w-10 h-10 flex items-center justify-center rounded-2xl border-2 transition-all duration-200 hover:border-theme-primary/50 {uiState.filterBookmarked
+							? 'text-status-warning border-status-warning/50'
+							: 'text-theme-secondary border-theme-border-light'}"
+						title="Filter Bookmarked"
+						aria-label="Filter Bookmarked"
+					>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							width="20"
+							height="20"
+							viewBox="0 0 24 24"
+							fill={uiState.filterBookmarked ? 'currentColor' : 'none'}
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+						>
+							<path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+						</svg>
+					</button>
+				</div>
 			{/if}
+
+			<button
+				onclick={toggleAppMenu}
+				class="w-12 h-12 flex items-center justify-center rounded-2xl border-2 border-theme-border-light transition-all duration-200 text-theme-secondary hover:text-white hover:border-theme-primary/50"
+				title="Menu"
+				aria-label="Main Menu"
+			>
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					width="20"
+					height="20"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					><line x1="4" x2="20" y1="12" y2="12" /><line x1="4" x2="20" y1="6" y2="6" /><line
+						x1="4"
+						x2="20"
+						y1="18"
+						y2="18"
+					/></svg
+				>
+			</button>
 		</div>
 	</div>
 
-	{#if !uiState.isSelectionMode && isMobileSearchOpen}
+	{#if isMobileSearchOpen}
 		<div
 			class="absolute inset-0 bg-theme-main/95 backdrop-blur-md px-4 md:hidden z-50 flex items-center gap-3"
 		>

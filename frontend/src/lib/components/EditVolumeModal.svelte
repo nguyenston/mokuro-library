@@ -3,42 +3,36 @@
 	import { metadataOps } from '$lib/states/metadataOperations.svelte';
 	import MenuInput from '$lib/components/menu/MenuInput.svelte';
 
-	interface Series {
+	interface Volume {
 		id: string;
 		title: string | null;
-		description: string | null;
 	}
 
-	let { series, isOpen, onClose, onRefresh } = $props<{
-		series: Series | null;
+	let { volume, isOpen, onClose, onRefresh } = $props<{
+		volume: Volume | null;
 		isOpen: boolean;
 		onClose: () => void;
 		onRefresh: () => void;
 	}>();
 
-	let title = $state(series?.title ?? '');
-	let description = $state(series?.description ?? '');
+	let title = $state(volume?.title ?? '');
 
 	// Reset state when modal opens
 	$effect(() => {
 		if (isOpen) {
-			title = series?.title ?? '';
-			description = series?.descripiton ?? '';
+			title = volume?.title ?? '';
 		}
 	});
 
-	const saveSeriesMetadata = async () => {
-		if (!series) return;
+	const saveVolumeMetadata = async () => {
+		if (!volume) return;
 		try {
-			await metadataOps.saveSeriesMetadata(series.id, {
-				title: title || null,
-				description: description || null
-			});
+			await metadataOps.saveVolumeMetadata(volume.id, { title: title || null });
 			onRefresh();
 			onClose();
 		} catch (e: any) {
 			console.error(e);
-			alert('Edit series metadata delete failed');
+			alert('Edit volume metadata failed');
 		}
 	};
 </script>
@@ -64,8 +58,8 @@
 			transition:scale={{ duration: 200, start: 0.95 }}
 		>
 			<div class="mb-6">
-				<h2 class="text-2xl font-bold text-white">Edit Series</h2>
-				<p class="text-sm text-gray-400">Update display details for this series.</p>
+				<h2 class="text-2xl font-bold text-white">Edit Volume</h2>
+				<p class="text-sm text-gray-400">Update display details for this volume.</p>
 			</div>
 
 			<div class="flex flex-col gap-6">
@@ -74,16 +68,6 @@
 					placeholder="Original folder name will be used if empty"
 					bind:value={title}
 				/>
-
-				<div>
-					<div class="block text-sm font-semibold text-gray-400 mb-2">Description</div>
-					<textarea
-						bind:value={description}
-						rows="5"
-						placeholder="Enter a synopsis or notes..."
-						class="w-full px-4 py-3 rounded-xl bg-black/20 border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:border-accent/50 focus:bg-black/30 transition-all duration-200 resize-none"
-					></textarea>
-				</div>
 			</div>
 
 			<div class="mt-8 flex justify-end gap-3">
@@ -94,7 +78,7 @@
 					Cancel
 				</button>
 				<button
-					onclick={() => saveSeriesMetadata()}
+					onclick={() => saveVolumeMetadata()}
 					class="px-5 py-2.5 rounded-xl bg-accent text-white text-sm font-semibold hover:bg-accent-hover shadow-lg shadow-accent/20 transition-all transform active:scale-95"
 				>
 					Save Changes
