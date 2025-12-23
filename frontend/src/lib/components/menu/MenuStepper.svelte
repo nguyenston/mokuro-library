@@ -19,7 +19,11 @@
 			type="number"
 			bind:value
 			{min}
-			class="[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-non flex-1 px-4 py-3 rounded-xl bg-black/20 border border-white/10 text-white focus:outline-none focus:border-accent/50 focus:bg-black/30 transition-all duration-200"
+			class="[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none
+        [&::-webkit-inner-spin-button]:appearance-non
+        flex-1 px-4 py-3 rounded-xl bg-black/20 border border-white/10 text-white
+        focus:outline-none focus:border-accent/50 focus:bg-black/30
+        transition-all duration-200 min-w-[10px]"
 		/>
 		<button
 			onclick={() => (value = Math.max(min, value - step))}
