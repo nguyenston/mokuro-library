@@ -8,8 +8,10 @@
 	import { confirmation } from '$lib/confirmationStore';
 	import { uiState } from '$lib/states/uiState.svelte';
 	import { metadataOps } from '$lib/states/metadataOperations.svelte';
-	import PaginationControls from '$lib/components/PaginationControls.svelte';
+	import Footer from '$lib/components/Footer.svelte';
+	import LibraryActionBar from '$lib/components/LibraryActionBar.svelte';
 	import LibraryEntry from '$lib/components/LibraryEntry.svelte';
+	import EditSeriesModal from '$lib/components/EditSeriesModal.svelte';
 	import { type FilterStatus } from '$lib/states/uiState.svelte';
 
 	// --- Type Definitions ---
@@ -26,6 +28,7 @@
 	interface Series {
 		id: string;
 		title: string | null;
+		description: string | null;
 		folderName: string;
 		coverPath: string | null;
 		volumes: Volume[];
@@ -39,6 +42,9 @@
 	let meta = $state({ total: 0, page: 1, limit: 24, totalPages: 1 });
 	let isLoadingLibrary = $state(true);
 	let libraryError = $state<string | null>(null);
+
+	let isEditModalOpen = $state(false);
+	let editModalTarget: Series | null = $state(null);
 
 	// --- Helper: Calculate Series Progress ---
 	const getSeriesProgress = (series: Series) => {
@@ -223,6 +229,17 @@
 	};
 
 	// --- Actions ---
+	//
+	const handleOpenEdit = () => {
+		const selectedId = Array.from(uiState.selectedIds)[0];
+		if (!selectedId) return;
+
+		const series = library.find((s) => s.id === selectedId);
+		if (series) {
+			editModalTarget = series;
+			isEditModalOpen = true;
+		}
+	};
 	const handleDeleteSeries = (seriesId: string, seriesTitle: string) => {
 		confirmation.open(
 			'Delete Series?',
@@ -247,6 +264,11 @@
 			e.stopPropagation();
 			uiState.toggleSelection(seriesId);
 		}
+	};
+
+	const handleRefresh = () => {
+		const params = new URLSearchParams(page.url.searchParams);
+		fetchLibrary(`?${params.toString()}`, true);
 	};
 </script>
 
@@ -340,6 +362,9 @@
 						{@const isSelected = uiState.selectedIds.has(series.id)}
 
 						<LibraryEntry
+							onLongPress={() => {
+								uiState.enterSelectionMode(series.id);
+							}}
 							entry={{
 								id: series.id,
 								title: series.title,
@@ -421,11 +446,15 @@
 			</div>
 		</div>
 
-		<div class="fixed bottom-0 left-0 right-0 bg-transparent p-6 z-40">
-			<div class="mx-auto flex justify-center" style="max-width: 1400px;">
-				<PaginationControls {meta} />
-			</div>
-		</div>
+		<Footer {meta} />
+		<LibraryActionBar type="series" onRefresh={handleRefresh} onRename={handleOpenEdit} />
+
+		<EditSeriesModal
+			series={editModalTarget}
+			isOpen={isEditModalOpen}
+			onClose={() => (isEditModalOpen = false)}
+			onRefresh={handleRefresh}
+		/>
 	{/if}
 </div>
 

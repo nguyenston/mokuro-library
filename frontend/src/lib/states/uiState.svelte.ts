@@ -57,6 +57,8 @@ class UiState {
   }
 
   setContext(ctx: AppContext, title: string, sorts: { key: SortKey; label: string }[], id: string | null = null) {
+    if (this.context === ctx && this.activeId === id) return;
+
     this.context = ctx;
     this.appTitle = title;
     this.availableSorts = sorts;
@@ -76,6 +78,18 @@ class UiState {
       this.sortKey = 'title';
       this.sortOrder = 'asc';
     }
+  }
+
+  enterSelectionMode(initialId: string) {
+    if (this.isSelectionMode) return;
+    this.selectedIds.clear();
+    this.isSelectionMode = true;
+    this.selectedIds.add(initialId);
+  }
+
+  exitSelectionMode() {
+    this.isSelectionMode = false;
+    this.selectedIds.clear();
   }
 
   toggleSelectionMode() {

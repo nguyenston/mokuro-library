@@ -1,6 +1,13 @@
 import { apiFetch } from '$lib/api';
-
 type RevertCallback = () => void;
+type SeriesMetadata = {
+  title?: string | null;
+  description?: string | null;
+  bookmarked?: boolean;
+}
+type VolumeMetaData = {
+  title?: string | null;
+}
 
 class MetadataOperations {
   // Map ID -> { timer, action } so we can execute 'action' immediately on flush
@@ -29,10 +36,7 @@ class MetadataOperations {
   syncBookmark(id: string, isBookmarked: boolean, onRevert?: RevertCallback) {
     this.schedule(id, async () => {
       try {
-        await apiFetch(`/api/metadata/series/${id}`, {
-          method: 'PATCH',
-          body: { bookmarked: isBookmarked }
-        });
+        await this.saveSeriesMetadata(id, { bookmarked: isBookmarked })
         // Success: Do nothing, UI is already correct
       } catch (error) {
         console.error(`Failed to sync bookmark for ${id}`, error);
@@ -68,6 +72,29 @@ class MetadataOperations {
       }
     });
   }
+
+  saveSeriesMetadata = async (id: string, body: SeriesMetadata) => {
+    try {
+      await apiFetch(`/api/metadata/series/${id}`, {
+        method: 'PATCH',
+        body
+      });
+    } catch (e: any) {
+      throw e;
+    }
+  };
+
+  saveVolumeMetadata = async (id: string, body: VolumeMetaData) => {
+    try {
+      await apiFetch(`/api/metadata/volume/${id}`, {
+        method: 'PATCH',
+        body
+      });
+    } catch (e: any) {
+      throw e;
+    }
+  };
+
 
   // --- Helper ---
   private schedule(id: string, action: () => void, delay = 1000) {
