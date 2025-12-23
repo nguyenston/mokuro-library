@@ -128,8 +128,7 @@
 			totalVols: vols.length,
 			volsRead: vols.filter((v) => {
 				const p = v.progress[0];
-				// Only count as read if completed AND reached last page
-				return p?.completed && p.page >= v.pageCount;
+				return p?.completed;
 			}).length,
 			totalCharsRead: vols.reduce((acc, v) => acc + (v.progress[0]?.charsRead || 0), 0),
 			totalTime: vols.reduce((acc, v) => acc + (v.progress[0]?.timeRead || 0), 0)
