@@ -1,20 +1,21 @@
-<div class="flex items-center gap-2.5 hover:opacity-80 transition-opacity">
+<div class="flex items-center gap-2.5 hover:opacity-80 transition-opacity cursor-pointer group">
 	<div
-		class="h-8 w-8 bg-gradient-to-br from-accent to-purple-600 rounded-lg flex items-center justify-center text-white shadow-lg shadow-accent/20"
+		class="h-9 w-9 bg-gradient-to-br from-accent to-indigo-700 rounded-lg flex items-center justify-center text-white shadow-lg shadow-purple-500/20 ring-1 ring-white/20"
 	>
 		<svg
 			xmlns="http://www.w3.org/2000/svg"
-			width="18"
-			height="18"
+			width="20"
+			height="20"
 			viewBox="0 0 24 24"
 			fill="none"
 			stroke="currentColor"
-			stroke-width="3"
+			stroke-width="2.5"
 			stroke-linecap="round"
 			stroke-linejoin="round"
 		>
-			<path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-			<polyline points="9 22 9 12 15 12 15 22" />
+			<rect x="5" y="4" width="14" height="16" rx="2"></rect>
+			<line x1="5" y1="9" x2="19" y2="9"></line>
+			<line x1="5" y1="14" x2="19" y2="14"></line>
 		</svg>
 	</div>
 </div>
