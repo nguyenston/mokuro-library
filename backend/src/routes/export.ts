@@ -6,6 +6,7 @@ import archiver from 'archiver';
 import PDFDocument from 'pdfkit';
 import { Volume, Series } from '../generated/prisma/client';
 import { Readable } from 'stream';
+import { randomUUID } from 'crypto';
 
 interface MokuroBlock {
   box: [number, number, number, number];
@@ -173,6 +174,95 @@ const generateVolumePdf = async (
   }
 };
 
+// Maps a UUID ticket to the request body { ids, type, options }
+// This is simple and effective for a single-instance personal server.
+const exportTickets = new Map<string, any>();
+
+// --- Shared Batch Logic for both the GET and POST endpoints ---
+async function executeBatchExport(
+  fastify: any,
+  reply: any,
+  body: { ids: string[]; type: 'series' | 'volume'; options?: { include_images?: boolean } },
+  userId: string
+) {
+  const { ids, type, options } = body;
+  const includeImages = options?.include_images ?? true;
+
+  if (!ids || ids.length === 0) {
+    // If we haven't sent headers yet, send error
+    if (!reply.raw.headersSent) return reply.status(400).send('No IDs provided');
+    return;
+  }
+
+  const archive = archiver('zip', { zlib: { level: includeImages ? 0 : 5 } });
+  const timestamp = new Date().toISOString().split('T')[0];
+  const filename = `mokuro_batch_${type}_${timestamp}.zip`;
+
+  // Set Headers for Download
+  reply.header('Content-Type', 'application/zip');
+  reply.header('Content-Disposition', `attachment; filename="${filename}"`);
+
+  // Start Streaming
+  reply.send(archive);
+
+  try {
+    if (type === 'series') {
+      const seriesList = await fastify.prisma.series.findMany({
+        where: { id: { in: ids }, ownerId: userId },
+        include: { volumes: { include: { progress: { where: { userId } } } } }
+      });
+
+      for (const series of seriesList) {
+        await addSeriesToArchive(fastify, archive, series, series.folderName, userId, includeImages);
+      }
+    }
+    else if (type === 'volume') {
+      // fetch their series ids
+      const volumes = await fastify.prisma.volume.findMany({
+        where: { id: { in: ids }, series: { ownerId: userId } },
+        include: { series: true, progress: { where: { userId } } }
+      });
+
+      // sort by series
+      const seriesMap = new Map<string, { series: any, volumes: any[] }>();
+      for (const vol of volumes) {
+        const sId = vol.seriesId;
+        if (!seriesMap.has(sId)) seriesMap.set(sId, { series: vol.series, volumes: [] });
+        seriesMap.get(sId)!.volumes.push(vol);
+      }
+
+      // process in series batches
+      for (const [_, group] of seriesMap) {
+        const { series, volumes } = group;
+        const seriesDir = series.folderName;
+
+        const metadata = generateSeriesMetadata(series, volumes, userId);
+        archive.append(JSON.stringify(metadata, null, 2), {
+          name: path.join(seriesDir, `${seriesDir}.json`)
+        });
+
+        if (series.coverPath) {
+          const absCover = path.join(fastify.projectRoot, series.coverPath);
+          if (fs.existsSync(absCover)) {
+            archive.file(absCover, { name: path.join(seriesDir, path.basename(series.coverPath)) });
+          }
+        }
+
+        for (const vol of volumes) {
+          await addVolumeToArchive(fastify, archive, vol, seriesDir, includeImages);
+        }
+      }
+    }
+
+    await archive.finalize();
+  } catch (err) {
+    fastify.log.error(err);
+    // If the stream has started, we can't send a JSON error. The download will just fail/cut off.
+    if (!reply.raw.headersSent) reply.status(500).send('Export failed');
+    else reply.raw.destroy();
+  }
+}
+
 // --- Helper: Generate Metadata Object ---
 const generateSeriesMetadata = (
   series: any,
@@ -209,6 +299,62 @@ const generateSeriesMetadata = (
   };
 };
 
+// --- Helper for adding Volume to Archive ---
+async function addVolumeToArchive(
+  fastify: any,
+  archive: archiver.Archiver,
+  volume: any,
+  basePath: string, // "" for root, or "SeriesName" for nesting
+  includeImages: boolean
+) {
+  // 1. Add .mokuro file
+  const absMokuroPath = path.join(fastify.projectRoot, volume.mokuroPath);
+  if (fs.existsSync(absMokuroPath)) {
+    archive.file(absMokuroPath, {
+      name: path.join(basePath, `${volume.folderName}.mokuro`)
+    });
+  }
+
+  // 2. Add Images (Optional)
+  if (includeImages) {
+    const absVolPath = path.join(fastify.projectRoot, volume.filePath);
+    if (fs.existsSync(absVolPath)) {
+      archive.directory(absVolPath, path.join(basePath, volume.folderName));
+    }
+  }
+}
+
+// --- Helper: Add an Entire Series (Metadata + Cover + Volumes) ---
+async function addSeriesToArchive(
+  fastify: any,
+  archive: archiver.Archiver,
+  series: any,
+  basePath: string,
+  userId: string,
+  includeImages: boolean
+) {
+  // 1. Metadata
+  const metadata = generateSeriesMetadata(series, series.volumes, userId);
+  const jsonName = `${series.folderName}.json`;
+  archive.append(JSON.stringify(metadata, null, 2), {
+    name: path.join(basePath, jsonName)
+  });
+
+  // 2. Series Cover
+  if (series.coverPath) {
+    const absCover = path.join(fastify.projectRoot, series.coverPath);
+    if (fs.existsSync(absCover)) {
+      archive.file(absCover, {
+        name: path.join(basePath, path.basename(series.coverPath))
+      });
+    }
+  }
+
+  // 3. Volumes
+  for (const vol of series.volumes) {
+    await addVolumeToArchive(fastify, archive, vol, basePath, includeImages);
+  }
+}
 const exportRoutes: FastifyPluginAsync = async (
   fastify,
   opts
@@ -225,61 +371,41 @@ const exportRoutes: FastifyPluginAsync = async (
     async (request, reply) => {
       const { id: volumeId } = request.params;
       const userId = request.user.id;
-      const includeImages = request.query.include_images !== 'false'; // Default true
+      const includeImages = request.query.include_images !== 'false';
 
       const volume = await fastify.prisma.volume.findFirst({
         where: { id: volumeId, series: { ownerId: userId } },
-        include: {
-          series: true,
-          progress: { where: { userId } }
-        }
+        include: { series: true, progress: { where: { userId } } }
       });
 
-      if (!volume) {
-        return reply.status(404).send('Volume not found');
-      }
+      if (!volume) return reply.status(404).send('Volume not found');
 
-      // Create a ZIP containing:
-      // 1. All images from volume.filePath
-      // 2. The .mokuro file
-      const archive = archiver('zip', { zlib: { level: 0 } }); // moderate compression for speed
+      // Setup Archive
+      const archive = archiver('zip', { zlib: { level: includeImages ? 0 : 5 } });
+      const safeFileName = encodeURIComponent(`${volume.series.folderName} - ${volume.folderName}`);
 
       reply.header('Content-Type', 'application/zip');
-      // Safely encode the filename to handle spaces and special characters
-      const safeFileName = encodeURIComponent(`${volume.series.folderName} - ${volume.folderName}`);
       reply.header('Content-Disposition', `attachment; filename="${safeFileName}.zip"`);
+      reply.send(archive);
 
-      archive.on('error', (err) => {
+      try {
+        // 1. Add Metadata (Series Context)
+        const metadata = generateSeriesMetadata(volume.series, [volume], userId);
+        archive.append(JSON.stringify(metadata, null, 2), {
+          name: `${volume.series.folderName}.json`
+        });
+
+        // 2. Add Volume Files (At Root)
+        await addVolumeToArchive(fastify, archive, volume, '', includeImages);
+
+        await archive.finalize();
+      } catch (err) {
         fastify.log.error(err);
-        if (!reply.raw.headersSent) {
-          reply.status(500).send('Archiving error');
-        }
-      });
-
-      // Generate Metadata for this specific volume context
-      // We create a "Series" metadata file even for a single volume export,
-      // so that if the user extracts it, they get the Series context.
-      const metadata = generateSeriesMetadata(volume.series, [volume], userId);
-      archive.append(JSON.stringify(metadata, null, 2), { name: `${volume.series.folderName}.json` });
-
-      if (includeImages) {
-        // Add the volume directory (images)
-        const absoluteVolumePath = path.join(fastify.projectRoot, volume.filePath);
-        archive.directory(absoluteVolumePath, volume.folderName);
+        if (!reply.raw.headersSent) reply.status(500).send('Export failed');
+        else reply.raw.destroy();
       }
-
-      // Add the .mokuro file
-      const absoluteMokuroPath = path.join(
-        fastify.projectRoot,
-        volume.mokuroPath
-      );
-      archive.file(absoluteMokuroPath, { name: `${volume.folderName}.mokuro` });
-
-      archive.finalize();
-      return reply.send(archive);
     }
   );
-
 
   /**
      * GET /api/export/volume/:id/pdf
@@ -350,59 +476,30 @@ const exportRoutes: FastifyPluginAsync = async (
       const userId = request.user.id;
       const includeImages = request.query.include_images !== 'false';
 
+      const series = await fastify.prisma.series.findFirst({
+        where: { id: seriesId, ownerId: userId },
+        include: {
+          volumes: { include: { progress: { where: { userId } } } }
+        }
+      });
+
+      if (!series) return reply.status(404).send({ message: 'Series not found' });
+
+      // Setup Archive
+      const archive = archiver('zip', { zlib: { level: includeImages ? 0 : 5 } });
+
+      reply.header('Content-Type', 'application/zip');
+      reply.header('Content-Disposition', `attachment; filename="${series.folderName}.zip"`);
+      reply.send(archive);
+
       try {
-        const series = await fastify.prisma.series.findFirst({
-          where: { id: seriesId, ownerId: userId },
-          include: {
-            volumes: {
-              include: {
-                progress: { where: { userId } }
-              }
-            }
-          }
-        });
-
-        if (!series) return reply.status(404).send({ message: 'Series not found' });
-
-        const archive = archiver('zip', { zlib: { level: 5 } });
-        const filename = `${series.folderName}.zip`;
-
-        reply.header('Content-Type', 'application/zip');
-        reply.header('Content-Disposition', `attachment; filename="${filename}"`);
-        reply.send(archive);
-
-        // 1. Generate Metadata
-        const metadata = generateSeriesMetadata(series, series.volumes, userId);
-        const jsonFilename = `${series.folderName}.json`;
-
-        // Place it at the root of the zip (which unpacks into the series folder)
-        archive.append(JSON.stringify(metadata, null, 2), { name: jsonFilename });
-
-        // 2. Add Series Cover
-        if (series.coverPath) {
-          const absCoverPath = path.join(fastify.projectRoot, series.coverPath);
-          if (fs.existsSync(absCoverPath)) {
-            archive.file(absCoverPath, { name: path.basename(series.coverPath) });
-          }
-        }
-
-        // 3. Add Volumes
-        for (const vol of series.volumes) {
-          const volumePath = path.join(fastify.projectRoot, vol.filePath);
-          const mokuroPath = path.join(fastify.projectRoot, vol.mokuroPath);
-
-          if (fs.existsSync(volumePath) && includeImages) {
-            archive.directory(volumePath, vol.folderName);
-          }
-          if (fs.existsSync(mokuroPath)) {
-            archive.file(mokuroPath, { name: `${vol.folderName}.mokuro` });
-          }
-        }
-
+        // Add Series (At Root)
+        await addSeriesToArchive(fastify, archive, series, '', userId, includeImages);
         await archive.finalize();
       } catch (error) {
         fastify.log.error(error);
         if (!reply.raw.headersSent) reply.status(500).send({ message: 'Export failed' });
+        else reply.raw.destroy();
       }
     }
   );
@@ -606,6 +703,53 @@ const exportRoutes: FastifyPluginAsync = async (
     }
   });
 
+  /**
+   * POST /api/export/batch/ticket
+   * Generates a temporary ticket for batch downloading.
+   */
+  fastify.post<{
+    Body: { ids: string[]; type: 'series' | 'volume'; options?: { include_images?: boolean } }
+  }>('/batch/ticket', async (request, reply) => {
+    const ticket = randomUUID();
+
+    // Store the body options associated with this ticket
+    exportTickets.set(ticket, request.body);
+
+    // Auto-expire ticket after 60 seconds to prevent memory leaks
+    setTimeout(() => exportTickets.delete(ticket), 60000);
+
+    return { ticket };
+  });
+
+  /**
+   * GET /api/export/batch
+   * Consumes a ticket and starts the stream.
+   * Browser navigates here directly.
+   */
+  fastify.get<{ Querystring: { ticket: string } }>('/batch', async (request, reply) => {
+    const { ticket } = request.query;
+    const body = exportTickets.get(ticket);
+
+    if (!body) {
+      return reply.status(404).send('Invalid or expired download ticket.');
+    }
+
+    // Invalidate ticket immediately (One-time use)
+    exportTickets.delete(ticket);
+
+    // Reuse the exact same logic
+    return executeBatchExport(fastify, reply, body, request.user.id);
+  });
+
+  /**
+   * POST /api/export/batch (Legacy/Direct API access)
+   * We keep this for programmatic access (e.g. curl scripts)
+   */
+  fastify.post<{
+    Body: { ids: string[]; type: 'series' | 'volume'; options?: { include_images?: boolean } }
+  }>('/batch', async (request, reply) => {
+    return executeBatchExport(fastify, reply, request.body, request.user.id);
+  });
 }
 
 export default exportRoutes;
