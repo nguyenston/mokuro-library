@@ -1,7 +1,7 @@
 <script lang="ts">
 	import Logo from './Logo.svelte';
 	let { isOpen, onClose } = $props<{ isOpen: boolean; onClose: () => void }>();
-	const version = __COMMIT_HASH__ ?? 'dev'; // Could be imported from package.json
+	const version = __COMMIT_HASH__ ?? 'dev';
 </script>
 
 {#if isOpen}
@@ -19,9 +19,7 @@
 			class="relative w-full max-w-sm transform overflow-hidden rounded-xl border border-theme-border bg-theme-surface p-6 shadow-2xl transition-all"
 		>
 			<div class="flex flex-col items-center text-center">
-				<div
-					class="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 shadow-lg shadow-indigo-500/20"
-				>
+				<div class="mb-4 flex h-16 w-16 scale-[2] items-center justify-center">
 					<Logo />
 				</div>
 
