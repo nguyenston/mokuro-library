@@ -40,9 +40,7 @@
 
 	// Auth check
 	$effect(() => {
-		if (browser && $user === null) {
-			goto('/login');
-		}
+		if (browser && $user === null) goto('/login');
 	});
 
 	// Sync category with URL
@@ -52,7 +50,6 @@
 			newParams.set('category', activeCategory);
 			const queryString = newParams.toString();
 			const currentQuery = page.url.searchParams.toString();
-
 			if (queryString !== currentQuery) {
 				goto(`/settings?${queryString}`, { replaceState: true, keepFocus: true, noScroll: true });
 			}
@@ -82,69 +79,95 @@
 </script>
 
 <div class="flex min-h-[calc(100vh-4rem)] max-w-7xl mx-auto bg-theme-main">
-	<!-- Sidebar -->
-	<aside class="w-64 bg-theme-main p-6">
-		<div class="mb-6">
-			<p class="text-[11px] font-black text-theme-tertiary uppercase tracking-[0.2em]">
+	<aside class="w-[72px] md:w-64 bg-theme-main px-2 py-6 md:p-6">
+		<div class="mb-6 md:px-0 text-center md:text-left overflow-hidden">
+			<p
+				class="hidden md:block text-[11px] font-black text-theme-tertiary uppercase tracking-[0.2em] whitespace-nowrap"
+			>
 				Categories
 			</p>
 		</div>
 
-		<nav class="space-y-1">
+		<nav class="space-y-2">
 			{#each categories as category}
+				{@const isActive = activeCategory === category.id}
 				<button
 					onclick={() => (activeCategory = category.id)}
-					class="w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all border-2 {activeCategory ===
-					category.id
+					class="group w-full flex flex-col md:flex-row items-center md:justify-start gap-0 md:gap-3 p-2 md:px-4 md:py-3 rounded-xl border-2 transition-colors duration-200 {isActive
 						? 'bg-accent-surface text-accent border-accent/50 shadow-lg shadow-accent/20'
-						: 'text-theme-primary hover:text-white hover:bg-theme-surface-hover/70 border-theme-border'}"
+						: 'text-theme-primary hover:text-white hover:bg-theme-surface-hover/70 border-transparent hover:border-theme-border/50'}"
 				>
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						width="18"
-						height="18"
-						viewBox="0 0 24 24"
-						fill="none"
-						stroke="currentColor"
-						stroke-width="2.5"
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						class={activeCategory === category.id ? 'drop-shadow-lg' : ''}
+					<div class="relative flex items-center justify-center w-8 h-8 shrink-0">
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							width="18"
+							height="18"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2.5"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							class="transition-transform duration-300 {isActive
+								? 'scale-110 drop-shadow-md'
+								: 'group-hover:scale-110'}"
+						>
+							{#if category.icon === 'book'}
+								<path d={getIconPath(category.icon)} />
+							{:else if category.icon === 'link'}
+								<path d={getIconPath(category.icon)} />
+								<path d="m14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+							{:else if category.icon === 'users'}
+								<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+								<circle cx="9" cy="7" r="4" />
+								<path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+								<path d="M16 3.13a4 4 0 0 1 0 7.75" />
+							{:else if category.icon === 'library'}
+								<path d={getIconPath(category.icon)} />
+							{:else if category.icon === 'clock'}
+								<circle cx="12" cy="12" r="10" />
+								<polyline points="12 6 12 12 16 14" />
+							{:else}
+								<path d={getIconPath(category.icon)} />
+								<circle cx="12" cy="12" r="3" />
+							{/if}
+						</svg>
+					</div>
+
+					<div
+						class="grid transition-[grid-template-rows,opacity,padding] duration-300 ease-in-out
+                        {isActive
+							? 'grid-rows-[1fr] opacity-100 py-2 md:py-0'
+							: 'grid-rows-[0fr] opacity-0 md:grid-rows-[1fr] md:opacity-100 md:py-0'}"
 					>
-						{#if category.icon === 'book'}
-							<path d={getIconPath(category.icon)} />
-						{:else if category.icon === 'link'}
-							<path d={getIconPath(category.icon)} />
-							<path d="m14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
-						{:else if category.icon === 'users'}
-							<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-							<circle cx="9" cy="7" r="4" />
-							<path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-							<path d="M16 3.13a4 4 0 0 1 0 7.75" />
-						{:else if category.icon === 'library'}
-							<path d={getIconPath(category.icon)} />
-						{:else if category.icon === 'clock'}
-							<circle cx="12" cy="12" r="10" />
-							<polyline points="12 6 12 12 16 14" />
-						{:else}
-							<path d={getIconPath(category.icon)} />
-							<circle cx="12" cy="12" r="3" />
-						{/if}
-					</svg>
-					<span class="font-medium text-sm">{category.label}</span>
-					{#if activeCategory === category.id}
-						<div class="ml-auto w-1 h-4 rounded-full bg-accent"></div>
-					{/if}
+						<div class="overflow-hidden">
+							<span
+								class="block font-medium text-xs md:text-sm whitespace-nowrap
+                                [writing-mode:vertical-rl] rotate-180
+                                md:[writing-mode:horizontal-tb] md:rotate-0
+                                mx-auto md:mx-0"
+							>
+								{category.label}
+							</span>
+						</div>
+					</div>
+
+					<div
+						class="{isActive
+							? 'opacity-100 translate-x-0'
+							: 'opacity-0 translate-x-2'} hidden md:block ml-auto w-1 h-4 rounded-full bg-accent transition-all duration-300"
+					></div>
 				</button>
 			{/each}
 		</nav>
 	</aside>
 
-	<!-- Main Content -->
 	<main class="flex-1 p-6 overflow-y-auto">
 		{#each categories as category}
 			{#if activeCategory === category.id}
-				<category.component />
+				<div class="animate-in fade-in slide-in-from-bottom-2 duration-300">
+					<category.component />
+				</div>
 			{/if}
 		{/each}
 	</main>
