@@ -412,84 +412,33 @@
 							{/snippet}
 
 							{#snippet listActions()}
-								<div
-									class="flex flex-col sm:flex-row items-center justify-center h-full gap-1 sm:gap-4 px-3 py-2"
+								<button
+									onclick={(e) => {
+										e.preventDefault();
+										e.stopPropagation();
+										toggleComplete(vol);
+									}}
+									class={`p-2 rounded-full border transition-all duration-200 active:scale-90 ${
+										stats.isRead
+											? 'bg-status-success border-status-success text-white'
+											: 'border-theme-border text-theme-secondary hover:text-white hover:border-white'
+									}`}
+									title={stats.isRead ? 'Mark Unread' : 'Mark Read'}
 								>
-									<button
-										onclick={(e) => {
-											e.preventDefault();
-											e.stopPropagation();
-											toggleComplete(vol);
-										}}
-										class={`p-2 rounded-full border transition-all duration-200 active:scale-90 ${
-											stats.isRead
-												? 'bg-status-success border-status-success text-white'
-												: 'border-theme-border text-theme-secondary hover:text-white hover:border-white'
-										}`}
-										title={stats.isRead ? 'Mark Unread' : 'Mark Read'}
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										width="16"
+										height="16"
+										viewBox="0 0 24 24"
+										fill="none"
+										stroke="currentColor"
+										stroke-width="3"
+										stroke-linecap="round"
+										stroke-linejoin="round"
 									>
-										<svg
-											xmlns="http://www.w3.org/2000/svg"
-											width="16"
-											height="16"
-											viewBox="0 0 24 24"
-											fill="none"
-											stroke="currentColor"
-											stroke-width="3"
-											stroke-linecap="round"
-											stroke-linejoin="round"
-										>
-											<polyline points="20 6 9 17 4 12" />
-										</svg>
-									</button>
-
-									<button
-										onclick={(e) => openDownloadMenu(e, vol.id, 'volume')}
-										class="p-1.5 text-theme-secondary hover:text-white transition-colors"
-										title="Download"
-									>
-										<svg
-											xmlns="http://www.w3.org/2000/svg"
-											width="20"
-											height="20"
-											viewBox="0 0 24 24"
-											fill="none"
-											stroke="currentColor"
-											stroke-width="2"
-											stroke-linecap="round"
-											stroke-linejoin="round"
-										>
-											<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-											<polyline points="7 10 12 15 17 10" />
-											<line x1="12" x2="12" y1="15" y2="3" />
-										</svg>
-									</button>
-
-									<button
-										onclick={(e) => {
-											e.preventDefault();
-											e.stopPropagation();
-											handleDeleteVolume(vol.id, vol.title || vol.folderName);
-										}}
-										class="p-1.5 text-theme-secondary hover:text-status-danger transition-colors"
-										title="Delete"
-									>
-										<svg
-											xmlns="http://www.w3.org/2000/svg"
-											width="20"
-											height="20"
-											viewBox="0 0 24 24"
-											fill="none"
-											stroke="currentColor"
-											stroke-width="2"
-											stroke-linecap="round"
-											stroke-linejoin="round"
-										>
-											<path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
-											<path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
-										</svg>
-									</button>
-								</div>
+										<polyline points="20 6 9 17 4 12" />
+									</svg>
+								</button>
 							{/snippet}
 						</LibraryEntry>
 					{/each}
