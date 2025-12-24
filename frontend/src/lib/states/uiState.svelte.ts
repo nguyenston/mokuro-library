@@ -9,7 +9,7 @@ export type FilterStatus = 'all' | 'reading' | 'read' | 'unread';
 class UiState {
   // --- Context & Navigation ---
   context = $state<AppContext>('library');
-  appTitle = $state('Mokuro');
+  appTitle = $state('Library');
   activeId = $state<string | null>(null);
 
   // --- Search & View ---
@@ -38,7 +38,9 @@ class UiState {
 
   // --- Options Configuration ---
   availableSorts = $state<{ key: SortKey; label: string }[]>([
-    { key: 'title', label: 'Title' }
+    { key: 'title', label: 'Title' },
+    { key: 'updated', label: 'Last Updated' },
+    { key: 'lastRead', label: 'Recent' }
   ]);
 
   constructor() {
