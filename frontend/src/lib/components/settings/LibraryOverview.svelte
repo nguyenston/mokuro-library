@@ -134,7 +134,7 @@
 
 <div class="w-full p-8 {inReader ? 'max-w-2xl' : 'max-w-4xl'}">
 	<div class="mb-8">
-		<h1 class="text-3xl font-bold text-white mb-2">Library Overview</h1>
+		<h1 class="text-3xl font-bold text-white mb-2">Library Overview (WIP)</h1>
 		<p class="text-base text-theme-secondary">View statistics and usage of your library.</p>
 	</div>
 

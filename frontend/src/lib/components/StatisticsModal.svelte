@@ -103,7 +103,7 @@
 			date.setDate(date.getDate() - i);
 			data.push({
 				date: date.toISOString().split('T')[0],
-				speed: 40 + Math.random() * 40 + (i * 0.5) // Gradually increasing trend
+				speed: 40 + Math.random() * 40 + i * 0.5 // Gradually increasing trend
 			});
 		}
 		return data;
@@ -125,7 +125,10 @@
 			let completedCount = 0;
 			let recentReading: { chars: number; time: number; date?: string } | null = null;
 
-			const seriesStats = new Map<string, { volumes: number; totalChars: number; totalTime: number; speeds: number[] }>();
+			const seriesStats = new Map<
+				string,
+				{ volumes: number; totalChars: number; totalTime: number; speeds: number[] }
+			>();
 			const completedVols: CompletedVolume[] = [];
 
 			for (const s of series) {
@@ -146,13 +149,12 @@
 
 						if (progress.completed && progress.page >= vol.pageCount) {
 							completedCount++;
-							const speed = progress.timeRead > 0 ? (progress.charsRead / progress.timeRead) : 0;
+							const speed = progress.timeRead > 0 ? progress.charsRead / progress.timeRead : 0;
 							speeds.push(speed);
 
 							// Add to completed volumes
-							const avgSpeed = speeds.length > 0
-								? speeds.reduce((a, b) => a + b, 0) / speeds.length
-								: 0;
+							const avgSpeed =
+								speeds.length > 0 ? speeds.reduce((a, b) => a + b, 0) / speeds.length : 0;
 							const vsAvg = avgSpeed > 0 ? ((speed - avgSpeed) / avgSpeed) * 100 : 0;
 
 							completedVols.push({
@@ -167,7 +169,10 @@
 
 							// Track most recent reading for recent speed
 							if (progress.lastReadAt) {
-								if (!recentReading || new Date(progress.lastReadAt) > new Date(recentReading.date || 0)) {
+								if (
+									!recentReading ||
+									new Date(progress.lastReadAt) > new Date(recentReading.date || 0)
+								) {
 									recentReading = {
 										chars: progress.charsRead,
 										time: progress.timeRead,
@@ -186,7 +191,7 @@
 				}
 
 				if (seriesTime > 0 && speeds.length > 0) {
-					const avgSpeed = seriesTime > 0 ? (seriesChars / seriesTime) : 0;
+					const avgSpeed = seriesTime > 0 ? seriesChars / seriesTime : 0;
 					const firstSpeed = speeds[0] || 0;
 					const lastSpeed = speeds.length > 1 ? speeds[speeds.length - 1] : avgSpeed;
 					const improvement = firstSpeed > 0 ? ((lastSpeed - firstSpeed) / firstSpeed) * 100 : 0;
@@ -208,9 +213,10 @@
 			}
 
 			// Calculate recent speed
-			const recentSpeed = recentReading && recentReading.time > 0
-				? Math.round(recentReading.chars / recentReading.time)
-				: 0;
+			const recentSpeed =
+				recentReading && recentReading.time > 0
+					? Math.round(recentReading.chars / recentReading.time)
+					: 0;
 
 			// Update achievements based on real data
 			achievements[0].unlocked = completedCount > 0;
@@ -226,9 +232,9 @@
 			speedBySeries.sort((a, b) => b.improvement - a.improvement);
 
 			// Sort completed volumes by date (most recent first)
-			completedVolumes = completedVols.sort((a, b) => 
-				new Date(b.dateFinished).getTime() - new Date(a.dateFinished).getTime()
-			).slice(0, 10); // Limit to 10 most recent
+			completedVolumes = completedVols
+				.sort((a, b) => new Date(b.dateFinished).getTime() - new Date(a.dateFinished).getTime())
+				.slice(0, 10); // Limit to 10 most recent
 
 			// Add mock data if no real data available
 			if (speedBySeries.length === 0) {
@@ -314,7 +320,7 @@
 
 	const getMaxSpeed = () => {
 		if (speedHistory.length === 0) return 100;
-		return Math.max(...speedHistory.map(d => d.speed)) * 1.2;
+		return Math.max(...speedHistory.map((d) => d.speed)) * 1.2;
 	};
 
 	const maxSpeed = $derived(getMaxSpeed());
@@ -335,7 +341,9 @@
 			class="relative w-full max-w-7xl max-h-[90vh] transform overflow-hidden rounded-2xl border border-theme-border bg-theme-surface shadow-2xl transition-all sm:my-8 flex flex-col"
 		>
 			<!-- Header -->
-			<div class="flex items-center justify-between px-6 py-4 bg-theme-main border-b border-theme-border">
+			<div
+				class="flex items-center justify-between px-6 py-4 bg-theme-main border-b border-theme-border"
+			>
 				<div class="flex items-center gap-3">
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
@@ -386,7 +394,9 @@
 					<div>
 						<h3 class="text-xl font-bold text-white mb-4">Reading Speed History</h3>
 						{#if stats.volumesCompleted === 0}
-							<div class="rounded-2xl bg-theme-main p-12 border border-theme-border-light text-center">
+							<div
+								class="rounded-2xl bg-theme-main p-12 border border-theme-border-light text-center"
+							>
 								<p class="text-2xl font-bold text-white mb-2">No Reading History Yet</p>
 								<p class="text-theme-secondary">Start reading to track your reading speed!</p>
 							</div>
@@ -397,7 +407,9 @@
 							<!-- Recent Speed -->
 							<div class="rounded-2xl bg-theme-main p-6 border border-theme-border-light">
 								<div class="flex items-center justify-between mb-4">
-									<p class="text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em]">Recent Speed</p>
+									<p class="text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em]">
+										Recent Speed
+									</p>
 									<svg
 										xmlns="http://www.w3.org/2000/svg"
 										width="20"
@@ -421,7 +433,9 @@
 							<!-- Characters Read -->
 							<div class="rounded-2xl bg-theme-main p-6 border border-theme-border-light">
 								<div class="flex items-center justify-between mb-4">
-									<p class="text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em]">Characters Read</p>
+									<p class="text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em]">
+										Characters Read
+									</p>
 									<svg
 										xmlns="http://www.w3.org/2000/svg"
 										width="20"
@@ -438,17 +452,19 @@
 									</svg>
 								</div>
 								<div class="text-2xl font-bold text-white">
-									{stats.charactersRead.toLocaleString()}
+									{stats.charactersRead}
 								</div>
 								<div class="text-xs text-gray-400 mt-1">
-									{stats.charactersRead.toLocaleString()} total
+									{stats.charactersRead} total
 								</div>
 							</div>
 
 							<!-- Volumes Completed -->
 							<div class="rounded-2xl bg-theme-main p-6 border border-theme-border-light">
 								<div class="flex items-center justify-between mb-4">
-									<p class="text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em]">Volumes Completed</p>
+									<p class="text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em]">
+										Volumes Completed
+									</p>
 									<svg
 										xmlns="http://www.w3.org/2000/svg"
 										width="20"
@@ -475,7 +491,9 @@
 							<!-- Total Time -->
 							<div class="rounded-2xl bg-theme-main p-6 border border-theme-border-light">
 								<div class="flex items-center justify-between mb-4">
-									<p class="text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em]">Total Time</p>
+									<p class="text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em]">
+										Total Time
+									</p>
 									<svg
 										xmlns="http://www.w3.org/2000/svg"
 										width="20"
@@ -524,7 +542,11 @@
 							</div>
 							<div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
 								{#each achievements as achievement}
-									<div class="rounded-2xl bg-theme-main p-4 border border-theme-border-light flex items-center gap-4 {achievement.unlocked ? '' : 'opacity-50'}">
+									<div
+										class="rounded-2xl bg-theme-main p-4 border border-theme-border-light flex items-center gap-4 {achievement.unlocked
+											? ''
+											: 'opacity-50'}"
+									>
 										<div class="flex-shrink-0">
 											{#if achievement.icon === 'trophy'}
 												<svg
@@ -559,7 +581,9 @@
 													stroke-linejoin="round"
 													class={achievement.color}
 												>
-													<path d="M17.75 9.01l4.5-2.5a1 1 0 0 0 0-1.78l-4.5-2.5a1 1 0 0 0-.75 0l-4.5 2.5a1 1 0 0 0 0 1.78l4.5 2.5a1 1 0 0 0 .75 0z" />
+													<path
+														d="M17.75 9.01l4.5-2.5a1 1 0 0 0 0-1.78l-4.5-2.5a1 1 0 0 0-.75 0l-4.5 2.5a1 1 0 0 0 0 1.78l4.5 2.5a1 1 0 0 0 .75 0z"
+													/>
 													<path d="M17 22V11a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v11" />
 													<path d="M7 10v12" />
 													<path d="M12 15v7" />
@@ -601,10 +625,16 @@
 								</div>
 								<div class="flex gap-2">
 									{#each ['week', 'month', '3months', '6months', 'year'] as filter}
-										{@const label = filter === '3months' ? '3 Months' : filter === '6months' ? '6 Months' : filter.charAt(0).toUpperCase() + filter.slice(1)}
+										{@const label =
+											filter === '3months'
+												? '3 Months'
+												: filter === '6months'
+													? '6 Months'
+													: filter.charAt(0).toUpperCase() + filter.slice(1)}
 										<button
-											onclick={() => selectedTimeFilter = filter as any}
-											class="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors {selectedTimeFilter === filter
+											onclick={() => (selectedTimeFilter = filter as any)}
+											class="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors {selectedTimeFilter ===
+											filter
 												? 'bg-accent text-white'
 												: 'bg-theme-main text-theme-secondary hover:text-white hover:bg-theme-surface-hover'}"
 										>
@@ -615,7 +645,8 @@
 							</div>
 							{#if stats.volumesCompleted === 0}
 								<p class="text-sm text-gray-400 mb-4">
-									Example data shown below. Your actual progress will appear after completing your first volume.
+									Example data shown below. Your actual progress will appear after completing your
+									first volume.
 								</p>
 							{/if}
 							<!-- Chart -->
@@ -630,8 +661,13 @@
 												title="{data.speed.toFixed(0)} chars/min"
 											></div>
 											{#if index % 7 === 0}
-												<span class="text-[10px] text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity">
-													{new Date(data.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+												<span
+													class="text-[10px] text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity"
+												>
+													{new Date(data.date).toLocaleDateString('en-US', {
+														month: 'short',
+														day: 'numeric'
+													})}
 												</span>
 											{/if}
 										</div>
@@ -641,20 +677,37 @@
 						</div>
 
 						<!-- Bottom Tables -->
-						<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+						<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-4">
 							<!-- Speed by Series -->
 							<div>
 								<h3 class="text-lg font-bold text-white mb-4">Speed by Series</h3>
-								<div class="rounded-2xl bg-theme-main border border-theme-border-light overflow-hidden">
+								<div
+									class="rounded-2xl bg-theme-main border border-theme-border-light overflow-hidden"
+								>
 									<div class="overflow-x-auto">
 										<table class="w-full text-sm">
 											<thead class="bg-theme-surface">
 												<tr>
-													<th class="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Series</th>
-													<th class="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Volumes</th>
-													<th class="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Avg Speed</th>
-													<th class="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Improvement</th>
-													<th class="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Action</th>
+													<th
+														class="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider"
+														>Series</th
+													>
+													<th
+														class="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider"
+														>Volumes</th
+													>
+													<th
+														class="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider"
+														>Avg Speed</th
+													>
+													<th
+														class="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider"
+														>Improvement</th
+													>
+													<th
+														class="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider"
+														>Action</th
+													>
 												</tr>
 											</thead>
 											<tbody class="divide-y divide-white/5">
@@ -684,16 +737,33 @@
 							<!-- Completed Volumes -->
 							<div>
 								<h3 class="text-lg font-bold text-white mb-4">Completed Volumes</h3>
-								<div class="rounded-2xl bg-theme-main border border-theme-border-light overflow-hidden">
+								<div
+									class="rounded-2xl bg-theme-main border border-theme-border-light overflow-hidden"
+								>
 									<div class="overflow-x-auto">
 										<table class="w-full text-sm">
 											<thead class="bg-theme-surface">
 												<tr>
-													<th class="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Series</th>
-													<th class="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Volume</th>
-													<th class="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Speed</th>
-													<th class="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Duration</th>
-													<th class="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Date Finished</th>
+													<th
+														class="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider"
+														>Series</th
+													>
+													<th
+														class="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider"
+														>Volume</th
+													>
+													<th
+														class="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider"
+														>Speed</th
+													>
+													<th
+														class="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider"
+														>Duration</th
+													>
+													<th
+														class="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider"
+														>Date Finished</th
+													>
 												</tr>
 											</thead>
 											<tbody class="divide-y divide-white/5">
@@ -710,11 +780,15 @@
 															<td class="px-4 py-3 text-theme-secondary">{vol.volumeTitle}</td>
 															<td class="px-4 py-3">
 																<div class="text-white">{vol.speed} cpm</div>
-																<div class="text-xs text-status-danger">-{Math.abs(vol.vsAvg)}% vs avg</div>
+																<div class="text-xs text-status-danger">
+																	-{Math.abs(vol.vsAvg)}% vs avg
+																</div>
 															</td>
 															<td class="px-4 py-3">
 																<div class="text-white">{formatTime(vol.duration)}</div>
-																<div class="text-xs text-gray-500">{vol.characters.toLocaleString()} chars</div>
+																<div class="text-xs text-gray-500">
+																	{vol.characters} chars
+																</div>
 															</td>
 															<td class="px-4 py-3 text-theme-secondary">
 																{formatDate(vol.dateFinished)}

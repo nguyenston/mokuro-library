@@ -13,10 +13,12 @@
 
 	// Define available categories
 	const categories = [
-		{ id: 'reader', label: 'Reader Settings', icon: 'book', component: ReaderSettings },
+		{ id: 'reader', label: 'Reader Settings', icon: 'book', component: ReaderSettings }
+	];
+
+	const categories_WIP = [
 		{ id: 'anki', label: 'Anki Connect', icon: 'link', component: AnkiSettings }, // TODO: Implement as part of Anki integration feature
 		{ id: 'library', label: 'Library Overview', icon: 'library', component: LibraryOverview }
-		// Add more categories here as you create them
 		// { id: 'users', label: 'User Management', icon: 'users', component: UserManagement },
 		// { id: 'version', label: 'Version History', icon: 'clock', component: VersionHistory },
 		// { id: 'defaults', label: 'Default Values', icon: 'settings', component: DefaultValues },

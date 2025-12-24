@@ -26,12 +26,10 @@
 	let quality = $state(0.5);
 </script>
 
-<div
-	class="w-full p-8 {inReader ? 'max-w-2xl' : 'max-w-4xl'}"
->
+<div class="w-full p-8 {inReader ? 'max-w-2xl' : 'max-w-4xl'}">
 	<div class="mb-8 flex items-center justify-between">
 		<div>
-			<h1 class="text-3xl font-bold text-white mb-2">Anki Connect</h1>
+			<h1 class="text-3xl font-bold text-white mb-2">Anki Connect (WIP)</h1>
 			<p class="text-base text-theme-secondary">WIP docs coming soon</p>
 		</div>
 		<button
@@ -57,9 +55,7 @@
 	<div class="space-y-5">
 		<MenuToggle label="AnkiConnect Integration Enabled" bind:checked={ankiConnectEnabled} />
 
-		<div
-			class="rounded-2xl bg-theme-main p-6 border border-theme-border-light space-y-4"
-		>
+		<div class="rounded-2xl bg-theme-main p-6 border border-theme-border-light space-y-4">
 			<div class="mb-2">
 				<p class="text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em]">Field Settings</p>
 			</div>
@@ -67,9 +63,7 @@
 			<MenuInput label="Sentence field:" bind:value={sentenceField} placeholder="Sentence" />
 		</div>
 
-		<div
-			class="rounded-2xl bg-theme-main p-6 border border-theme-border-light space-y-3"
-		>
+		<div class="rounded-2xl bg-theme-main p-6 border border-theme-border-light space-y-3">
 			<div class="mb-2">
 				<p class="text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em]">
 					Image/Sentence Actions
@@ -93,9 +87,7 @@
 			]}
 		/>
 
-		<div
-			class="rounded-2xl bg-theme-main p-6 border border-theme-border-light space-y-4"
-		>
+		<div class="rounded-2xl bg-theme-main p-6 border border-theme-border-light space-y-4">
 			<div class="mb-2">
 				<p class="text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em] mb-2">
 					Quality Settings
