@@ -240,23 +240,6 @@
 			isEditModalOpen = true;
 		}
 	};
-	const handleDeleteSeries = (seriesId: string, seriesTitle: string) => {
-		confirmation.open(
-			'Delete Series?',
-			`Are you sure you want to permanently delete "${seriesTitle}" and all ${
-				library.find((s) => s.id === seriesId)?.volumes.length ?? 'its'
-			} volumes?`,
-			async () => {
-				try {
-					await apiFetch(`/api/library/series/${seriesId}`, { method: 'DELETE' });
-					const params = new URLSearchParams(page.url.searchParams);
-					fetchLibrary(`?${params.toString()}`, true);
-				} catch (e) {
-					libraryError = `Failed to delete series: ${(e as Error).message}`;
-				}
-			}
-		);
-	};
 
 	const handleCardClick = (e: MouseEvent, seriesId: string) => {
 		if (uiState.isSelectionMode) {
@@ -271,6 +254,10 @@
 		fetchLibrary(`?${params.toString()}`, true);
 	};
 </script>
+
+<svelte:head>
+	<title>{$user ? `${$user.username}'s Library` : 'Loading library...'}</title>
+</svelte:head>
 
 <div
 	class="flex flex-col min-h-[calc(100vh-5rem)] mx-auto px-4 sm:px-6 pt-1 sm:pt-2 pb-6"

@@ -175,21 +175,6 @@
 		fileInput.value = '';
 	};
 
-	const handleDeleteVolume = (volumeId: string, volumeTitle: string) => {
-		confirmation.open(
-			'Delete Volume?',
-			`Are you sure you want to permanently delete "${volumeTitle}"?`,
-			async () => {
-				try {
-					await apiFetch(`/api/library/volume/${volumeId}`, { method: 'DELETE' });
-					await fetchSeriesData(seriesId);
-				} catch (e: any) {
-					error = e.message;
-				}
-			}
-		);
-	};
-
 	const handleOpenVolumeEdit = () => {
 		const selectedId = Array.from(uiState.selectedIds)[0];
 		if (!selectedId) return;
@@ -204,20 +189,6 @@
 	const handleRefresh = () => {
 		if (!series) return;
 		fetchSeriesData(series?.id);
-	};
-
-	const openDownloadMenu = (event: MouseEvent, id: string, kind: 'series' | 'volume') => {
-		event.preventDefault();
-		event.stopPropagation();
-		const rect = (event.currentTarget as HTMLButtonElement).getBoundingClientRect();
-		contextMenu.open(rect.left, rect.bottom, [
-			{ label: 'Download as ZIP', action: () => triggerDownload(`/api/export/${kind}/${id}/zip`) },
-			{
-				label: 'Download Metadata',
-				action: () => triggerDownload(`/api/export/${kind}/${id}/zip?include_images=false`)
-			},
-			{ label: 'Download as PDF', action: () => triggerDownload(`/api/export/${kind}/${id}/pdf`) }
-		]);
 	};
 
 	const toggleComplete = (vol: Volume) => {
