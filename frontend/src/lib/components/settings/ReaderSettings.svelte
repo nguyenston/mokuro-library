@@ -89,14 +89,14 @@ Vertical: continuous scroll"
 	/>
 
 	<MenuGridRadio
-		title="Direction"
-		tooltip="LTR: western comics
-RTL: manga/right-to-left"
+		title="Reading Direction"
+		tooltip="Left-to-Right: Western comics/books
+Right-to-Left: Manga and Japanese books"
 		bind:value={readerState.readingDirection}
 		layout={[2]}
 		options={[
-			{ value: 'ltr', label: 'LTR' },
-			{ value: 'rtl', label: 'RTL' }
+			{ value: 'ltr', label: 'Left-to-Right' },
+			{ value: 'rtl', label: 'Right-to-Left' }
 		]}
 	/>
 
@@ -138,6 +138,7 @@ Higher = easier nav, smaller OCR area."
 		<MenuToggle label="First Page Cover" bind:checked={readerState.firstPageIsCover} />
 		<MenuToggle label="Auto fullscreen" bind:checked={readerState.autoFullscreen} />
 		<MenuToggle label="Autohide HUD" bind:checked={readerState.hideHUD} />
+		<MenuToggle label="Auto-complete Volume" description="Mark volume as read when reaching the last page" bind:checked={readerState.autoCompleteVolume} />
 		<MenuToggle label="Show Char Count" bind:checked={showCharacterCount} />
 		<MenuToggle label="Show Timer" bind:checked={showTimer} />
 		<MenuToggle label="OCR Outline" bind:checked={readerState.showTriggerOutline} />
@@ -159,6 +160,16 @@ Higher = easier nav, smaller OCR area."
 			max={100}
 			step={1}
 			displayValue="{readerState.nightMode.intensity}%"
+		/>
+		<MenuSlider
+			label="Red Shift (%)"
+			tooltip="Reduce blue light by shifting colors toward red/orange spectrum.
+Helps reduce eye strain during night reading."
+			bind:value={readerState.nightMode.redShift}
+			min={0}
+			max={100}
+			step={1}
+			displayValue="{readerState.nightMode.redShift}%"
 		/>
 		<div class="space-y-2">
 			<div class="flex items-center justify-between">
@@ -361,6 +372,7 @@ Higher = easier nav, smaller OCR area."
 	:global(.reader-page) {
 		/* Apply invert first so brightness dims the result (keeping bg black), not the source */
 		filter: brightness(var(--reader-brightness, 100%))
-			brightness(var(--reader-invert-brightness, 100%)) invert(var(--reader-invert, 0%));
+			brightness(var(--reader-invert-brightness, 100%)) invert(var(--reader-invert, 0%))
+			sepia(var(--reader-red-shift, 0%)) hue-rotate(-20deg) saturate(120%);
 	}
 </style>

@@ -25,10 +25,12 @@ class ReaderState {
   showTriggerOutline = $state(false);
   autoFullscreen = $state(false);
   hideHUD = $state(false);
+  autoCompleteVolume = $state(false);
   nightMode = $state({
     enabled: false,
     scheduleEnabled: false,
     intensity: 100,
+    redShift: 0,
     startHour: 22,
     endHour: 6,
   });
@@ -108,6 +110,7 @@ class ReaderState {
           if (s.retainZoom !== undefined) this.retainZoom = s.retainZoom;
           if (s.navZoneWidth !== undefined) this.navZoneWidth = s.navZoneWidth;
           if (s.showTriggerOutline !== undefined) this.showTriggerOutline = s.showTriggerOutline;
+          if (s.autoCompleteVolume !== undefined) this.autoCompleteVolume = s.autoCompleteVolume;
 
           this.settingsInitialized = true;
         }
@@ -126,7 +129,8 @@ class ReaderState {
           c: this.firstPageIsCover,
           z: this.retainZoom,
           n: this.navZoneWidth,
-          t: this.showTriggerOutline
+          t: this.showTriggerOutline,
+          ac: this.autoCompleteVolume
         };
 
         // Don't save if we haven't loaded initial values yet (prevents overwriting DB with defaults)
@@ -235,6 +239,7 @@ class ReaderState {
 
       $effect(() => {
         const b = this.isNightModeActive ? this.nightMode.intensity : 100;
+        const redShift = this.isNightModeActive ? this.nightMode.redShift : 0;
 
         // Smart Invert Logic:
         // If active, fully invert (100%), but use intensity to adjust brightness (so it's not too harsh).
@@ -245,6 +250,7 @@ class ReaderState {
         document.documentElement.style.setProperty('--reader-brightness', `${b}%`);
         document.documentElement.style.setProperty('--reader-invert', `${inv}%`);
         document.documentElement.style.setProperty('--reader-invert-brightness', `${invBright}%`);
+        document.documentElement.style.setProperty('--reader-red-shift', `${redShift}%`);
       });
     });
   }
@@ -276,7 +282,8 @@ class ReaderState {
         firstPageIsCover: this.firstPageIsCover,
         retainZoom: this.retainZoom,
         navZoneWidth: this.navZoneWidth,
-        showTriggerOutline: this.showTriggerOutline
+        showTriggerOutline: this.showTriggerOutline,
+        autoCompleteVolume: this.autoCompleteVolume
       };
       await updateSettings(currentSettings);
     } catch (e) {
@@ -355,6 +362,10 @@ class ReaderState {
 
     if (this.layoutMode === 'single') {
       this.currentPageIndex += 1;
+      // Auto-complete volume when reaching the last page
+      if (this.autoCompleteVolume && this.currentPageIndex === this.totalPages - 1 && this.volume?.id) {
+        this.markVolumeComplete();
+      }
       return;
     }
 
@@ -364,6 +375,11 @@ class ReaderState {
       jump = 1;
     }
     this.currentPageIndex = Math.min(this.totalPages - 1, this.currentPageIndex + jump);
+
+    // Auto-complete volume when reaching the last page
+    if (this.autoCompleteVolume && this.currentPageIndex === this.totalPages - 1 && this.volume?.id) {
+      this.markVolumeComplete();
+    }
   }
 
   prevPage() {
@@ -410,6 +426,18 @@ class ReaderState {
   setFocusedBlock(block: MokuroBlock | null, page: MokuroPage | null) {
     this.focusedBlock = block;
     this.focusedPage = page;
+  }
+
+  async markVolumeComplete() {
+    if (!this.volume?.id) return;
+    try {
+      await apiFetch(`/api/metadata/volume/${this.volume.id}/progress`, {
+        method: 'PATCH',
+        body: { completed: true }
+      });
+    } catch (e) {
+      console.error('Failed to mark volume as complete', e);
+    }
   }
 }
 

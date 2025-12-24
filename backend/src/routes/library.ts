@@ -168,7 +168,15 @@ const libraryRoutes: FastifyPluginAsync = async (
     };
 
     if (q) {
-      where.sortTitle = { contains: q };
+      // Search across all title fields: English, Japanese, Romaji, and Synonyms
+      where.OR = [
+        { sortTitle: { contains: q } },
+        { title: { contains: q } },
+        { japaneseTitle: { contains: q } },
+        { romajiTitle: { contains: q } },
+        { synonyms: { contains: q } },
+        { folderName: { contains: q } }
+      ];
     }
 
     if (bookmarked) {

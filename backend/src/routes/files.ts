@@ -165,6 +165,43 @@ const filesRoutes: FastifyPluginAsync = async (fastify, opts): Promise<void> => 
       }
     }
   );
+
+  /**
+   * GET /api/files/preview
+   * Serves an image file by path for preview purposes (e.g., scraped covers before confirmation).
+   * Security: Only serves files within the user's upload directory.
+   */
+  fastify.get<{ Querystring: { path: string } }>(
+    '/preview',
+    async (request, reply) => {
+      const { path: filePath } = request.query;
+      const userId = request.user.id;
+
+      if (!filePath) {
+        return reply.status(400).send({ error: 'Missing path parameter' });
+      }
+
+      try {
+        // Security check: Ensure the file path starts with uploads/userId
+        const expectedPrefix = `uploads/${userId}/`;
+        if (!filePath.startsWith(expectedPrefix)) {
+          return reply.status(403).send({ error: 'Access denied' });
+        }
+
+        // Resolve the file path with normalization support
+        const validPath = await resolveNormalizedPath(fastify.projectRoot, filePath);
+
+        if (!validPath) {
+          return reply.status(404).send({ error: 'File not found' });
+        }
+
+        return reply.sendFile(validPath);
+      } catch (error) {
+        fastify.log.error(error);
+        return reply.status(500).send({ error: 'Error serving file' });
+      }
+    }
+  );
 };
 
 export default filesRoutes;

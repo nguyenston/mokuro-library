@@ -3,6 +3,8 @@
 	interface Series {
 		id: string;
 		title: string | null;
+		japaneseTitle?: string | null;
+		romajiTitle?: string | null;
 		folderName: string;
 		description: string | null;
 		coverPath: string | null;
@@ -41,7 +43,14 @@
 	};
 
 	let displayTitle = $derived(series.title ?? series.folderName);
-	let displaySubtitle = '';
+
+	// Display Japanese / Romaji format when both are available
+	let displayJapaneseTitle = $derived(
+		series.japaneseTitle && series.romajiTitle
+			? `${series.japaneseTitle} / ${series.romajiTitle}`
+			: series.japaneseTitle || series.romajiTitle || null
+	);
+
 	let fileInput: HTMLInputElement | undefined = $state();
 </script>
 
@@ -118,17 +127,19 @@
 		<div class="flex-grow flex flex-col min-w-0 text-center md:text-left">
 			<div class="relative pr-0 md:pr-12">
 				<h1
-					class="text-3xl sm:text-4xl lg:text-5xl font-bold text-theme-primary leading-tight tracking-tight drop-shadow-lg mb-2"
+					class="text-3xl sm:text-4xl lg:text-5xl font-bold text-theme-primary leading-tight tracking-tight drop-shadow-lg mb-2 select-text cursor-text"
 				>
 					{displayTitle}
 				</h1>
 
-				{#if displaySubtitle}
+				{#if displayJapaneseTitle}
 					<h2
-						class="text-lg sm:text-xl font-medium text-theme-secondary font-serif tracking-wide mb-4"
+						class="text-lg sm:text-xl font-medium text-theme-secondary tracking-wide mb-4 opacity-80 select-text cursor-text"
 					>
-						{displaySubtitle}
+						{displayJapaneseTitle}
 					</h2>
+				{:else}
+					<p class="text-theme-secondary/40 text-sm italic mb-4">No Japanese title</p>
 				{/if}
 
 				<div class="absolute top-0 right-0 flex items-center gap-2 hidden md:flex">

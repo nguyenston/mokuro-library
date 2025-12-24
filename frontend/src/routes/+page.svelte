@@ -13,6 +13,7 @@
 	import LibraryEntry from '$lib/components/LibraryEntry.svelte';
 	import EditSeriesModal from '$lib/components/EditSeriesModal.svelte';
 	import { type FilterStatus } from '$lib/states/uiState.svelte';
+	import { formatLastReadDate } from '$lib/utils/dateHelpers';
 
 	// --- Type Definitions ---
 	interface UserProgress {
@@ -45,6 +46,27 @@
 
 	let isEditModalOpen = $state(false);
 	let editModalTarget: Series | null = $state(null);
+
+	// --- Derived: Client-side sorting for progress ---
+	let sortedLibrary = $derived.by(() => {
+		if (uiState.sortKey !== 'progress') {
+			return library;
+		}
+
+		// Sort by progress percentage
+		const sorted = [...library].sort((a, b) => {
+			const progressA = getSeriesProgress(a).percent;
+			const progressB = getSeriesProgress(b).percent;
+
+			if (uiState.sortOrder === 'asc') {
+				return progressA - progressB;
+			} else {
+				return progressB - progressA;
+			}
+		});
+
+		return sorted;
+	});
 
 	// --- Helper: Calculate Series Progress ---
 	const getSeriesProgress = (series: Series) => {
@@ -83,7 +105,8 @@
 		uiState.setContext('library', 'Library', [
 			{ key: 'title', label: 'Title' },
 			{ key: 'updated', label: 'Last Updated' },
-			{ key: 'lastRead', label: 'Recent' }
+			{ key: 'lastRead', label: 'Recent' },
+			{ key: 'progress', label: '% Progress' }
 		]);
 	});
 
@@ -106,6 +129,7 @@
 				// Map Backend -> UI
 				if (sort === 'updated') uiState.sortKey = 'updated';
 				else if (sort === 'recent') uiState.sortKey = 'lastRead';
+				else if (sort === 'progress') uiState.sortKey = 'progress';
 				else uiState.sortKey = 'title';
 			}
 
@@ -156,6 +180,7 @@
 			let backendSort = 'title';
 			if (uiState.sortKey === 'updated') backendSort = 'updated';
 			if (uiState.sortKey === 'lastRead') backendSort = 'recent'; // 'recent' maps to lastReadAt in backend
+			if (uiState.sortKey === 'progress') backendSort = 'progress';
 
 			newParams.set('sort', backendSort);
 			newParams.set('order', uiState.sortOrder);
@@ -344,7 +369,7 @@
 						? 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6'
 						: 'flex flex-col gap-3'}"
 				>
-					{#each library as series (series.id)}
+					{#each sortedLibrary as series (series.id)}
 						{@const { percent, isRead } = getSeriesProgress(series)}
 						{@const isSelected = uiState.selectedIds.has(series.id)}
 
@@ -370,7 +395,7 @@
 							href={`/series/${series.id}`}
 							mainStat={`${series.volumes.length} ${series.volumes.length === 1 ? 'Vol' : 'Vols'}`}
 							subStat={series.lastReadAt
-								? `READ ${new Date(series.lastReadAt).toLocaleDateString()}`
+								? `READ ${formatLastReadDate(series.lastReadAt)}`
 								: ''}
 							onSelect={(e) => handleCardClick(e, series.id)}
 						>

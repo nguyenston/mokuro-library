@@ -36,6 +36,8 @@
 	interface Series {
 		id: string;
 		title: string | null;
+		japaneseTitle?: string | null;
+		romajiTitle?: string | null;
 		folderName: string;
 		description: string | null;
 		coverPath: string | null;
@@ -114,6 +116,8 @@
 					);
 				case 'lastRead':
 					return (uiState.sortOrder === 'asc' ? 1 : -1) * (statsA.lastRead - statsB.lastRead);
+				case 'progress':
+					return (uiState.sortOrder === 'asc' ? 1 : -1) * (statsA.percent - statsB.percent);
 				default:
 					return 0;
 			}
@@ -149,7 +153,8 @@
 					[
 						{ key: 'title', label: 'Number' },
 						{ key: 'updated', label: 'Date Added' },
-						{ key: 'lastRead', label: 'Recent' }
+						{ key: 'lastRead', label: 'Recent' },
+						{ key: 'progress', label: '% Progress' }
 					],
 					series.id
 				);

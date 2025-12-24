@@ -1,12 +1,7 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
-  provider = "prisma-client"
-
-  // for docker: 'linux-musl-openssl-3.0.x' is required for Alpine Linux
+  provider      = "prisma-client"
+  output        = "../src/generated/prisma"
   binaryTargets = ["native", "linux-musl-openssl-3.0.x", "windows"]
-  output   = "../src/generated/prisma"
 }
 
 datasource db {
@@ -14,131 +9,81 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// Stores metadata about a manga series
 model Series {
-  id          String    @id @default(cuid())
-  title       String?   // nullable
-  folderName  String    // always exists
-  coverPath   String?   // Path to the cover image
+  id            String   @id @default(cuid())
+  title         String?
+  folderName    String
+  coverPath     String?
+  description   String?
+  bookmarked    Boolean  @default(false)
+  status        Int      @default(0)
+  sortTitle     String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @default(now()) @updatedAt
+  lastReadAt    DateTime @default(dbgenerated("'1970-01-01T00:00:00.000Z'"))
+  ownerId       String
+  japaneseTitle String?
+  romajiTitle   String?
+  synonyms      String?
+  owner         User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  volumes       Volume[]
 
-  description String?
-  bookmarked  Boolean   @default(false)
-
-  // 0 = Unread, 1 = In Progress, 2 = Read
-  status      Int       @default(0)
-
-  // Always contains either 'title' or 'folderName'
-  sortTitle   String
-
-  createdAt   DateTime  @default(now()) // "Date Added"
-  updatedAt   DateTime  @updatedAt @default(now())     // "Recently Updated" (Refreshed on new volume)
-
-  // Updated manually when a child volume's progress is updated.
-  // Default is Epoch (1970) so unread items appear at the bottom of "Recently Read".
-  lastReadAt  DateTime  @default(dbgenerated("'1970-01-01T00:00:00.000Z'"))
-
-  volumes     Volume[]
-  owner       User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  ownerId     String    // Which user uploaded this
-
-  @@unique([folderName, ownerId]) // A user can't have two series with the same title
+  @@unique([folderName, ownerId])
 }
 
-// Stores metadata about a single volume
 model Volume {
-  id          String   @id @default(cuid())
-  title       String?  // defaults to folderName
-  folderName  String
-  pageCount   Int
-
-  // Always contains either 'title' or 'folderName'
-  sortTitle   String
-
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt @default(now())
-
-  // File paths on the NAS
-  filePath    String   @unique // Path to the folder containing the images
-  mokuroPath  String   @unique // Path to the .mokuro file
-
+  id             String         @id @default(cuid())
+  title          String?
+  folderName     String
+  pageCount      Int
+  sortTitle      String
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @default(now()) @updatedAt
+  filePath       String         @unique
+  mokuroPath     String         @unique
   coverImageName String?
+  seriesId       String
+  headPatchId    String?
+  history        HistoryChunk[]
+  progress       UserProgress[]
+  series         Series         @relation(fields: [seriesId], references: [id], onDelete: Cascade)
 
-  series      Series   @relation(fields: [seriesId], references: [id], onDelete: Cascade)
-  seriesId    String
-
-  progress    UserProgress[]
-
-  // Points to the UUID of the latest patch currently applied in the "Live Draft".
-  // If null, it means Head == Disk Version (Clean state).
-  headPatchId String?
-
-  // Relation to the history log
-  history   HistoryChunk[]
-
-  @@unique([seriesId, folderName]) // Prevent duplicate volumes within a series
+  @@unique([seriesId, folderName])
 }
 
 model HistoryChunk {
-  // Unique ID of this Chunk (not the patch ID)
   id              String   @id @default(uuid())
-
-  // Relation to Volume
   volumeId        String
+  previousChunkId String?
+  startPatchId    String
+  endPatchId      String
+  payload         Bytes
+  createdAt       DateTime @default(now())
   volume          Volume   @relation(fields: [volumeId], references: [id], onDelete: Cascade)
 
-  // Linked List of CHUNKS (Coarse Grain)
-  // Used to traverse history backwards if we need to load older chunks.
-  previousChunkId String?
-
-  // --- Metadata for Efficient Seeking ---
-  // The UUID of the FIRST patch inside this compressed blob
-  startPatchId    String
-  // The UUID of the LAST patch inside this compressed blob
-  endPatchId      String
-
-  // --- The Payload ---
-  // GZIP Compressed JSON Array of PatchOperation[] objects.
-  // We use Bytes (Blob) to store binary data efficiently in SQLite.
-  payload         Bytes
-
-  createdAt       DateTime @default(now())
-
-  // --- Indexes ---
-  // 1. [volumeId, endPatchId]: 
-  // Critical for the "Time Machine" lookup: "Find the chunk that contains Patch X".
-  // logic: findFirst where volumeId=V and endPatchId >= TargetPatchId order by createdAt asc
   @@index([volumeId, endPatchId])
 }
 
-// Stores user accounts and their settings
 model User {
-  id        String   @id @default(cuid())
-  username  String   @unique
-  password  String   // Will store a hash
-
-  settings  Json     // All reader settings
-
-  uploads   Series[]
-  progress  UserProgress[]
+  id       String         @id @default(cuid())
+  username String         @unique
+  password String
+  settings Json
+  uploads  Series[]
+  progress UserProgress[]
 }
 
-// Tracks the progress for a specific user and a specific volume
 model UserProgress {
-  id         String    @id @default(cuid())
-  page       Int       @default(1)
-  timeRead   Int       @default(0) // in minutes
-  charsRead  Int       @default(0)
-  completed  Boolean   @default(false)
-
-  // --- RECENTLY READ ---
-  // 1. @updatedAt: Automatically updates to NOW() whenever you save progress.
-  // 2. @default("1970..."): Forces existing database rows to have an "ancient" date 
-  lastReadAt DateTime  @updatedAt @default(dbgenerated("'1970-01-01T00:00:00.000Z'"))
-
-  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id         String   @id @default(cuid())
+  page       Int      @default(1)
+  timeRead   Int      @default(0)
+  charsRead  Int      @default(0)
+  completed  Boolean  @default(false)
+  lastReadAt DateTime @default(dbgenerated("'1970-01-01T00:00:00.000Z'")) @updatedAt
   userId     String
-  volume     Volume    @relation(fields: [volumeId], references: [id], onDelete: Cascade)
   volumeId   String
+  volume     Volume   @relation(fields: [volumeId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@unique([userId, volumeId]) // A user can only have one progress entry per volume
+  @@unique([userId, volumeId])
 }

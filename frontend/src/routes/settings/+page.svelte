@@ -10,10 +10,12 @@
 	import ReaderSettings from '$lib/components/settings/ReaderSettings.svelte';
 	import AnkiSettings from '$lib/components/settings/AnkiSettings.svelte';
 	import LibraryOverview from '$lib/components/settings/LibraryOverview.svelte';
+	import ScrapeMetadata from '$lib/components/settings/ScrapeMetadata.svelte';
 
 	// Define available categories
 	const categories = [
-		{ id: 'reader', label: 'Reader Settings', icon: 'book', component: ReaderSettings }
+		{ id: 'reader', label: 'Reader Settings', icon: 'book', component: ReaderSettings },
+		{ id: 'scrape', label: 'Scrape Metadata', icon: 'download', component: ScrapeMetadata }
 	];
 
 	const categories_WIP = [
@@ -67,6 +69,7 @@
 				'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75',
 			library: 'M22 12h-4l-3 9L9 3l-3 9H2',
 			clock: 'M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10zM12 6v6l4 2',
+			download: 'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3',
 			settings:
 				'M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z'
 		};
@@ -129,6 +132,8 @@
 							{:else if category.icon === 'clock'}
 								<circle cx="12" cy="12" r="10" />
 								<polyline points="12 6 12 12 16 14" />
+							{:else if category.icon === 'download'}
+								<path d={getIconPath(category.icon)} />
 							{:else}
 								<path d={getIconPath(category.icon)} />
 								<circle cx="12" cy="12" r="3" />

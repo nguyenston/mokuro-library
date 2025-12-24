@@ -11,11 +11,11 @@
 </script>
 
 <div>
-	<div class="block text-sm font-semibold text-gray-400 mb-2">{label}</div>
+	<div class="block text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em] mb-2">{label}</div>
 	<input
 		type="text"
 		bind:value
 		{placeholder}
-		class="w-full px-4 py-3 rounded-xl bg-black/20 border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:border-accent/50 focus:bg-black/30 transition-all duration-200"
+		class="w-full px-4 py-3 rounded-xl bg-theme-main border border-theme-border text-theme-primary placeholder-gray-500 focus:outline-none focus:border-accent transition-all duration-200"
 	/>
 </div>

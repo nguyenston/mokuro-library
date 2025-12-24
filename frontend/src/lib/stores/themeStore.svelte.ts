@@ -138,10 +138,10 @@ class ThemeStore {
           'card-highlight': '#f3f4f6', // Light Grey
           'border-color': '#e5e7eb', // Grey 200
           'primary-color': '#7c3aed', // Violet-600
-          'primary-hover': '#9333ea', // Purple-600
-          'primary-surface': '#f3e8ff',
-          'main-text': '#0b0d12', // Near Pitch Black (Darker than original background)
-          'muted-text': '#4b5563', // Grey 600 (Darker cool grey)
+          'primary-hover': '#6d28d9', // Violet-700
+          'primary-surface': '#f3e8ff', // Violet-100
+          'main-text': '#111827', // Gray-900 (high contrast)
+          'muted-text': '#4b5563', // Gray-600
           'reading-color': '#7c3aed'
         }
       }
@@ -200,16 +200,16 @@ class ThemeStore {
       'reading-color': '#6366f1'
     },
     light: {
-      'main-background': '#f8fafc',
-      'card-background': '#e2e8f0',
-      'card-highlight': '#cbd5e1',
-      'border-color': '#cbd5e1',
-      'primary-color': '#6366f1',
-      'primary-hover': '#4f46e5',
-      'primary-surface': '#3d4974',
-      'main-text': '#0f172a',
-      'muted-text': '#64748b',
-      'reading-color': '#6366f1'
+      'main-background': '#f8fafc', // slate-50
+      'card-background': '#ffffff', // white
+      'card-highlight': '#f1f5f9', // slate-100
+      'border-color': '#e2e8f0', // slate-200
+      'primary-color': '#4f46e5', // indigo-600
+      'primary-hover': '#4338ca', // indigo-700
+      'primary-surface': '#e0e7ff', // indigo-100 (Fixed from dark color)
+      'main-text': '#020617', // slate-950 (high contrast)
+      'muted-text': '#475569', // slate-600 (improved contrast)
+      'reading-color': '#4f46e5'
     }
   });
 
@@ -409,16 +409,16 @@ class ThemeStore {
         'reading-color': '#6366f1'
       },
       light: {
-        'main-background': '#f8fafc',
-        'card-background': '#e2e8f0',
-        'card-highlight': '#cbd5e1',
-        'border-color': '#cbd5e1',
-        'primary-color': '#6366f1',
-        'primary-hover': '#4f46e5',
-        'primary-surface': '#3d4974',
-        'main-text': '#0f172a',
-        'muted-text': '#64748b',
-        'reading-color': '#6366f1'
+        'main-background': '#f8fafc', // slate-50
+        'card-background': '#ffffff', // white
+        'card-highlight': '#f1f5f9', // slate-100
+        'border-color': '#e2e8f0', // slate-200
+        'primary-color': '#4f46e5', // indigo-600
+        'primary-hover': '#4338ca', // indigo-700
+        'primary-surface': '#e0e7ff', // indigo-100
+        'main-text': '#020617', // slate-950 (high contrast)
+        'muted-text': '#475569', // slate-600 (improved contrast)
+        'reading-color': '#4f46e5'
       }
     };
     if (this.isCustomThemeEnabled) {

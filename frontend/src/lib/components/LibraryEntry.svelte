@@ -110,7 +110,11 @@
 				class="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-black/90 via-black/60 to-transparent z-10"
 			></div>
 			<div class="absolute bottom-0 left-0 right-0 p-3 pb-2 z-20 flex flex-col justify-end">
-				<div class="font-bold text-white text-sm leading-tight line-clamp-2 drop-shadow-md">
+				<div
+					class="font-bold text-white text-sm leading-tight line-clamp-2 drop-shadow-md select-text cursor-text pointer-events-auto"
+					onclick={(e) => e.stopPropagation()}
+					onpointerdown={(e) => e.stopPropagation()}
+				>
 					{entry.title || entry.folderName}
 				</div>
 			</div>
@@ -233,7 +237,9 @@
 			<div class="flex items-start gap-2">
 				<div
 					class="text-base sm:text-lg font-bold text-theme-primary transition-colors group-hover:text-accent
-                line-clamp-2 leading-tight flex-grow"
+                line-clamp-2 leading-tight flex-grow select-text cursor-text pointer-events-auto"
+					onclick={(e) => e.stopPropagation()}
+					onpointerdown={(e) => e.stopPropagation()}
 				>
 					{entry.title || entry.folderName}
 				</div>

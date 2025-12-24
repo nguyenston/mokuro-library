@@ -156,7 +156,8 @@
 	function handleHexInput(e: Event) {
 		const value = (e.target as HTMLInputElement).value.replace('#', '');
 		if (/^[0-9A-Fa-f]{6}$/.test(value)) {
-			color = `#${value}`;
+			const hexColor = `#${value}`;
+			currentHsl = hexToHsl(hexColor);
 		}
 	}
 
@@ -208,6 +209,9 @@
 	const pickerX = $derived((currentHsl.s / 100) * 100);
 	const pickerY = $derived((1 - currentHsl.l / 100) * 100);
 	const hueX = $derived((currentHsl.h / 360) * 100);
+
+	// Derive current color from HSL
+	const displayColor = $derived(hslToHex(currentHsl.h, currentHsl.s, currentHsl.l));
 </script>
 
 <div
@@ -224,7 +228,8 @@
 		<div
 			bind:this={colorPickerRef}
 			class="relative w-full h-48 rounded-xl overflow-hidden cursor-crosshair mb-4 border border-white/10"
-			style="background: linear-gradient(to bottom, hsl({currentHsl.h}, 100%, 50%), transparent), linear-gradient(to right, white, transparent), black;"
+			style="background: linear-gradient(to bottom, transparent, black), linear-gradient(to right, white, hsl({currentHsl.h}, 100%, 50%));"
+			onclick={handleColorPickerClick}
 			onmousedown={(e) => {
 				startDrag();
 				handleColorPickerClick(e);
@@ -242,6 +247,7 @@
 			bind:this={hueSliderRef}
 			class="relative w-full h-6 rounded-lg overflow-hidden cursor-pointer mb-4 border border-white/10"
 			style="background: linear-gradient(to right, #ff0000, #ffff00, #00ff00, #00ffff, #0000ff, #ff00ff, #ff0000);"
+			onclick={handleHueSliderClick}
 			onmousedown={(e) => {
 				startHueDrag();
 				handleHueSliderClick(e);
@@ -259,7 +265,7 @@
 			<label class="text-xs font-bold text-gray-400 uppercase tracking-wider">HEX CODE</label>
 			<input
 				type="text"
-				value={color.toUpperCase()}
+				value={displayColor.toUpperCase()}
 				oninput={handleHexInput}
 				class="flex-1 px-3 py-2 rounded-lg bg-black/30 border border-white/10 text-white font-mono text-sm focus:outline-none focus:border-accent"
 				placeholder="#1E293B"

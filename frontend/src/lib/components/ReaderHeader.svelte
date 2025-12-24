@@ -32,8 +32,7 @@
 </script>
 
 <header
-	class="absolute top-0 left-0 right-0 z-40 flex h-12 items-center justify-between px-4 text-white touch-none transition-opacity duration-300
-           bg-theme-main/90 backdrop-blur-md border-b border-white/10 shadow-lg"
+	class="absolute top-0 left-0 right-0 z-40 flex h-12 items-center justify-between px-4 text-white touch-none transition-opacity duration-300"
 	class:opacity-0={readerState.hideHUD && !headerIsVisible && !isFontSizeOpen}
 	class:hover:opacity-100={readerState.hideHUD}
 	onpointerdown={(e: PointerEvent) => {
