@@ -10,6 +10,8 @@
 	// Fix: Explicitly type this as keyof ThemeColors to avoid index errors
 	let openColorPicker = $state<keyof ThemeColors | null>(null);
 	let openColorPickerMode = $state<'dark' | 'light' | null>(null);
+	let isDarkColorsExpanded = $state(false);
+	let isLightColorsExpanded = $state(false);
 
 	// Use theme store
 	const store = themeStore;
@@ -322,7 +324,27 @@
 
 					{#if customThemeEnabled}
 						<div class="space-y-6">
-							<div class="flex justify-end">
+							<div class="flex items-center justify-between gap-4">
+								<a
+									href="https://github.com/nguyenston/mokuro-library/issues"
+									target="_blank"
+									rel="noopener noreferrer"
+									class="flex items-center gap-2 text-xs text-theme-secondary hover:text-theme-primary transition-colors group"
+								>
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										width="16"
+										height="16"
+										viewBox="0 0 24 24"
+										fill="currentColor"
+										class="group-hover:scale-110 transition-transform"
+									>
+										<path
+											d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"
+										/>
+									</svg>
+									<span>Share your theme on GitHub</span>
+								</a>
 								<button
 									onclick={resetDefaults}
 									class="flex items-center gap-2 px-4 py-2 rounded-xl border border-theme-border-light bg-theme-main hover:bg-theme-surface-hover text-theme-secondary hover:text-theme-primary transition-colors"
@@ -347,146 +369,192 @@
 								</button>
 							</div>
 
-							<div>
-								<div class="flex items-center gap-2 mb-4">
+							<div class="rounded-2xl border border-theme-border-light bg-theme-main overflow-hidden">
+								<button
+									onclick={() => (isDarkColorsExpanded = !isDarkColorsExpanded)}
+									class="w-full flex items-center justify-between gap-2 px-4 py-3 hover:bg-theme-surface-hover transition-colors"
+								>
+									<div class="flex items-center gap-2">
+										<svg
+											xmlns="http://www.w3.org/2000/svg"
+											width="18"
+											height="18"
+											viewBox="0 0 24 24"
+											fill="none"
+											stroke="currentColor"
+											stroke-width="2"
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											class="text-theme-primary"
+										>
+											<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+										</svg>
+										<h4 class="text-sm font-bold text-theme-primary uppercase tracking-wider">
+											Dark Mode Colors
+										</h4>
+									</div>
 									<svg
 										xmlns="http://www.w3.org/2000/svg"
-										width="18"
-										height="18"
+										width="20"
+										height="20"
 										viewBox="0 0 24 24"
 										fill="none"
 										stroke="currentColor"
 										stroke-width="2"
 										stroke-linecap="round"
 										stroke-linejoin="round"
-										class="text-theme-primary"
+										class="text-theme-secondary transition-transform {isDarkColorsExpanded
+											? 'rotate-180'
+											: ''}"
 									>
-										<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+										<polyline points="6 9 12 15 18 9" />
 									</svg>
-									<h4 class="text-sm font-bold text-theme-primary uppercase tracking-wider">
-										Dark Mode Colors
-									</h4>
-								</div>
-								<div class="grid grid-cols-1 gap-3">
-									{#each colorEntries as entry}
-										{@const colorValue = customColors.dark[entry.key]}
-										<button
-											onclick={() => {
-												openColorPicker = entry.key;
-												openColorPickerMode = 'dark';
-											}}
-											class="flex items-center gap-4 px-4 py-3 rounded-xl border border-theme-border-light bg-theme-main hover:bg-theme-surface-hover hover:border-theme-border transition-all text-left group"
-										>
-											<div
-												class="w-14 h-14 rounded-lg border-2 border-white/20 flex-shrink-0 shadow-lg"
-												style="background-color: {colorValue};"
-											></div>
-											<div class="flex-1 min-w-0">
-												<div
-													class="text-xs font-bold text-theme-primary uppercase tracking-wider mb-1"
-												>
-													{entry.label}
-												</div>
-												<div class="text-xs text-theme-secondary mb-1">
-													{entry.description}
-												</div>
-												<div class="text-sm font-mono text-theme-tertiary">
-													{colorValue.toUpperCase()}
-												</div>
-											</div>
-											<svg
-												xmlns="http://www.w3.org/2000/svg"
-												width="16"
-												height="16"
-												viewBox="0 0 24 24"
-												fill="none"
-												stroke="currentColor"
-												stroke-width="2"
-												stroke-linecap="round"
-												stroke-linejoin="round"
-												class="text-theme-secondary group-hover:text-theme-primary transition-colors"
+								</button>
+								{#if isDarkColorsExpanded}
+									<div class="px-4 pb-4 pt-2 space-y-3 border-t border-theme-border-light">
+										{#each colorEntries as entry}
+											{@const colorValue = customColors.dark[entry.key]}
+											<button
+												onclick={() => {
+													openColorPicker = entry.key;
+													openColorPickerMode = 'dark';
+												}}
+												class="w-full flex items-center gap-4 px-4 py-3 rounded-xl border border-theme-border-light bg-theme-surface hover:bg-theme-surface-hover hover:border-theme-border transition-all text-left group"
 											>
-												<path d="M7 7h10v10" />
-												<path d="M7 17L17 7" />
-											</svg>
-										</button>
-									{/each}
-								</div>
+												<div
+													class="w-14 h-14 rounded-lg border-2 border-white/20 flex-shrink-0 shadow-lg"
+													style="background-color: {colorValue};"
+												></div>
+												<div class="flex-1 min-w-0">
+													<div
+														class="text-xs font-bold text-theme-primary uppercase tracking-wider mb-1"
+													>
+														{entry.label}
+													</div>
+													<div class="text-xs text-theme-secondary mb-1">
+														{entry.description}
+													</div>
+													<div class="text-sm font-mono text-theme-tertiary">
+														{colorValue.toUpperCase()}
+													</div>
+												</div>
+												<svg
+													xmlns="http://www.w3.org/2000/svg"
+													width="16"
+													height="16"
+													viewBox="0 0 24 24"
+													fill="none"
+													stroke="currentColor"
+													stroke-width="2"
+													stroke-linecap="round"
+													stroke-linejoin="round"
+													class="text-theme-secondary group-hover:text-theme-primary transition-colors"
+												>
+													<path d="M7 7h10v10" />
+													<path d="M7 17L17 7" />
+												</svg>
+											</button>
+										{/each}
+									</div>
+								{/if}
 							</div>
 
-							<div>
-								<div class="flex items-center gap-2 mb-4">
+							<div class="rounded-2xl border border-theme-border-light bg-theme-main overflow-hidden">
+								<button
+									onclick={() => (isLightColorsExpanded = !isLightColorsExpanded)}
+									class="w-full flex items-center justify-between gap-2 px-4 py-3 hover:bg-theme-surface-hover transition-colors"
+								>
+									<div class="flex items-center gap-2">
+										<svg
+											xmlns="http://www.w3.org/2000/svg"
+											width="18"
+											height="18"
+											viewBox="0 0 24 24"
+											fill="none"
+											stroke="currentColor"
+											stroke-width="2"
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											class="text-theme-primary"
+										>
+											<circle cx="12" cy="12" r="5" />
+											<line x1="12" y1="1" x2="12" y2="3" />
+											<line x1="12" y1="21" x2="12" y2="23" />
+											<line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+											<line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+											<line x1="1" y1="12" x2="3" y2="12" />
+											<line x1="21" y1="12" x2="23" y2="12" />
+											<line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+											<line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+										</svg>
+										<h4 class="text-sm font-bold text-theme-primary uppercase tracking-wider">
+											Light Mode Colors
+										</h4>
+									</div>
 									<svg
 										xmlns="http://www.w3.org/2000/svg"
-										width="18"
-										height="18"
+										width="20"
+										height="20"
 										viewBox="0 0 24 24"
 										fill="none"
 										stroke="currentColor"
 										stroke-width="2"
 										stroke-linecap="round"
 										stroke-linejoin="round"
-										class="text-theme-primary"
+										class="text-theme-secondary transition-transform {isLightColorsExpanded
+											? 'rotate-180'
+											: ''}"
 									>
-										<circle cx="12" cy="12" r="5" />
-										<line x1="12" y1="1" x2="12" y2="3" />
-										<line x1="12" y1="21" x2="12" y2="23" />
-										<line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
-										<line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
-										<line x1="1" y1="12" x2="3" y2="12" />
-										<line x1="21" y1="12" x2="23" y2="12" />
-										<line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
-										<line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+										<polyline points="6 9 12 15 18 9" />
 									</svg>
-									<h4 class="text-sm font-bold text-theme-primary uppercase tracking-wider">
-										Light Mode Colors
-									</h4>
-								</div>
-								<div class="grid grid-cols-1 gap-3">
-									{#each colorEntries as entry}
-										{@const colorValue = customColors.light[entry.key]}
-										<button
-											onclick={() => {
-												openColorPicker = entry.key;
-												openColorPickerMode = 'light';
-											}}
-											class="flex items-center gap-4 px-4 py-3 rounded-xl border border-theme-border-light bg-theme-main hover:bg-theme-surface-hover hover:border-theme-border transition-all text-left group"
-										>
-											<div
-												class="w-14 h-14 rounded-lg border-2 border-white/20 flex-shrink-0 shadow-lg"
-												style="background-color: {colorValue};"
-											></div>
-											<div class="flex-1 min-w-0">
-												<div
-													class="text-xs font-bold text-theme-primary uppercase tracking-wider mb-1"
-												>
-													{entry.label}
-												</div>
-												<div class="text-xs text-theme-secondary mb-1">
-													{entry.description}
-												</div>
-												<div class="text-sm font-mono text-theme-tertiary">
-													{colorValue.toUpperCase()}
-												</div>
-											</div>
-											<svg
-												xmlns="http://www.w3.org/2000/svg"
-												width="16"
-												height="16"
-												viewBox="0 0 24 24"
-												fill="none"
-												stroke="currentColor"
-												stroke-width="2"
-												stroke-linecap="round"
-												stroke-linejoin="round"
-												class="text-theme-secondary group-hover:text-theme-primary transition-colors"
+								</button>
+								{#if isLightColorsExpanded}
+									<div class="px-4 pb-4 pt-2 space-y-3 border-t border-theme-border-light">
+										{#each colorEntries as entry}
+											{@const colorValue = customColors.light[entry.key]}
+											<button
+												onclick={() => {
+													openColorPicker = entry.key;
+													openColorPickerMode = 'light';
+												}}
+												class="w-full flex items-center gap-4 px-4 py-3 rounded-xl border border-theme-border-light bg-theme-surface hover:bg-theme-surface-hover hover:border-theme-border transition-all text-left group"
 											>
-												<path d="M7 7h10v10" />
-												<path d="M7 17L17 7" />
-											</svg>
-										</button>
-									{/each}
-								</div>
+												<div
+													class="w-14 h-14 rounded-lg border-2 border-white/20 flex-shrink-0 shadow-lg"
+													style="background-color: {colorValue};"
+												></div>
+												<div class="flex-1 min-w-0">
+													<div
+														class="text-xs font-bold text-theme-primary uppercase tracking-wider mb-1"
+													>
+														{entry.label}
+													</div>
+													<div class="text-xs text-theme-secondary mb-1">
+														{entry.description}
+													</div>
+													<div class="text-sm font-mono text-theme-tertiary">
+														{colorValue.toUpperCase()}
+													</div>
+												</div>
+												<svg
+													xmlns="http://www.w3.org/2000/svg"
+													width="16"
+													height="16"
+													viewBox="0 0 24 24"
+													fill="none"
+													stroke="currentColor"
+													stroke-width="2"
+													stroke-linecap="round"
+													stroke-linejoin="round"
+													class="text-theme-secondary group-hover:text-theme-primary transition-colors"
+												>
+													<path d="M7 7h10v10" />
+													<path d="M7 17L17 7" />
+												</svg>
+											</button>
+										{/each}
+									</div>
+								{/if}
 							</div>
 						</div>
 					{/if}

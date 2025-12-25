@@ -157,7 +157,7 @@
 				</div>
 				<button
 					onclick={handleClose}
-					class="p-2 rounded-lg text-theme-secondary hover:text-white hover:bg-theme-surface-hover transition-colors"
+					class="p-2 rounded-lg text-theme-secondary hover:theme-primary hover:bg-theme-surface-hover transition-colors"
 					aria-label="Close"
 				>
 					<svg
@@ -333,7 +333,7 @@
 					{:else}
 						<div class="space-y-6 text-theme-primary">
 							<section class="space-y-3">
-								<h3 class="text-lg font-bold text-white flex items-center gap-2">
+								<h3 class="text-lg font-bold theme-primary flex items-center gap-2">
 									<svg
 										xmlns="http://www.w3.org/2000/svg"
 										width="20"
@@ -398,7 +398,7 @@
 							</section>
 
 							<section class="space-y-3">
-								<h3 class="text-lg font-bold text-white flex items-center gap-2">
+								<h3 class="text-lg font-bold theme-primary flex items-center gap-2">
 									<svg
 										xmlns="http://www.w3.org/2000/svg"
 										width="20"

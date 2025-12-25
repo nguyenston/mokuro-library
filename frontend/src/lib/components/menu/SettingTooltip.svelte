@@ -79,7 +79,7 @@
 <div class="relative inline-flex items-center">
 	<button
 		type="button"
-		class="ml-2 inline-flex items-center justify-center w-5 h-5 rounded-full border border-theme-border-light text-theme-secondary hover:text-white hover:border-accent hover:bg-accent/10 transition-colors cursor-help"
+		class="ml-2 inline-flex items-center justify-center w-5 h-5 rounded-full border border-theme-border-light text-theme-secondary hover:theme-primary hover:border-accent hover:bg-accent/10 transition-colors cursor-help"
 		onpointerenter={handlePointerEnter}
 		onpointerleave={handlePointerLeave}
 		onpointerdown={handlePointerDown}
@@ -113,7 +113,7 @@
 				class="relative bg-theme-main border border-theme-border-light rounded-xl shadow-2xl p-4 min-w-[220px] max-w-[320px] pointer-events-auto"
 				transition:scale={{ duration: 150, start: 0.95 }}
 			>
-				<p class="text-sm text-white leading-relaxed font-medium whitespace-pre-line">
+				<p class="text-sm theme-primary leading-relaxed font-medium whitespace-pre-line">
 					{content}
 				</p>
 				<!-- Arrow -->
