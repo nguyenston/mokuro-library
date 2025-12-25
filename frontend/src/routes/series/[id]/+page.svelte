@@ -35,6 +35,8 @@
 	interface Series {
 		id: string;
 		title: string | null;
+		japaneseTitle?: string | null;
+		romajiTitle?: string | null;
 		folderName: string;
 		description: string | null;
 		coverPath: string | null;
