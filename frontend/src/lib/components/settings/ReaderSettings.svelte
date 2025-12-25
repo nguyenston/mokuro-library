@@ -94,8 +94,8 @@
 		bind:value={readerState.readingDirection}
 		layout={[2]}
 		options={[
-			{ value: 'ltr', label: 'Left-to-Right' },
-			{ value: 'rtl', label: 'Right-to-Left' }
+			{ value: 'ltr', label: 'Left to Right' },
+			{ value: 'rtl', label: 'Right to Left' }
 		]}
 	/>
 
