@@ -16,30 +16,33 @@ datasource db {
 
 // Stores metadata about a manga series
 model Series {
-  id          String    @id @default(cuid())
-  title       String?   // nullable
-  folderName  String    // always exists
-  coverPath   String?   // Path to the cover image
+  id            String    @id @default(cuid())
+  title         String?   // nullable
+  folderName    String    // always exists
+  coverPath     String?   // Path to the cover image
 
-  description String?
-  bookmarked  Boolean   @default(false)
+  description   String?
+  bookmarked    Boolean   @default(false)
 
   // 0 = Unread, 1 = In Progress, 2 = Read
-  status      Int       @default(0)
+  status        Int       @default(0)
 
   // Always contains either 'title' or 'folderName'
-  sortTitle   String
+  sortTitle     String
+  japaneseTitle String?
+  romajiTitle   String?
+  synonyms      String?
 
-  createdAt   DateTime  @default(now()) // "Date Added"
-  updatedAt   DateTime  @updatedAt @default(now())     // "Recently Updated" (Refreshed on new volume)
+  createdAt     DateTime  @default(now()) // "Date Added"
+  updatedAt     DateTime  @updatedAt @default(now())     // "Recently Updated" (Refreshed on new volume)
 
   // Updated manually when a child volume's progress is updated.
   // Default is Epoch (1970) so unread items appear at the bottom of "Recently Read".
-  lastReadAt  DateTime  @default(dbgenerated("'1970-01-01T00:00:00.000Z'"))
+  lastReadAt    DateTime  @default(dbgenerated("'1970-01-01T00:00:00.000Z'"))
 
-  volumes     Volume[]
-  owner       User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  ownerId     String    // Which user uploaded this
+  volumes       Volume[]
+  owner         User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  ownerId       String    // Which user uploaded this
 
   @@unique([folderName, ownerId]) // A user can't have two series with the same title
 }
