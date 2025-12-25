@@ -4,6 +4,7 @@
 	import { confirmation } from '$lib/confirmationStore';
 	import { triggerDownload } from '$lib/api';
 	import { contextMenu } from '$lib/contextMenuStore';
+	import { onMount, onDestroy } from 'svelte';
 
 	let {
 		type = 'series',
@@ -18,6 +19,21 @@
 	let isProcessing = $state(false);
 
 	let selectionCount = $derived(uiState.selectedIds.size);
+
+	// Handle Escape key to exit selection mode
+	const handleKeyDown = (e: KeyboardEvent) => {
+		if (e.key === 'Escape' && uiState.isSelectionMode) {
+			uiState.exitSelectionMode();
+		}
+	};
+
+	onMount(() => {
+		window.addEventListener('keydown', handleKeyDown);
+	});
+
+	onDestroy(() => {
+		window.removeEventListener('keydown', handleKeyDown);
+	});
 
 	// --- Actions ---
 

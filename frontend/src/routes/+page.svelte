@@ -13,6 +13,7 @@
 	import LibraryEntry from '$lib/components/LibraryEntry.svelte';
 	import EditSeriesModal from '$lib/components/EditSeriesModal.svelte';
 	import { type FilterStatus } from '$lib/states/uiState.svelte';
+	import { formatLastReadDate } from '$lib/utils/dateHelpers';
 
 	// --- Type Definitions ---
 	interface UserProgress {
@@ -369,9 +370,7 @@
 							}}
 							href={`/series/${series.id}`}
 							mainStat={`${series.volumes.length} ${series.volumes.length === 1 ? 'Vol' : 'Vols'}`}
-							subStat={series.lastReadAt
-								? `READ ${new Date(series.lastReadAt).toLocaleDateString()}`
-								: ''}
+							subStat={formatLastReadDate(series.lastReadAt)}
 							onSelect={(e) => handleCardClick(e, series.id)}
 						>
 							{#snippet circleAction()}

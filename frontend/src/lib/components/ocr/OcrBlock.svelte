@@ -4,6 +4,7 @@
 	import { contextMenu, type MenuOption } from '$lib/contextMenuStore';
 	import { lineOrderStore } from '$lib/lineOrderStore';
 	import { getImageDeltas, smartResizeFont, getRelativeCoords } from '$lib/utils/ocrMath';
+	import { readerState } from '$lib/states/ReaderState.svelte';
 	import type { OcrState } from '$lib/states/OcrState.svelte';
 
 	import OcrLine from './OcrLine.svelte';
@@ -454,8 +455,8 @@
 		{#snippet trigger()}
 			<div
 				class="absolute top-0 left-0 h-full w-full border transition-opacity z-1"
-				class:border-green-500={ocrState.showTriggerOutline}
-				class:border-transparent={!ocrState.showTriggerOutline}
+				class:border-green-500={ocrState.showTriggerOutline || readerState.ocrMode !== 'READ'}
+				class:border-transparent={!ocrState.showTriggerOutline && readerState.ocrMode === 'READ'}
 			></div>
 		{/snippet}
 

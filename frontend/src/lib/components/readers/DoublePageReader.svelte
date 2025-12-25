@@ -102,6 +102,7 @@
 <style>
 	.reader-page {
 		filter: brightness(var(--reader-brightness, 100%))
-			brightness(var(--reader-invert-brightness, 100%)) invert(var(--reader-invert, 0%));
+			brightness(var(--reader-invert-brightness, 100%)) invert(var(--reader-invert, 0%))
+			sepia(var(--reader-red-shift, 0%)) hue-rotate(-20deg) saturate(120%);
 	}
 </style>

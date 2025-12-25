@@ -82,33 +82,33 @@ class ThemeStore {
       id: 'catppuccin',
       name: 'Catppuccin',
       previewColors: {
-        dark: ['#1e1e2e', '#181825', '#313244', '#89b4fa', '#313244'],
+        dark: ['#1e1e2e', '#181825', '#313244', '#587dbd', '#242f4a'],
         light: ['#eff1f5', '#e6e9ef', '#ccd0da', '#1e66f5', '#bcc0cc']
       },
       colors: {
         dark: {
-          'main-background': '#1e1e2e',
-          'card-background': '#181825',
-          'card-highlight': '#313244',
-          'border-color': '#313244',
-          'primary-color': '#89b4fa',
-          'primary-hover': '#74c7ec',
-          'primary-surface': '#333c57',
-          'main-text': '#cdd6f4',
-          'muted-text': '#bac2de',
-          'reading-color': '#89b4fa'
+          'main-background': '#1e1e2e',    // Mocha Base
+          'card-background': '#181825',    // Mocha Mantle
+          'card-highlight': '#313244',     // Mocha Surface0
+          'border-color': '#313244',       // Mocha Surface0
+          'primary-color': '#587dbd',      // Accessible Blue (4.58:1 Contrast)
+          'primary-hover': '#4c6fb8',      // Darkened Blue for interaction
+          'primary-surface': '#242f4a',    // Deep Blue Surface (Mocha Overlay0/1 mix)
+          'main-text': '#cdd6f4',          // Mocha Text
+          'muted-text': '#bac2de',         // Mocha Subtext1
+          'reading-color': '#587dbd'       // Accessible Blue
         },
         light: {
-          'main-background': '#eff1f5', // Latte Base
-          'card-background': '#ffffff', // White
-          'card-highlight': '#ccd0da', // Latte Surface0
-          'border-color': '#bcc0cc', // Latte Surface1
-          'primary-color': '#1e66f5', // Latte Blue
-          'primary-hover': '#179299', // Latte Teal
-          'primary-surface': '#dce0e8', // Latte Crust
-          'main-text': '#181825', // Using Dark Mode's "Mantle" color for high contrast text
-          'muted-text': '#4c4f69', // Using Latte "Text" color for muted (darker than subtext)
-          'reading-color': '#1e66f5'
+          'main-background': '#eff1f5',    // Latte Base
+          'card-background': '#ffffff',    // White
+          'card-highlight': '#ccd0da',     // Latte Surface0
+          'border-color': '#bcc0cc',       // Latte Surface1
+          'primary-color': '#1e66f5',      // Latte Blue
+          'primary-hover': '#179299',      // Latte Teal
+          'primary-surface': '#dce0e8',    // Latte Crust
+          'main-text': '#181825',          // Mantle (for high contrast text)
+          'muted-text': '#4c4f69',         // Latte Text (muted)
+          'reading-color': '#1e66f5'       // Latte Blue
         }
       }
     },
@@ -133,16 +133,16 @@ class ThemeStore {
           'reading-color': '#bd93f9'
         },
         light: {
-          'main-background': '#f8f8f2', // Cream
-          'card-background': '#ffffff', // White
-          'card-highlight': '#f3f4f6', // Light Grey
-          'border-color': '#e5e7eb', // Grey 200
-          'primary-color': '#7c3aed', // Violet-600
-          'primary-hover': '#9333ea', // Purple-600
-          'primary-surface': '#f3e8ff',
-          'main-text': '#0b0d12', // Near Pitch Black (Darker than original background)
-          'muted-text': '#4b5563', // Grey 600 (Darker cool grey)
-          'reading-color': '#7c3aed'
+          'main-background': '#4a5568', // lighter purple-gray
+          'card-background': '#556270', // lighter purple-gray for cards
+          'card-highlight': '#6272a4', // even lighter purple-gray for hover
+          'border-color': '#6272a4', // visible borders
+          'primary-color': '#bd93f9', // purple
+          'primary-hover': '#c9a9ff', // lighter purple for hover
+          'primary-surface': '#616284', // tinted purple-gray/purple blend
+          'main-text': '#f8f8f2', // foreground (cream)
+          'muted-text': '#a0a0a0', // lighter muted text
+          'reading-color': '#bd93f9' // purple
         }
       }
     },
@@ -151,32 +151,32 @@ class ThemeStore {
       name: 'Gruvbox',
       previewColors: {
         dark: ['#282828', '#3c3836', '#504945', '#fe8019', '#504945'],
-        light: ['#fbf1c7', '#ebdbb2', '#d5c4a1', '#d65d0e', '#d5c4a1']
+        light: ['#f2efe1', '#e4dec5', '#d2cbb2', '#af3a03', '#d2cbb2']
       },
       colors: {
         dark: {
-          'main-background': '#282828',
-          'card-background': '#3c3836',
-          'card-highlight': '#504945',
-          'border-color': '#504945',
-          'primary-color': '#fe8019',
-          'primary-hover': '#d65d0e',
-          'primary-surface': '#533926',
-          'main-text': '#ebdbb2',
-          'muted-text': '#a89984',
+          'main-background': '#282828',    // Dark0
+          'card-background': '#3c3836',    // Dark1
+          'card-highlight': '#504945',     // Dark2
+          'border-color': '#504945',       // Dark2
+          'primary-color': '#fe8019',      // Bright Orange
+          'primary-hover': '#d65d0e',      // Neutral Orange
+          'primary-surface': '#533926',    // Darkened Orange Surface
+          'main-text': '#ebdbb2',          // Light1
+          'muted-text': '#a89984',         // Gray
           'reading-color': '#fe8019'
         },
         light: {
-          'main-background': '#fbf1c7', // Cream
-          'card-background': '#ebdbb2', // Beige
-          'card-highlight': '#d5c4a1', // Darker Beige
-          'border-color': '#bdae93', // Distinct border
-          'primary-color': '#c2410c', // Orange-700 (Darkened for light mode)
-          'primary-hover': '#ea580c', // Orange-600
-          'primary-surface': '#f2e5bc',
-          'main-text': '#1c1917', // Stone-900 (Near black warm grey)
-          'muted-text': '#57534e', // Stone-600 (Darker warm grey)
-          'reading-color': '#c2410c'
+          'main-background': '#f2efe1',    // Desaturated Cream (More "Paper" than "Lemon")
+          'card-background': '#e4dec5',    // Desaturated Beige
+          'card-highlight': '#d2cbb2',     // Desaturated Darker Beige
+          'border-color': '#b6af9a',       // Adjusted Border
+          'primary-color': '#af3a03',      // Dark Orange
+          'primary-hover': '#9d3202',      // Deep Rust
+          'primary-surface': '#ebe5cf',    // Desaturated Tinted Surface
+          'main-text': '#1c1917',          // Stone-900
+          'muted-text': '#57534e',         // Stone-600
+          'reading-color': '#af3a03'
         }
       }
     }
@@ -200,16 +200,16 @@ class ThemeStore {
       'reading-color': '#6366f1'
     },
     light: {
-      'main-background': '#f8fafc',
-      'card-background': '#e2e8f0',
-      'card-highlight': '#cbd5e1',
-      'border-color': '#cbd5e1',
-      'primary-color': '#6366f1',
-      'primary-hover': '#4f46e5',
-      'primary-surface': '#3d4974',
-      'main-text': '#0f172a',
-      'muted-text': '#64748b',
-      'reading-color': '#6366f1'
+      'main-background': '#f8fafc', // slate-50
+      'card-background': '#ffffff', // white
+      'card-highlight': '#f1f5f9', // slate-100
+      'border-color': '#e2e8f0', // slate-200
+      'primary-color': '#4f46e5', // indigo-600
+      'primary-hover': '#4338ca', // indigo-700
+      'primary-surface': '#e0e7ff', // indigo-100 (Fixed from dark color)
+      'main-text': '#020617', // slate-950 (high contrast)
+      'muted-text': '#475569', // slate-600 (improved contrast)
+      'reading-color': '#4f46e5'
     }
   });
 
@@ -409,16 +409,16 @@ class ThemeStore {
         'reading-color': '#6366f1'
       },
       light: {
-        'main-background': '#f8fafc',
-        'card-background': '#e2e8f0',
-        'card-highlight': '#cbd5e1',
-        'border-color': '#cbd5e1',
-        'primary-color': '#6366f1',
-        'primary-hover': '#4f46e5',
-        'primary-surface': '#3d4974',
-        'main-text': '#0f172a',
-        'muted-text': '#64748b',
-        'reading-color': '#6366f1'
+        'main-background': '#f8fafc', // slate-50
+        'card-background': '#ffffff', // white
+        'card-highlight': '#f1f5f9', // slate-100
+        'border-color': '#e2e8f0', // slate-200
+        'primary-color': '#4f46e5', // indigo-600
+        'primary-hover': '#4338ca', // indigo-700
+        'primary-surface': '#e0e7ff', // indigo-100
+        'main-text': '#020617', // slate-950 (high contrast)
+        'muted-text': '#475569', // slate-600 (improved contrast)
+        'reading-color': '#4f46e5'
       }
     };
     if (this.isCustomThemeEnabled) {
