@@ -224,16 +224,22 @@ async function scrapeFromProvider(
           body: JSON.stringify({ query, variables: { search: seriesName } }),
           signal: controller.signal
         });
+
+        if (!resp.ok) {
+          fastify.log.error(`AniList API returned ${resp.status}: ${resp.statusText}`);
+          return {};
+        }
+
         const result = await resp.json() as AniListResponse;
         const media = result.data?.Media;
         if (!media) return {};
 
         return {
-          englishName: fixMojibake(media.title.english),
-          romajiName: fixMojibake(media.title.romaji),
-          japaneseName: fixMojibake(media.title.native),
-          synonyms: (media.synonyms || []).map((s: string) => fixMojibake(s) || s),
-          description: fixMojibake(media.description),
+          englishName: fixMojibake(media.title?.english) || undefined,
+          romajiName: fixMojibake(media.title?.romaji) || undefined,
+          japaneseName: fixMojibake(media.title?.native) || undefined,
+          synonyms: (media.synonyms || []).map((s: string) => fixMojibake(s) || s).filter(Boolean),
+          description: fixMojibake(media.description) || undefined,
           coverUrl: media.coverImage?.extraLarge || media.coverImage?.large || media.coverImage?.medium || undefined
         };
       }
@@ -243,16 +249,22 @@ async function scrapeFromProvider(
           `https://api.jikan.moe/v4/manga?q=${encodeURIComponent(seriesName)}&limit=1`,
           { signal: controller.signal }
         );
-        const { data } = await resp.json() as MALResponse; // Cast to any or specific MAL interface
+
+        if (!resp.ok) {
+          fastify.log.error(`MAL API returned ${resp.status}: ${resp.statusText}`);
+          return {};
+        }
+
+        const { data } = await resp.json() as MALResponse;
         const manga = data?.[0];
         if (!manga) return {};
 
         return {
-          englishName: fixMojibake(manga.title_english),
-          romajiName: fixMojibake(manga.title),
-          japaneseName: fixMojibake(manga.title_japanese),
-          synonyms: (manga.title_synonyms || []).map((s: string) => fixMojibake(s) || s),
-          description: fixMojibake(manga.synopsis),
+          englishName: fixMojibake(manga.title_english) || undefined,
+          romajiName: fixMojibake(manga.title) || undefined,
+          japaneseName: fixMojibake(manga.title_japanese) || undefined,
+          synonyms: (manga.title_synonyms || []).map((s: string) => fixMojibake(s) || s).filter(Boolean),
+          description: fixMojibake(manga.synopsis) || undefined,
           coverUrl: manga.images?.jpg?.large_image_url || manga.images?.jpg?.image_url
         };
       }
@@ -262,16 +274,22 @@ async function scrapeFromProvider(
           `https://kitsu.io/api/edge/manga?filter[text]=${encodeURIComponent(seriesName)}&page[limit]=1`,
           { signal: controller.signal }
         );
+
+        if (!resp.ok) {
+          fastify.log.error(`Kitsu API returned ${resp.status}: ${resp.statusText}`);
+          return {};
+        }
+
         const { data } = await resp.json() as KitsuResponse;
         const manga = data?.[0]?.attributes;
         if (!manga) return {};
 
         return {
-          englishName: fixMojibake(manga.titles.en || manga.titles.en_jp),
-          romajiName: fixMojibake(manga.canonicalTitle),
-          japaneseName: fixMojibake(manga.titles.ja_jp),
-          synonyms: (manga.abbreviatedTitles || []).map((s: string) => fixMojibake(s) || s),
-          description: fixMojibake(manga.synopsis),
+          englishName: fixMojibake(manga.titles?.en || manga.titles?.en_jp) || undefined,
+          romajiName: fixMojibake(manga.canonicalTitle) || undefined,
+          japaneseName: fixMojibake(manga.titles?.ja_jp) || undefined,
+          synonyms: (manga.abbreviatedTitles || []).map((s: string) => fixMojibake(s) || s).filter(Boolean),
+          description: fixMojibake(manga.synopsis) || undefined,
           coverUrl: manga.posterImage?.large || manga.posterImage?.medium || manga.posterImage?.small || undefined
         };
       }
@@ -597,24 +615,28 @@ const metadataRoutes: FastifyPluginAsync = async (
         // 2. Scrape metadata from primary provider
         let scrapedData = await scrapeFromProvider(fastify, provider, seriesName);
 
-        // 3. Multi-provider fallback: If Japanese title is missing, try other providers
-        if (!scrapedData.japaneseName) {
+        // 3. Multi-provider fallback: silently fill missing fields from other providers
+        const needsFallback = !scrapedData.japaneseName || !scrapedData.romajiName || !scrapedData.description;
+
+        if (needsFallback) {
           const otherProviders: ('anilist' | 'mal' | 'kitsu')[] = ['anilist', 'mal', 'kitsu'].filter(p => p !== provider) as ('anilist' | 'mal' | 'kitsu')[];
 
           for (const fallbackProvider of otherProviders) {
+            // Only fetch if we still have missing fields
+            const stillMissing = !scrapedData.japaneseName || !scrapedData.romajiName || !scrapedData.description;
+            if (!stillMissing) break;
+
             const fallbackData = await scrapeFromProvider(fastify, fallbackProvider, seriesName);
 
-            // Fill in missing fields from fallback
+            // Fill in ONLY missing fields from fallback (don't replace existing data)
             if (fallbackData.japaneseName && !scrapedData.japaneseName) {
               scrapedData.japaneseName = fallbackData.japaneseName;
             }
             if (fallbackData.romajiName && !scrapedData.romajiName) {
               scrapedData.romajiName = fallbackData.romajiName;
             }
-
-            // Stop if we found Japanese title
-            if (scrapedData.japaneseName) {
-              break;
+            if (fallbackData.description && !scrapedData.description) {
+              scrapedData.description = fallbackData.description;
             }
 
             // Add delay to avoid rate limiting
@@ -622,7 +644,21 @@ const metadataRoutes: FastifyPluginAsync = async (
           }
         }
 
-        // 4. Download cover image if available
+        // 4. Prevent duplicate titles: if Japanese/Romaji is same as English, clear them
+        if (scrapedData.japaneseName && scrapedData.englishName &&
+            scrapedData.japaneseName === scrapedData.englishName) {
+          scrapedData.japaneseName = undefined;
+        }
+        if (scrapedData.romajiName && scrapedData.englishName &&
+            scrapedData.romajiName === scrapedData.englishName) {
+          scrapedData.romajiName = undefined;
+        }
+        if (scrapedData.romajiName && scrapedData.japaneseName &&
+            scrapedData.romajiName === scrapedData.japaneseName) {
+          scrapedData.romajiName = undefined;
+        }
+
+        // 5. Download cover image if available
         let tempCoverPath: string | undefined;
         if (scrapedData.coverUrl) {
           try {
@@ -650,7 +686,7 @@ const metadataRoutes: FastifyPluginAsync = async (
           }
         }
 
-        // 5. Return scraped data for preview (don't save yet)
+        // 6. Return scraped data for preview (don't save yet)
         return reply.status(200).send({
           current: {
             title: series.title,
@@ -672,11 +708,65 @@ const metadataRoutes: FastifyPluginAsync = async (
           }
         });
       } catch (err) {
-        fastify.log.error(err);
-        return reply.status(500).send({ message: 'Failed to scrape metadata' });
+        const errorMessage = err instanceof Error ? err.message : String(err);
+        const errorStack = err instanceof Error ? err.stack : undefined;
+        fastify.log.error({
+          error: errorMessage,
+          stack: errorStack,
+          seriesId,
+          seriesName,
+          provider
+        }, 'Failed to scrape metadata');
+        return reply.status(500).send({
+          error: 'Failed to scrape metadata',
+          message: errorMessage
+        });
       }
     }
   );
+
+  // GET /api/metadata/filters - Get description filters
+  fastify.get('/filters', async (request, reply) => {
+    try {
+      const filters = await fastify.prisma.descriptionFilter.findMany({
+        orderBy: { createdAt: 'asc' }
+      });
+      return reply.send(filters);
+    } catch (err) {
+      fastify.log.error(err, 'Failed to fetch description filters');
+      return reply.status(500).send({ error: 'Failed to fetch filters' });
+    }
+  });
+
+  // POST /api/metadata/filters - Save description filters
+  fastify.post('/filters', async (request, reply) => {
+    const { filters } = request.body as { filters: Array<{ pattern: string; isRegex: boolean; enabled: boolean }> };
+
+    try {
+      // Delete all existing filters
+      await fastify.prisma.descriptionFilter.deleteMany({});
+
+      // Insert new filters
+      if (filters && filters.length > 0) {
+        await fastify.prisma.descriptionFilter.createMany({
+          data: filters.map(f => ({
+            pattern: f.pattern,
+            isRegex: f.isRegex,
+            enabled: f.enabled
+          }))
+        });
+      }
+
+      const savedFilters = await fastify.prisma.descriptionFilter.findMany({
+        orderBy: { createdAt: 'asc' }
+      });
+
+      return reply.send(savedFilters);
+    } catch (err) {
+      fastify.log.error(err, 'Failed to save description filters');
+      return reply.status(500).send({ error: 'Failed to save filters' });
+    }
+  });
 };
 
 export default metadataRoutes;

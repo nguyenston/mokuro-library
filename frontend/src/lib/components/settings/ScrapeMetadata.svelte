@@ -3,6 +3,8 @@
 	import { apiFetch } from '$lib/api';
 	import { browser } from '$app/environment';
 	import MenuGridRadio from '$lib/components/menu/MenuGridRadio.svelte';
+	import { getRecommendedFiltersLocal, type FilterPattern } from '$lib/data/recommendedFilters';
+	// import { getRecommendedFiltersFromGitHub } from '$lib/data/recommendedFilters'; // TODO: Use this when ready
 
 	let { inReader = false }: { inReader?: boolean } = $props();
 
@@ -11,10 +13,13 @@
 		title: string;
 		missingCover: boolean;
 		missingDescription: boolean;
+		missingJapaneseTitle: boolean;
+		missingRomajiTitle: boolean;
 		volumeCount: number;
 	}
 
 	interface ScrapedPreview {
+		id: string; // Unique ID for each preview
 		seriesId: string;
 		seriesTitle: string;
 		searchQuery: string;
@@ -39,7 +44,7 @@
 		status: 'pending' | 'applying' | 'applied' | 'error';
 	}
 
-	type FilterMode = 'all' | 'missing-cover' | 'missing-description';
+	type FilterMode = 'all' | 'missing-cover' | 'missing-description' | 'missing-title';
 
 	let width = $state(0);
 	let isXs = $derived(width >= 480);
@@ -65,37 +70,27 @@
 	let newFilterText = $state('');
 	let newFilterIsRegex = $state(false);
 
-	// Default recommended filters
-	const defaultFilters: Omit<DescriptionFilter, 'id' | 'enabled'>[] = [
-		// Publisher sources
-		{ pattern: '\\(Source: VIZ Media\\)', isRegex: true },
-		{ pattern: '\\(Source: Kodansha USA\\)', isRegex: true },
-		{ pattern: '\\(Source: Seven Seas Entertainment\\)', isRegex: true },
-		{ pattern: '\\(Source: Yen Press\\)', isRegex: true },
-		{ pattern: '\\(Source: Dark Horse Manga\\)', isRegex: true },
-		{ pattern: '\\(Source: Tokyopop\\)', isRegex: true },
-		{ pattern: '\\(Source: NIS America\\)', isRegex: true },
-		{ pattern: '\\(Source: Denpa\\)', isRegex: true },
-		{ pattern: '\\(Source: Glacier Bay Books\\)', isRegex: true },
-		{ pattern: '\\(Source: Vertical\\)', isRegex: true },
-		{ pattern: '\\(Source: Anime News Network\\)', isRegex: true },
-		{ pattern: '\\(Source: SQUARE ENIX\\)', isRegex: true },
-		{ pattern: '\\(Source: Crunchyroll\\)', isRegex: true },
-		{ pattern: '\\(Source: [^)]+\\)', isRegex: true }, // Generic source pattern
-		// MAL Rewrite
-		{ pattern: '\\[Written by MAL Rewrite\\]', isRegex: true },
-		// HTML artifacts
-		{ pattern: '&mdash;', isRegex: false },
-		{ pattern: '&nbsp;', isRegex: false },
-		{ pattern: '&amp;', isRegex: false },
-		{ pattern: '&quot;', isRegex: false },
-		{ pattern: '<br\\s*/?>', isRegex: true },
-		{ pattern: '<i>|</i>', isRegex: true },
-		{ pattern: '<b>|</b>', isRegex: true },
-		// Trailing whitespace and multiple spaces
-		{ pattern: '\\s+$', isRegex: true },
-		{ pattern: '\\s{2,}', isRegex: true }
-	];
+	// Excluded series and section management
+	let excludedSeriesIds = $state<Set<string>>(new Set());
+	let scrapedSeriesIds = $state<Set<string>>(new Set());
+	let showMissingData = $state(false);  // Collapsed by default
+	let showScraped = $state(false);
+	let showExcluded = $state(false);
+
+	// Get recommended filters from local data
+	const recommendedFilters = getRecommendedFiltersLocal();
+
+	// Check if current filters include any recommended filters
+	const hasRecommendedFilters = $derived.by(() => {
+		if (descriptionFilters.length === 0) return false;
+
+		// Check if any current filter matches a recommended filter pattern
+		return recommendedFilters.some(rec =>
+			descriptionFilters.some(current =>
+				current.pattern === rec.pattern && current.isRegex === rec.isRegex
+			)
+		);
+	});
 
 	// Tracks current scraping preview (for individual scrape)
 	let currentPreview = $state<ScrapedPreview | null>(null);
@@ -104,6 +99,7 @@
 	// Tracks all pending previews (for bulk scrape)
 	let pendingPreviews = $state<ScrapedPreview[]>([]);
 	let isBulkScraping = $state(false);
+	let isBulkScrapingComplete = $state(false);
 
 	// Progress tracking for bulk scrape
 	let scrapeProgress = $state({
@@ -125,25 +121,42 @@
 			const libraryData = await apiFetch('/api/library?limit=10000');
 			const allSeries = libraryData.data || [];
 
-			// Filter series with missing cover or description
-			const seriesWithMissing: SeriesWithMissingData[] = [];
+			// Process all series and categorize them
+			const allSeriesData: SeriesWithMissingData[] = [];
+			const completeSeriesIds: string[] = [];
 
 			for (const s of allSeries) {
 				const missingCover = !s.coverPath;
 				const missingDescription = !s.description || s.description.trim() === '';
+				const missingJapaneseTitle = !s.japaneseTitle || s.japaneseTitle.trim() === '';
+				const missingRomajiTitle = !s.romajiTitle || s.romajiTitle.trim() === '';
 
-				if (missingCover || missingDescription) {
-					seriesWithMissing.push({
-						id: s.id,
-						title: s.title || s.folderName,
-						missingCover,
-						missingDescription,
-						volumeCount: s.volumes?.length || 0
-					});
+				const seriesData = {
+					id: s.id,
+					title: s.title || s.folderName,
+					missingCover,
+					missingDescription,
+					missingJapaneseTitle,
+					missingRomajiTitle,
+					volumeCount: s.volumes?.length || 0
+				};
+
+				// Add to the full list
+				allSeriesData.push(seriesData);
+
+				// If all metadata is complete, track as scraped (unless excluded)
+				if (!missingCover && !missingDescription && !missingJapaneseTitle && !missingRomajiTitle) {
+					if (!excludedSeriesIds.has(s.id)) {
+						completeSeriesIds.push(s.id);
+					}
 				}
 			}
 
-			series = seriesWithMissing;
+			// Auto-populate scraped series with complete metadata
+			scrapedSeriesIds = new Set(completeSeriesIds);
+			saveScrapedSeries();
+
+			series = allSeriesData;
 		} catch (error) {
 			console.error('Failed to fetch series:', error);
 		} finally {
@@ -151,13 +164,25 @@
 		}
 	}
 
-	// Filter series based on selected filter mode
-	const filteredSeries = $derived.by(() => {
-		if (filterMode === 'all') return series;
-		if (filterMode === 'missing-cover') return series.filter((s) => s.missingCover);
-		if (filterMode === 'missing-description') return series.filter((s) => s.missingDescription);
-		return series;
+	// Categorize series into three groups
+	const missingDataSeries = $derived.by(() => {
+		let filtered = series.filter(s => !excludedSeriesIds.has(s.id) && !scrapedSeriesIds.has(s.id));
+		if (filterMode === 'missing-cover') return filtered.filter((s) => s.missingCover);
+		if (filterMode === 'missing-description') return filtered.filter((s) => s.missingDescription);
+		if (filterMode === 'missing-title') return filtered.filter((s) => s.missingJapaneseTitle || s.missingRomajiTitle);
+		return filtered;
 	});
+
+	const scrapedSeries = $derived.by(() => {
+		return series.filter(s => scrapedSeriesIds.has(s.id));
+	});
+
+	const excludedSeries = $derived.by(() => {
+		return series.filter(s => excludedSeriesIds.has(s.id));
+	});
+
+	// Legacy support for existing code
+	const filteredSeries = $derived(missingDataSeries);
 
 	// Apply all enabled filters to description
 	function filterDescription(description: string | undefined): string | undefined {
@@ -170,11 +195,11 @@
 
 			try {
 				if (filter.isRegex) {
-					const regex = new RegExp(filter.pattern, 'gi');
-					result = result.replace(regex, '');
+					const regex = new RegExp(filter.pattern, 'gims');
+					result = result.replace(regex, ' ');
 				} else {
 					// Simple text replacement
-					result = result.split(filter.pattern).join('');
+					result = result.split(filter.pattern).join(' ');
 				}
 			} catch (e) {
 				console.warn(`Invalid filter pattern: ${filter.pattern}`, e);
@@ -187,37 +212,125 @@
 		return result;
 	}
 
-	// Save filters to localStorage
-	function saveFilters() {
-		if (browser) {
-			localStorage.setItem('mokuro_scrape_description_filters', JSON.stringify(descriptionFilters));
+	// Save filters to database
+	async function saveFilters() {
+		if (!browser) return;
+		try {
+			await apiFetch('/api/metadata/filters', {
+				method: 'POST',
+				body: {
+					filters: descriptionFilters.map(f => ({
+						pattern: f.pattern,
+						isRegex: f.isRegex,
+						enabled: f.enabled
+					}))
+				}
+			});
+		} catch (e) {
+			console.error('Failed to save filters:', e);
 		}
 	}
 
-	// Load filters from localStorage
-	function loadFilters() {
+	// Load filters from database
+	async function loadFilters() {
+		if (!browser) return;
+		try {
+			const filters = await apiFetch('/api/metadata/filters');
+			if (filters && Array.isArray(filters)) {
+				descriptionFilters = filters.map((f: any) => ({
+					id: f.id,
+					pattern: f.pattern,
+					isRegex: f.isRegex,
+					enabled: f.enabled
+				}));
+			}
+		} catch (e) {
+			console.error('Failed to load filters:', e);
+			descriptionFilters = [];
+		}
+	}
+
+	// Save excluded series to localStorage
+	function saveExcludedSeries() {
 		if (browser) {
-			const saved = localStorage.getItem('mokuro_scrape_description_filters');
+			localStorage.setItem('mokuro_excluded_series', JSON.stringify(Array.from(excludedSeriesIds)));
+		}
+	}
+
+	// Load excluded series from localStorage
+	function loadExcludedSeries() {
+		if (browser) {
+			const saved = localStorage.getItem('mokuro_excluded_series');
 			if (saved) {
 				try {
-					descriptionFilters = JSON.parse(saved);
+					excludedSeriesIds = new Set(JSON.parse(saved));
 				} catch (e) {
-					console.error('Failed to load filters:', e);
-					descriptionFilters = [];
+					console.error('Failed to load excluded series:', e);
+					excludedSeriesIds = new Set();
 				}
 			}
 		}
 	}
 
-	// Add default filters
-	function addDefaultFilters() {
-		const newFilters = defaultFilters.map((f) => ({
-			...f,
+	// Save scraped series to localStorage
+	function saveScrapedSeries() {
+		if (browser) {
+			localStorage.setItem('mokuro_scraped_series', JSON.stringify(Array.from(scrapedSeriesIds)));
+		}
+	}
+
+	// Load scraped series from localStorage
+	function loadScrapedSeries() {
+		if (browser) {
+			const saved = localStorage.getItem('mokuro_scraped_series');
+			if (saved) {
+				try {
+					scrapedSeriesIds = new Set(JSON.parse(saved));
+				} catch (e) {
+					console.error('Failed to load scraped series:', e);
+					scrapedSeriesIds = new Set();
+				}
+			}
+		}
+	}
+
+	// Exclude a series from scraping
+	function excludeSeries(seriesId: string) {
+		excludedSeriesIds = new Set([...excludedSeriesIds, seriesId]);
+		saveExcludedSeries();
+	}
+
+	// Restore a series to missing data
+	function restoreSeries(seriesId: string) {
+		const newSet = new Set(excludedSeriesIds);
+		newSet.delete(seriesId);
+		excludedSeriesIds = newSet;
+		saveExcludedSeries();
+	}
+
+	// Add/update recommended filters
+	async function addRecommendedFilters() {
+		// Keep only custom filters (ones not in recommended list)
+		const recommendedPatterns = new Set(recommendedFilters.map(f => `${f.pattern}|${f.isRegex}`));
+		const customFilters = descriptionFilters.filter(f => !recommendedPatterns.has(`${f.pattern}|${f.isRegex}`));
+
+		// Create fresh recommended filters
+		const freshRecommended = recommendedFilters.map((f) => ({
 			id: crypto.randomUUID(),
+			pattern: f.pattern,
+			isRegex: f.isRegex,
 			enabled: true
 		}));
-		descriptionFilters = [...descriptionFilters, ...newFilters];
-		saveFilters();
+
+		// Combine custom + fresh recommended
+		descriptionFilters = [...customFilters, ...freshRecommended];
+		await saveFilters();
+	}
+
+	// Clear all filters
+	async function clearAllFilters() {
+		descriptionFilters = [];
+		await saveFilters();
 	}
 
 	// Add custom filter
@@ -253,40 +366,80 @@
 		saveFilters();
 	}
 
+	// Helper to merge scraped data from multiple providers
+	async function scrapeWithFallback(seriesId: string, seriesTitle: string, primaryProvider: 'anilist' | 'mal' | 'kitsu') {
+		const providers: ('anilist' | 'mal' | 'kitsu')[] = ['anilist', 'mal', 'kitsu'];
+		const orderedProviders = [primaryProvider, ...providers.filter(p => p !== primaryProvider)];
+
+		let merged = {
+			title: undefined as string | undefined,
+			japaneseTitle: undefined as string | undefined,
+			romajiTitle: undefined as string | undefined,
+			synonyms: undefined as string | undefined,
+			description: undefined as string | undefined,
+			hasCover: undefined as boolean | undefined,
+			tempCoverPath: undefined as string | undefined
+		};
+		let current = null;
+
+		for (const provider of orderedProviders) {
+			try {
+				const response = await apiFetch('/api/metadata/series/scrape', {
+					method: 'POST',
+					body: {
+						seriesId,
+						seriesName: seriesTitle,
+						provider
+					}
+				});
+
+				if (response.error || !response.scraped) continue;
+
+				// Store current from first successful response
+				if (!current) current = response.current;
+
+				// Fill missing fields
+				if (!merged.title && response.scraped.title) merged.title = response.scraped.title;
+				if (!merged.japaneseTitle && response.scraped.japaneseTitle) merged.japaneseTitle = response.scraped.japaneseTitle;
+				if (!merged.romajiTitle && response.scraped.romajiTitle) merged.romajiTitle = response.scraped.romajiTitle;
+				if (!merged.synonyms && response.scraped.synonyms) merged.synonyms = response.scraped.synonyms;
+				if (!merged.description && response.scraped.description) merged.description = response.scraped.description;
+				if (merged.hasCover !== true && response.scraped.hasCover) merged.hasCover = response.scraped.hasCover;
+				if (!merged.tempCoverPath && response.scraped.tempCoverPath) merged.tempCoverPath = response.scraped.tempCoverPath;
+
+				// Break if all fields are filled
+				if (merged.title && merged.japaneseTitle && merged.romajiTitle && merged.synonyms &&
+				    merged.description && merged.tempCoverPath) break;
+			} catch (error) {
+				console.error(`Failed to scrape from ${provider}:`, error);
+			}
+		}
+
+		return { scraped: merged, current };
+	}
+
 	// Scrape metadata for a single series (shows preview)
 	async function scrapeSingleSeries(seriesId: string, seriesTitle: string) {
 		try {
 			isSingleScraping = true;
 
-			console.log('Scraping metadata for:', { seriesId, seriesTitle, provider: selectedProvider });
+			const { scraped, current } = await scrapeWithFallback(seriesId, seriesTitle, selectedProvider);
 
-			const response = await apiFetch('/api/metadata/series/scrape', {
-				method: 'POST',
-				body: {
-					seriesId,
-					seriesName: seriesTitle,
-					provider: selectedProvider
-				}
-			});
-
-			console.log('Scrape response:', response);
-
-			if (response.error) {
-				console.error('Scrape failed:', response.error);
-				alert(`Failed to scrape metadata: ${response.error}`);
+			if (!current) {
+				alert(`Failed to scrape metadata from all providers`);
 				return;
 			}
 
 			// Show preview modal with filtered description
 			currentPreview = {
+				id: crypto.randomUUID(),
 				seriesId,
 				seriesTitle,
 				searchQuery: seriesTitle,
-				current: response.current,
+				current,
 				scraped: {
-					...response.scraped,
-					description: filterDescription(response.scraped.description),
-					tempCoverPath: response.scraped.tempCoverPath
+					...scraped,
+					description: filterDescription(scraped.description)
 				},
 				status: 'pending'
 			};
@@ -321,13 +474,18 @@
 
 			preview.status = 'applied';
 
+			// Add to scraped series list and persist
+			scrapedSeriesIds = new Set([...scrapedSeriesIds, preview.seriesId]);
+			saveScrapedSeries();
+
 			// Remove from pending list if in bulk mode
 			if (isBulkScraping) {
 				scrapeProgress.confirmed++;
 				pendingPreviews = pendingPreviews.filter((p) => p.seriesId !== preview.seriesId);
-				// Auto-close bulk modal when all items are processed
-				if (pendingPreviews.length === 0) {
+				// Only close if scraping is complete AND no pending previews
+				if (isBulkScrapingComplete && pendingPreviews.length === 0) {
 					isBulkScraping = false;
+					isBulkScrapingComplete = false;
 				}
 			}
 
@@ -350,9 +508,10 @@
 		if (isBulkScraping) {
 			scrapeProgress.denied++;
 			pendingPreviews = pendingPreviews.filter((p) => p.seriesId !== preview.seriesId);
-			// Auto-close bulk modal when all items are processed
-			if (pendingPreviews.length === 0) {
+			// Only close if scraping is complete AND no pending previews
+			if (isBulkScrapingComplete && pendingPreviews.length === 0) {
 				isBulkScraping = false;
+				isBulkScrapingComplete = false;
 			}
 		}
 		if (currentPreview?.seriesId === preview.seriesId) {
@@ -361,11 +520,13 @@
 	}
 
 	// Scrape all filtered series (bulk mode) with progressive loading
+	// Only scrapes from missingDataSeries (excludes scraped and excluded series)
 	async function scrapeAll() {
 		isBulkScraping = true;
+		isBulkScrapingComplete = false;
 		pendingPreviews = [];
 
-		const seriesToScrape = filteredSeries;
+		const seriesToScrape = missingDataSeries;
 
 		// Initialize progress tracker
 		scrapeProgress = {
@@ -375,30 +536,31 @@
 			denied: 0
 		};
 
-		// Progressive loading: add results as they come in
-		for (const s of seriesToScrape) {
-			try {
-				const response = await apiFetch('/api/metadata/series/scrape', {
-					method: 'POST',
-					body: {
-						seriesId: s.id,
-						seriesName: s.title,
-						provider: selectedProvider
-					}
-				});
+		// Process series one at a time with UI yielding between each
+		let index = 0;
 
-				if (!response.error) {
+		async function scrapeNext() {
+			if (index >= seriesToScrape.length) return;
+
+			const s = seriesToScrape[index];
+			index++;
+
+			try {
+				const { scraped, current } = await scrapeWithFallback(s.id, s.title, selectedProvider);
+
+				if (current) {
 					// Add to pendingPreviews immediately so it appears in UI
 					pendingPreviews = [
 						...pendingPreviews,
 						{
+							id: crypto.randomUUID(),
 							seriesId: s.id,
 							seriesTitle: s.title,
 							searchQuery: s.title,
-							current: response.current,
+							current,
 							scraped: {
-								...response.scraped,
-								description: filterDescription(response.scraped.description)
+								...scraped,
+								description: filterDescription(scraped.description)
 							},
 							status: 'pending'
 						}
@@ -410,14 +572,24 @@
 					// Still count as scraped even if error
 					scrapeProgress.scraped++;
 				}
-
-				// Add delay to avoid rate limiting
-				await new Promise((resolve) => setTimeout(resolve, 1000));
 			} catch (error) {
 				console.error(`Failed to scrape ${s.title}:`, error);
 				scrapeProgress.scraped++;
 			}
+
+			// Schedule next scrape with delay, yielding to UI
+			if (index < seriesToScrape.length) {
+				await new Promise((resolve) => setTimeout(resolve, 1000));
+				// Use requestAnimationFrame to ensure UI updates
+				requestAnimationFrame(() => scrapeNext());
+			} else {
+				// Mark scraping as complete
+				isBulkScrapingComplete = true;
+			}
 		}
+
+		// Start scraping
+		scrapeNext();
 	}
 
 	// Re-scrape with updated search query
@@ -425,26 +597,20 @@
 		try {
 			preview.status = 'applying';
 
-			const response = await apiFetch('/api/metadata/series/scrape', {
-				method: 'POST',
-				body: {
-					seriesId: preview.seriesId,
-					seriesName: preview.searchQuery,
-					provider: selectedProvider
-				}
-			});
+			const { scraped, current } = await scrapeWithFallback(preview.seriesId, preview.searchQuery, selectedProvider);
 
-			if (response.error) {
-				console.error('Re-scrape failed:', response.error);
+			if (!current) {
+				console.error('Re-scrape failed: no results from any provider');
 				preview.status = 'error';
 				return;
 			}
 
-			// Update the preview with new scraped data
-			preview.current = response.current;
+			// Update the preview with new scraped data and new ID
+			preview.id = crypto.randomUUID();
+			preview.current = current;
 			preview.scraped = {
-				...response.scraped,
-				description: filterDescription(response.scraped.description)
+				...scraped,
+				description: filterDescription(scraped.description)
 			};
 			preview.status = 'pending';
 		} catch (error) {
@@ -462,6 +628,8 @@
 
 	onMount(() => {
 		loadFilters();
+		loadExcludedSeries();
+		loadScrapedSeries();
 		fetchSeriesWithMissingData();
 	});
 </script>
@@ -495,11 +663,12 @@
 			title="Filter"
 			tooltip="Filter series by what metadata is missing"
 			bind:value={filterMode}
-			layout={isXs ? [3] : [1, 1, 1]}
+			layout={isXs ? [4] : [1, 1, 1, 1]}
 			options={[
 				{ value: 'all', label: 'All Missing' },
 				{ value: 'missing-cover', label: 'Missing Cover' },
-				{ value: 'missing-description', label: 'Missing Desc' }
+				{ value: 'missing-description', label: 'Missing Desc' },
+				{ value: 'missing-title', label: 'Missing Title' }
 			]}
 		/>
 
@@ -517,14 +686,25 @@
 					</p>
 				</div>
 				<div class="flex gap-2">
-					{#if descriptionFilters.length === 0}
-						<button
-							onclick={addDefaultFilters}
-							class="px-3 py-1 rounded-lg bg-accent/20 text-accent hover:bg-accent/30 transition-colors text-xs font-semibold"
-						>
-							Add Defaults
-						</button>
-					{/if}
+					<button
+						onclick={addRecommendedFilters}
+						class="px-3 py-1 rounded-lg bg-accent/20 text-accent hover:bg-accent/30 transition-colors text-xs font-semibold"
+					>
+						{#if descriptionFilters.length === 0}
+							Add Recommended Filters
+						{:else if hasRecommendedFilters}
+							Update Recommended Filters
+						{:else}
+							Add Recommended Filters
+						{/if}
+					</button>
+					<button
+						onclick={clearAllFilters}
+						disabled={descriptionFilters.length === 0}
+						class="px-3 py-1 rounded-lg bg-red-500/20 text-red-500 hover:bg-red-500/30 transition-colors text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+					>
+						Clear All
+					</button>
 					<button
 						onclick={() => (showFilterManager = !showFilterManager)}
 						class="px-3 py-1 rounded-lg bg-accent/20 text-accent hover:bg-accent/30 transition-colors text-xs font-semibold"
@@ -612,8 +792,249 @@
 
 		<!-- Summary Card -->
 		<div class="rounded-2xl bg-theme-main p-6 border border-theme-border-light">
-			<div class="flex {isXs ? 'flex-row' : 'flex-col gap-2'} items-center justify-between mb-4">
-				<div class="flex items-center gap-2">
+			<div class="flex items-center gap-2 mb-4">
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					width="20"
+					height="20"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					class="text-accent"
+				>
+					<circle cx="12" cy="12" r="10" />
+					<line x1="12" y1="16" x2="12" y2="12" />
+					<line x1="12" y1="8" x2="12.01" y2="8" />
+				</svg>
+				<p class="text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em]">Summary</p>
+			</div>
+
+			{#if isLoading}
+				<div class="text-center py-8">
+					<div class="text-theme-secondary">Loading series...</div>
+				</div>
+			{:else}
+				<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 min-h-[60px]">
+					<div class="text-center">
+						<div class="text-2xl font-bold theme-primary">{series.length}</div>
+						<div class="text-xs text-gray-400 mt-1">Total Missing</div>
+					</div>
+					<div class="text-center">
+						<div class="text-2xl font-bold theme-primary">
+							{series.filter((s) => s.missingCover).length}
+						</div>
+						<div class="text-xs text-gray-400 mt-1">Cover</div>
+					</div>
+					<div class="text-center">
+						<div class="text-2xl font-bold theme-primary">
+							{series.filter((s) => s.missingDescription).length}
+						</div>
+						<div class="text-xs text-gray-400 mt-1">Description</div>
+					</div>
+					<div class="text-center">
+						<div class="text-2xl font-bold theme-primary">
+							{series.filter((s) => s.missingJapaneseTitle).length}
+						</div>
+						<div class="text-xs text-gray-400 mt-1">Japanese</div>
+					</div>
+					<div class="text-center">
+						<div class="text-2xl font-bold theme-primary">
+							{series.filter((s) => s.missingRomajiTitle).length}
+						</div>
+						<div class="text-xs text-gray-400 mt-1">Romaji</div>
+					</div>
+				</div>
+			{/if}
+		</div>
+
+		<!-- Three Collapsible Sections -->
+		{#if !isBulkScraping}
+			<!-- Section 1: Series with Missing Data -->
+			<div class="rounded-2xl bg-theme-main p-6 border border-theme-border-light">
+				<button
+					onclick={() => (showMissingData = !showMissingData)}
+					class="w-full flex items-center justify-between mb-4 hover:opacity-80 transition-opacity"
+				>
+					<div class="flex items-center gap-2">
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							width="18"
+							height="18"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							class="text-accent"
+						>
+							<path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20" />
+						</svg>
+						<p class="text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em]">
+							Series with Missing Data ({missingDataSeries.length})
+						</p>
+					</div>
+					<div class="flex items-center gap-2">
+						{#if showMissingData && !isLoading}
+							<button
+								onclick={(e) => { e.stopPropagation(); scrapeAll(); }}
+								disabled={missingDataSeries.length === 0 || isBulkScraping}
+								class="px-4 py-2 rounded-xl bg-accent text-white font-semibold
+									text-sm hover:bg-accent/80 transition-colors disabled:opacity-50
+									disabled:cursor-not-allowed"
+							>
+								{isBulkScraping ? 'Scraping...' : `Scrape All (${missingDataSeries.length})`}
+							</button>
+						{/if}
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							width="20"
+							height="20"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							class="text-theme-tertiary transition-transform {showMissingData ? 'rotate-180' : ''}"
+						>
+							<polyline points="6 9 12 15 18 9" />
+						</svg>
+					</div>
+				</button>
+
+				{#if showMissingData}
+					{#if isLoading}
+						<div class="text-center py-8">
+							<div class="text-theme-secondary">Loading...</div>
+						</div>
+					{:else if missingDataSeries.length === 0}
+						<div class="text-center py-8">
+							<div class="text-theme-secondary">
+								{filterMode === 'all'
+									? 'All series have complete metadata or are scraped/excluded!'
+									: filterMode === 'missing-cover' ? 'No series found with missing covers.'
+									: filterMode === 'missing-description' ? 'No series found with missing descriptions.'
+									: 'No series found with missing titles.'}
+							</div>
+						</div>
+					{:else}
+						<div class="space-y-3 max-h-[600px] overflow-y-auto">
+							{#each missingDataSeries as item (item.id)}
+								<div
+									class="flex {isXs
+										? 'flex-row items-center'
+										: 'flex-col gap-2'} gap-4 p-4 rounded-xl bg-theme-surface
+									hover:bg-theme-surface-hover transition-colors"
+								>
+									<div class="flex-1 min-w-0">
+										<p class="text-sm font-semibold theme-primary truncate">
+											{item.title}
+										</p>
+										<div class="flex items-center gap-2 mt-1 flex-wrap">
+											<span class="text-xs text-gray-400"
+												>{item.volumeCount} {item.volumeCount === 1 ? 'Vol' : 'Vols'}</span
+											>
+											{#if item.missingCover}
+												<span
+													class="px-1.5 py-0.5 rounded-md bg-red-500/20 border border-red-500/50 text-red-400 text-[10px] font-bold uppercase"
+												>
+													No Cov
+												</span>
+											{/if}
+											{#if item.missingDescription}
+												<span
+													class="px-1.5 py-0.5 rounded-md bg-orange-500/20 border border-orange-500/50 text-orange-400 text-[10px] font-bold uppercase"
+												>
+													No Desc
+												</span>
+											{/if}
+											{#if item.missingJapaneseTitle || item.missingRomajiTitle}
+												<span
+													class="px-1.5 py-0.5 rounded-md bg-blue-500/20 border border-blue-500/50 text-blue-400 text-[10px] font-bold uppercase"
+												>
+													No Title
+												</span>
+											{/if}
+										</div>
+									</div>
+
+									<div class="flex gap-2 {isXs ? '' : 'w-full'}">
+										<button
+											onclick={() => scrapeSingleSeries(item.id, item.title)}
+											disabled={isSingleScraping}
+											class="flex-1 px-4 py-2 rounded-lg bg-accent text-white hover:bg-accent/80 transition-all
+											duration-200 font-semibold text-sm disabled:opacity-50 disabled:cursor-not-allowed
+											flex justify-center gap-2"
+										>
+											{#if isSingleScraping}
+												<svg
+													class="animate-spin h-4 w-4"
+													xmlns="http://www.w3.org/2000/svg"
+													fill="none"
+													viewBox="0 0 24 24"
+												>
+													<circle
+														class="opacity-25"
+														cx="12"
+														cy="12"
+														r="10"
+														stroke="currentColor"
+														stroke-width="4"
+													></circle>
+													<path
+														class="opacity-75"
+														fill="currentColor"
+														d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+													></path>
+												</svg>
+											{/if}
+											{isSingleScraping ? 'Scraping...' : 'Scrape'}
+										</button>
+										<button
+											onclick={() => excludeSeries(item.id)}
+											class="px-3 py-2 rounded-lg bg-red-500/20 border border-red-500/50 text-red-400
+											hover:bg-red-500/30 transition-colors font-semibold text-sm"
+											title="Exclude from scraping"
+										>
+											Exclude
+										</button>
+									</div>
+								</div>
+							{/each}
+						</div>
+					{/if}
+				{/if}
+			</div>
+
+			<!-- Section 2: Scraped Manga -->
+			<div class="rounded-2xl bg-theme-main p-6 border border-theme-border-light">
+				<button
+					onclick={() => (showScraped = !showScraped)}
+					class="w-full flex items-center justify-between mb-4 hover:opacity-80 transition-opacity"
+				>
+					<div class="flex items-center gap-2">
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							width="18"
+							height="18"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							class="text-green-500"
+						>
+							<polyline points="20 6 9 17 4 12" />
+						</svg>
+						<p class="text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em]">
+							Scraped Manga ({scrapedSeries.length})
+						</p>
+					</div>
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
 						width="20"
@@ -624,156 +1045,163 @@
 						stroke-width="2"
 						stroke-linecap="round"
 						stroke-linejoin="round"
-						class="text-accent"
+						class="text-theme-tertiary transition-transform {showScraped ? 'rotate-180' : ''}"
 					>
-						<circle cx="12" cy="12" r="10" />
-						<line x1="12" y1="16" x2="12" y2="12" />
-						<line x1="12" y1="8" x2="12.01" y2="8" />
+						<polyline points="6 9 12 15 18 9" />
 					</svg>
-					<p class="text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em]">Summary</p>
-				</div>
-				{#if !isLoading}
-					<button
-						onclick={scrapeAll}
-						disabled={filteredSeries.length === 0 || isBulkScraping}
-						class="px-4 py-2 rounded-xl bg-accent text-white font-semibold
-              text-sm hover:bg-accent/80 transition-colors disabled:opacity-50
-              disabled:cursor-not-allowed {isXs ? '' : 'w-full'}"
-					>
-						{isBulkScraping ? 'Scraping...' : `Scrape All (${filteredSeries.length})`}
-					</button>
+				</button>
+
+				{#if showScraped}
+					{#if scrapedSeries.length === 0}
+						<div class="text-center py-8">
+							<div class="text-theme-secondary">No series have been scraped yet.</div>
+						</div>
+					{:else}
+						<div class="space-y-3 max-h-[600px] overflow-y-auto">
+							{#each scrapedSeries as item (item.id)}
+								<div
+									class="flex {isXs
+										? 'flex-row items-center'
+										: 'flex-col gap-2'} gap-4 p-4 rounded-xl bg-theme-surface
+									hover:bg-theme-surface-hover transition-colors"
+								>
+									<div class="flex-1 min-w-0">
+										<p class="text-sm font-semibold theme-primary truncate">
+											{item.title}
+										</p>
+										<div class="flex items-center gap-2 mt-1 flex-wrap">
+											<span class="text-xs text-gray-400"
+												>{item.volumeCount} {item.volumeCount === 1 ? 'Vol' : 'Vols'}</span
+											>
+											<span
+												class="px-1.5 py-0.5 rounded-md bg-green-500/20 border border-green-500/50 text-green-400 text-[10px] font-bold uppercase"
+											>
+												Scraped
+											</span>
+										</div>
+									</div>
+
+									<button
+										onclick={() => scrapeSingleSeries(item.id, item.title)}
+										disabled={isSingleScraping}
+										class="px-4 py-2 rounded-lg bg-accent text-white hover:bg-accent/80 transition-all
+										duration-200 font-semibold text-sm disabled:opacity-50 disabled:cursor-not-allowed
+										flex justify-center gap-2 {isXs ? '' : 'w-full'}"
+									>
+										{#if isSingleScraping}
+											<svg
+												class="animate-spin h-4 w-4"
+												xmlns="http://www.w3.org/2000/svg"
+												fill="none"
+												viewBox="0 0 24 24"
+											>
+												<circle
+													class="opacity-25"
+													cx="12"
+													cy="12"
+													r="10"
+													stroke="currentColor"
+													stroke-width="4"
+												></circle>
+												<path
+													class="opacity-75"
+													fill="currentColor"
+													d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+												></path>
+											</svg>
+										{/if}
+										{isSingleScraping ? 'Scraping...' : 'Re-scrape'}
+									</button>
+								</div>
+							{/each}
+						</div>
+					{/if}
 				{/if}
 			</div>
 
-			{#if isLoading}
-				<div class="text-center py-8">
-					<div class="text-theme-secondary">Loading series...</div>
-				</div>
-			{:else}
-				<div class="grid grid-cols-3 gap-4">
-					<div class="text-center">
-						<div class="text-2xl font-bold theme-primary">{series.length}</div>
-						<div class="text-xs text-gray-400 mt-1">Total Missing</div>
-					</div>
-					<div class="text-center">
-						<div class="text-2xl font-bold theme-primary">
-							{series.filter((s) => s.missingCover).length}
-						</div>
-						<div class="text-xs text-gray-400 mt-1">Missing Cover</div>
-					</div>
-					<div class="text-center">
-						<div class="text-2xl font-bold theme-primary">
-							{series.filter((s) => s.missingDescription).length}
-						</div>
-						<div class="text-xs text-gray-400 mt-1">Missing Description</div>
-					</div>
-				</div>
-			{/if}
-		</div>
-
-		<!-- Series List -->
-		{#if !isBulkScraping}
+			<!-- Section 3: Excluded Manga -->
 			<div class="rounded-2xl bg-theme-main p-6 border border-theme-border-light">
-				<div class="mb-4 flex {isXs ? 'flex-row' : 'flex-col gap-2'} items-center gap-2">
+				<button
+					onclick={() => (showExcluded = !showExcluded)}
+					class="w-full flex items-center justify-between mb-4 hover:opacity-80 transition-opacity"
+				>
+					<div class="flex items-center gap-2">
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							width="18"
+							height="18"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							class="text-red-500"
+						>
+							<circle cx="12" cy="12" r="10" />
+							<line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
+						</svg>
+						<p class="text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em]">
+							Excluded Manga ({excludedSeries.length})
+						</p>
+					</div>
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
-						width="18"
-						height="18"
+						width="20"
+						height="20"
 						viewBox="0 0 24 24"
 						fill="none"
 						stroke="currentColor"
 						stroke-width="2"
 						stroke-linecap="round"
 						stroke-linejoin="round"
-						class="text-accent"
+						class="text-theme-tertiary transition-transform {showExcluded ? 'rotate-180' : ''}"
 					>
-						<path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20" />
+						<polyline points="6 9 12 15 18 9" />
 					</svg>
-					<p class="text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em]">
-						Series with Missing Data
-					</p>
-				</div>
+				</button>
 
-				{#if isLoading}
-					<div class="text-center py-8">
-						<div class="text-theme-secondary">Loading...</div>
-					</div>
-				{:else if filteredSeries.length === 0}
-					<div class="text-center py-8">
-						<div class="text-theme-secondary">
-							{filterMode === 'all'
-								? 'All series have complete metadata!'
-								: `No series found with ${filterMode === 'missing-cover' ? 'missing covers' : 'missing descriptions'}.`}
+				{#if showExcluded}
+					{#if excludedSeries.length === 0}
+						<div class="text-center py-8">
+							<div class="text-theme-secondary">No series have been excluded.</div>
 						</div>
-					</div>
-				{:else}
-					<div class="space-y-3 max-h-[600px] overflow-y-auto">
-						{#each filteredSeries as item (item.id)}
-							<div
-								class="flex {isXs
-									? 'flex-row items-center'
-									: 'flex-col gap-2'} gap-4 p-4 rounded-xl bg-theme-surface
-                  hover:bg-theme-surface-hover transition-colors"
-							>
-								<div class="flex-1 min-w-0">
-									<p class="text-sm font-semibold theme-primary truncate">
-										{item.title}
-									</p>
-									<div class="flex items-center gap-2 mt-1">
-										<span class="text-xs text-gray-400"
-											>{item.volumeCount} {item.volumeCount === 1 ? 'Vol' : 'Vols'}</span
-										>
-										{#if item.missingCover}
+					{:else}
+						<div class="space-y-3 max-h-[600px] overflow-y-auto">
+							{#each excludedSeries as item (item.id)}
+								<div
+									class="flex {isXs
+										? 'flex-row items-center'
+										: 'flex-col gap-2'} gap-4 p-4 rounded-xl bg-theme-surface
+									hover:bg-theme-surface-hover transition-colors"
+								>
+									<div class="flex-1 min-w-0">
+										<p class="text-sm font-semibold theme-primary truncate">
+											{item.title}
+										</p>
+										<div class="flex items-center gap-2 mt-1 flex-wrap">
+											<span class="text-xs text-gray-400"
+												>{item.volumeCount} {item.volumeCount === 1 ? 'Vol' : 'Vols'}</span
+											>
 											<span
 												class="px-1.5 py-0.5 rounded-md bg-red-500/20 border border-red-500/50 text-red-400 text-[10px] font-bold uppercase"
 											>
-												No Cov
+												Excluded
 											</span>
-										{/if}
-										{#if item.missingDescription}
-											<span
-												class="px-1.5 py-0.5 rounded-md bg-orange-500/20 border border-orange-500/50 text-orange-400 text-[10px] font-bold uppercase"
-											>
-												No Desc
-											</span>
-										{/if}
+										</div>
 									</div>
-								</div>
 
-								<button
-									onclick={() => scrapeSingleSeries(item.id, item.title)}
-									disabled={isSingleScraping}
-									class="px-4 py-2 rounded-lg bg-accent text-white hover:bg-accent/80 transition-all
-                    duration-200 font-semibold text-sm disabled:opacity-50 disabled:cursor-not-allowed
-                    flex justify-center gap-2 {isXs ? '' : 'w-full'}"
-								>
-									{#if isSingleScraping}
-										<svg
-											class="animate-spin h-4 w-4"
-											xmlns="http://www.w3.org/2000/svg"
-											fill="none"
-											viewBox="0 0 24 24"
-										>
-											<circle
-												class="opacity-25"
-												cx="12"
-												cy="12"
-												r="10"
-												stroke="currentColor"
-												stroke-width="4"
-											></circle>
-											<path
-												class="opacity-75"
-												fill="currentColor"
-												d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-											></path>
-										</svg>
-									{/if}
-									{isSingleScraping ? 'Scraping...' : 'Scrape'}
-								</button>
-							</div>
-						{/each}
-					</div>
+									<button
+										onclick={() => restoreSeries(item.id)}
+										class="px-4 py-2 rounded-lg bg-green-500/20 border border-green-500/50 text-green-400
+										hover:bg-green-500/30 transition-colors font-semibold text-sm {isXs ? '' : 'w-full'}"
+									>
+										Restore
+									</button>
+								</div>
+							{/each}
+						</div>
+					{/if}
 				{/if}
 			</div>
 		{/if}
@@ -802,9 +1230,9 @@
 {#if isBulkScraping}
 	<div class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
 		<div
-			class="bg-theme-main rounded-2xl border border-accent max-w-6xl w-full max-h-[90vh] overflow-y-auto"
+			class="bg-theme-main rounded-2xl border border-accent max-w-6xl w-full h-[90vh] flex flex-col"
 		>
-			<div class="sticky top-0 bg-theme-main border-b border-accent p-6 z-10">
+			<div class="bg-theme-main border-b border-accent p-6 flex-shrink-0">
 				<div class="flex items-center justify-between mb-4">
 					<div class="flex items-center gap-3">
 						<svg
@@ -833,6 +1261,7 @@
 						onclick={() => {
 							pendingPreviews = [];
 							isBulkScraping = false;
+							isBulkScrapingComplete = false;
 						}}
 						class="p-2 text-theme-secondary hover:text-white hover:bg-white/10 rounded-lg transition-colors"
 						title="Close and discard all"
@@ -873,9 +1302,9 @@
 				</div>
 			</div>
 
-			<div class="p-6 space-y-4">
+			<div class="p-6 space-y-4 overflow-y-auto flex-1">
 				{#if pendingPreviews.length === 0}
-					<div class="text-center py-12">
+					<div class="text-center py-12 h-full flex flex-col items-center justify-center">
 						<svg
 							class="animate-spin h-12 w-12 text-accent mx-auto mb-4"
 							xmlns="http://www.w3.org/2000/svg"
@@ -902,7 +1331,7 @@
 						</p>
 					</div>
 				{:else}
-					{#each pendingPreviews as preview (preview.seriesId)}
+					{#each pendingPreviews as preview (preview.id)}
 						{@render previewCard(preview)}
 					{/each}
 				{/if}
@@ -912,14 +1341,14 @@
 {/if}
 
 {#snippet previewCard(preview: ScrapedPreview, isModal = false)}
-	<div class="p-6 {isModal ? '' : 'rounded-xl bg-theme-surface border border-theme-border'}">
-		<div class="mb-4">
-			<h3 class="text-xl font-bold text-theme-primary mb-1">{preview.seriesTitle}</h3>
+	<div class="p-6 {isModal ? '' : 'rounded-xl bg-theme-surface border border-theme-border'} flex flex-col min-h-[600px]">
+		<div class="mb-4 flex-shrink-0">
+			<h3 class="text-xl font-bold text-theme-primary mb-1 line-clamp-1">{preview.seriesTitle}</h3>
 			<p class="text-xs text-theme-secondary">Review changes before applying</p>
 		</div>
 
 		<!-- Editable Search Query -->
-		<div class="mb-6 p-4 rounded-xl bg-theme-main border border-theme-border">
+		<div class="mb-6 p-4 rounded-xl bg-theme-main border border-theme-border flex-shrink-0">
 			<div class="block text-xs text-theme-secondary mb-2">Search Query (edit if needed)</div>
 			<div class="flex gap-2">
 				<input
@@ -957,131 +1386,147 @@
 			</p>
 		</div>
 
-		<div class="mb-6">
-			<!-- Column Headers -->
-			<div class="grid grid-cols-2 gap-6 mb-6">
-				<div class="flex items-center gap-2">
-					<div class="w-2 h-2 rounded-full bg-gray-500"></div>
-					<h4 class="text-sm font-bold text-theme-tertiary uppercase tracking-wider">Current</h4>
+		<!-- Two-column layout: Metadata on left, Covers on right -->
+		<div class="flex gap-6 mb-6">
+			<!-- Left: Metadata Comparison -->
+			<div class="flex-1">
+				<!-- Column Headers -->
+				<div class="grid grid-cols-2 gap-4 mb-4">
+					<div class="flex items-center gap-2">
+						<div class="w-2 h-2 rounded-full bg-gray-500"></div>
+						<h4 class="text-xs font-bold text-theme-tertiary uppercase tracking-wider">Current</h4>
+					</div>
+					<div class="flex items-center gap-2">
+						<div class="w-2 h-2 rounded-full bg-accent"></div>
+						<h4 class="text-xs font-bold text-accent uppercase tracking-wider">Scraped</h4>
+					</div>
 				</div>
-				<div class="flex items-center gap-2">
-					<div class="w-2 h-2 rounded-full bg-accent"></div>
-					<h4 class="text-sm font-bold text-accent uppercase tracking-wider">Scraped</h4>
-				</div>
-			</div>
 
-			<!-- Title Row -->
-			<div class="grid grid-cols-2 gap-6 mb-4">
-				<div>
-					<p class="text-xs text-theme-secondary mb-1">Title (English/Romaji)</p>
-					<p class="text-sm text-theme-primary">
-						{#if preview.current.title}
-							{preview.current.title}
-						{:else}
-							<span class="text-theme-secondary italic">None</span>
-						{/if}
-					</p>
+				<!-- Title Row -->
+				<div class="grid grid-cols-2 gap-4 mb-3">
+					<div>
+						<p class="text-[10px] text-theme-secondary mb-1">Title</p>
+						<p class="text-sm text-theme-primary line-clamp-1">
+							{#if preview.current.title}
+								{preview.current.title}
+							{:else}
+								<span class="text-theme-secondary italic text-xs">None</span>
+							{/if}
+						</p>
+					</div>
+					<div>
+						<p class="text-[10px] text-theme-secondary mb-1">Title</p>
+						<p class="text-sm text-theme-primary line-clamp-1">
+							{#if preview.scraped.title}
+								{preview.scraped.title}
+							{:else}
+								<span class="text-theme-secondary italic text-xs">No change</span>
+							{/if}
+						</p>
+					</div>
 				</div>
-				<div>
-					<p class="text-xs text-theme-secondary mb-1">Title (English/Romaji)</p>
-					<p class="text-sm text-theme-primary">
-						{#if preview.scraped.title}
-							{preview.scraped.title}
-						{:else}
-							<span class="text-theme-secondary italic">No change</span>
-						{/if}
-					</p>
-				</div>
-			</div>
 
-			<!-- Japanese Title Row -->
-			<div class="grid grid-cols-2 gap-6 mb-4">
-				<div>
-					<p class="text-xs text-theme-secondary mb-1">Japanese Title (Kanji/Kana)</p>
-					<p class="text-sm text-theme-primary">
-						{#if preview.current.japaneseTitle}
-							{preview.current.japaneseTitle}
-						{:else}
-							<span class="text-theme-secondary italic">None</span>
-						{/if}
-					</p>
+				<!-- Japanese Title Row -->
+				<div class="grid grid-cols-2 gap-4 mb-3">
+					<div>
+						<p class="text-[10px] text-theme-secondary mb-1">Japanese</p>
+						<p class="text-sm text-theme-primary line-clamp-1">
+							{#if preview.current.japaneseTitle}
+								{preview.current.japaneseTitle}
+							{:else}
+								<span class="text-theme-secondary italic text-xs">None</span>
+							{/if}
+						</p>
+					</div>
+					<div>
+						<p class="text-[10px] text-theme-secondary mb-1">Japanese</p>
+						<p class="text-sm text-theme-primary line-clamp-1">
+							{#if preview.scraped.japaneseTitle}
+								{preview.scraped.japaneseTitle}
+							{:else}
+								<span class="text-theme-secondary italic text-xs">No change</span>
+							{/if}
+						</p>
+					</div>
 				</div>
-				<div>
-					<p class="text-xs text-theme-secondary mb-1">Japanese Title (Kanji/Kana)</p>
-					<p class="text-sm text-theme-primary">
-						{#if preview.scraped.japaneseTitle}
-							{preview.scraped.japaneseTitle}
-						{:else}
-							<span class="text-theme-secondary italic">No change</span>
-						{/if}
-					</p>
-				</div>
-			</div>
 
-			<!-- Romaji Title Row -->
-			<div class="grid grid-cols-2 gap-6 mb-4">
-				<div>
-					<p class="text-xs text-theme-secondary mb-1">Romaji Title</p>
-					<p class="text-sm text-theme-primary">
-						{#if preview.current.romajiTitle}
-							{preview.current.romajiTitle}
-						{:else}
-							<span class="text-theme-secondary italic">None</span>
-						{/if}
-					</p>
+				<!-- Romaji Title Row -->
+				<div class="grid grid-cols-2 gap-4 mb-3">
+					<div>
+						<p class="text-[10px] text-theme-secondary mb-1">Romaji</p>
+						<p class="text-sm text-theme-primary line-clamp-1">
+							{#if preview.current.romajiTitle}
+								{preview.current.romajiTitle}
+							{:else}
+								<span class="text-theme-secondary italic text-xs">None</span>
+							{/if}
+						</p>
+					</div>
+					<div>
+						<p class="text-[10px] text-theme-secondary mb-1">Romaji</p>
+						<p class="text-sm text-theme-primary line-clamp-1">
+							{#if preview.scraped.romajiTitle}
+								{preview.scraped.romajiTitle}
+							{:else}
+								<span class="text-theme-secondary italic text-xs">No change</span>
+							{/if}
+						</p>
+					</div>
 				</div>
-				<div>
-					<p class="text-xs text-theme-secondary mb-1">Romaji Title</p>
-					<p class="text-sm text-theme-primary">
-						{#if preview.scraped.romajiTitle}
-							{preview.scraped.romajiTitle}
-						{:else}
-							<span class="text-theme-secondary italic">No change</span>
-						{/if}
-					</p>
-				</div>
-			</div>
 
-			<!-- Synonyms Row -->
-			<div class="grid grid-cols-2 gap-6 mb-4">
-				<div>
-					<p class="text-xs text-theme-secondary mb-1">Alternative Titles (Synonyms)</p>
-					<p class="text-sm text-theme-primary">
-						{#if preview.current.synonyms}
-							{@const parsedSynonyms = JSON.parse(preview.current.synonyms)}
-							{#if Array.isArray(parsedSynonyms) && parsedSynonyms.length > 0}
-								{parsedSynonyms.join(', ')}
+				<!-- Synonyms Row -->
+				<div class="grid grid-cols-2 gap-4 mb-3">
+					<div>
+						<p class="text-[10px] text-theme-secondary mb-1">Synonyms</p>
+						<p class="text-xs text-theme-primary line-clamp-1">
+							{#if preview.current.synonyms}
+								{@const parsedSynonyms = (() => {
+									try {
+										const parsed = JSON.parse(preview.current.synonyms);
+										return Array.isArray(parsed) ? parsed : [];
+									} catch {
+										return [];
+									}
+								})()}
+								{#if parsedSynonyms.length > 0}
+									{parsedSynonyms.join(', ')}
+								{:else}
+									<span class="text-theme-secondary italic">None</span>
+								{/if}
 							{:else}
 								<span class="text-theme-secondary italic">None</span>
 							{/if}
-						{:else}
-							<span class="text-theme-secondary italic">None</span>
-						{/if}
-					</p>
-				</div>
-				<div>
-					<p class="text-xs text-theme-secondary mb-1">Alternative Titles (Synonyms)</p>
-					<p class="text-sm text-theme-primary">
-						{#if preview.scraped.synonyms}
-							{@const parsedSynonyms = JSON.parse(preview.scraped.synonyms)}
-							{#if Array.isArray(parsedSynonyms) && parsedSynonyms.length > 0}
-								{parsedSynonyms.join(', ')}
+						</p>
+					</div>
+					<div>
+						<p class="text-[10px] text-theme-secondary mb-1">Synonyms</p>
+						<p class="text-xs text-theme-primary line-clamp-1">
+							{#if preview.scraped.synonyms}
+								{@const parsedSynonyms = (() => {
+									try {
+										const parsed = JSON.parse(preview.scraped.synonyms);
+										return Array.isArray(parsed) ? parsed : [];
+									} catch {
+										return [];
+									}
+								})()}
+								{#if parsedSynonyms.length > 0}
+									{parsedSynonyms.join(', ')}
+								{:else}
+									<span class="text-theme-secondary italic">No change</span>
+								{/if}
 							{:else}
 								<span class="text-theme-secondary italic">No change</span>
 							{/if}
-						{:else}
-							<span class="text-theme-secondary italic">No change</span>
-						{/if}
-					</p>
+						</p>
+					</div>
 				</div>
-			</div>
 
-			<!-- Description Row -->
-			<div class="grid grid-cols-2 gap-6 mb-4">
-				<div>
-					<p class="text-xs text-theme-secondary mb-1">Description</p>
-					<div class="h-20 overflow-hidden">
-						<p class="text-sm theme-primary line-clamp-4">
+				<!-- Description Row -->
+				<div class="grid grid-cols-2 gap-4">
+					<div>
+						<p class="text-[10px] text-theme-secondary mb-1">Description</p>
+						<p class="text-xs text-theme-primary line-clamp-3 h-[3.6rem] overflow-hidden">
 							{#if preview.current.description}
 								{preview.current.description}
 							{:else}
@@ -1089,11 +1534,9 @@
 							{/if}
 						</p>
 					</div>
-				</div>
-				<div>
-					<p class="text-xs text-theme-secondary mb-1">Description</p>
-					<div class="h-20 overflow-hidden">
-						<p class="text-sm theme-primary line-clamp-4">
+					<div>
+						<p class="text-[10px] text-theme-secondary mb-1">Description</p>
+						<p class="text-xs text-theme-primary line-clamp-3 h-[3.6rem] overflow-hidden">
 							{#if preview.scraped.description}
 								{@html preview.scraped.description}
 							{:else}
@@ -1104,58 +1547,66 @@
 				</div>
 			</div>
 
-			<!-- Cover Row -->
-			<div class="grid grid-cols-2 gap-6">
-				<div>
-					<p class="text-xs text-theme-secondary mb-2">Cover</p>
-					{#if preview.current.coverPath}
-						<img
-							src="/api/files/series/{preview.seriesId}/cover"
-							alt="Current cover"
-							class="w-32 h-48 object-cover rounded-lg border border-theme-border"
-						/>
-					{:else}
-						<div
-							class="w-32 h-48 rounded-lg border-2 border-dashed border-theme-border flex items-center justify-center"
-						>
-							<span class="text-sm text-red-400">No cover</span>
+			<!-- Right: Cover Comparison -->
+			<div class="flex-shrink-0">
+				<div class="grid grid-cols-2 gap-4">
+					<div>
+						<div class="flex items-center gap-2 mb-2">
+							<div class="w-2 h-2 rounded-full bg-gray-500"></div>
+							<p class="text-[10px] font-bold text-theme-tertiary uppercase tracking-wider">Current</p>
 						</div>
-					{/if}
-				</div>
-				<div>
-					<p class="text-xs text-theme-secondary mb-2">Cover</p>
-					{#if preview.scraped.tempCoverPath}
-						<div class="relative">
+						{#if preview.current.coverPath}
 							<img
-								src="/api/files/preview?path={encodeURIComponent(preview.scraped.tempCoverPath)}"
-								alt="Scraped cover"
-								class="w-32 h-48 object-cover rounded-lg border-2 border-accent shadow-lg shadow-accent/20"
+								src="/api/files/series/{preview.seriesId}/cover"
+								alt="Current cover"
+								class="w-28 h-40 object-cover rounded-lg border border-theme-border"
 							/>
+						{:else}
 							<div
-								class="absolute -top-2 -right-2 bg-accent text-white text-[10px] font-bold px-2 py-1 rounded-full shadow-lg"
+								class="w-28 h-40 rounded-lg border-2 border-dashed border-theme-border flex items-center justify-center"
 							>
-								NEW
+								<span class="text-xs text-red-400">No cover</span>
 							</div>
+						{/if}
+					</div>
+					<div>
+						<div class="flex items-center gap-2 mb-2">
+							<div class="w-2 h-2 rounded-full bg-accent"></div>
+							<p class="text-[10px] font-bold text-accent uppercase tracking-wider">Scraped</p>
 						</div>
-					{:else if preview.scraped.hasCover}
-						<div
-							class="w-32 h-48 rounded-lg border border-theme-border flex items-center justify-center bg-theme-surface"
-						>
-							<span class="text-sm text-green-400">✓ Has cover</span>
-						</div>
-					{:else}
-						<div
-							class="w-32 h-48 rounded-lg border border-theme-border flex items-center justify-center bg-theme-surface"
-						>
-							<span class="text-sm text-theme-secondary italic">No change</span>
-						</div>
-					{/if}
+						{#if preview.scraped.tempCoverPath}
+							<div class="relative">
+								<img
+									src="/api/files/preview?path={encodeURIComponent(preview.scraped.tempCoverPath)}"
+									alt="Scraped cover"
+									class="w-28 h-40 object-cover rounded-lg border-2 border-accent shadow-lg shadow-accent/20"
+								/>
+								<div
+									class="absolute -top-2 -right-2 bg-accent text-white text-[10px] font-bold px-2 py-1 rounded-full shadow-lg"
+								>
+									NEW
+								</div>
+							</div>
+						{:else if preview.scraped.hasCover}
+							<div
+								class="w-28 h-40 rounded-lg border border-theme-border flex items-center justify-center bg-theme-surface"
+							>
+								<span class="text-xs text-green-400">✓ Has</span>
+							</div>
+						{:else}
+							<div
+								class="w-28 h-40 rounded-lg border border-theme-border flex items-center justify-center bg-theme-surface"
+							>
+								<span class="text-xs text-theme-secondary italic">No change</span>
+							</div>
+						{/if}
+					</div>
 				</div>
 			</div>
 		</div>
 
 		<!-- Actions -->
-		<div class="flex gap-3 justify-end">
+		<div class="flex gap-3 justify-end mt-6 flex-shrink-0">
 			<button
 				onclick={() => denyMetadata(preview)}
 				disabled={preview.status === 'applying'}
