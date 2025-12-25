@@ -182,7 +182,7 @@ const filesRoutes: FastifyPluginAsync = async (fastify, opts): Promise<void> => 
       }
 
       try {
-        // Security check: Ensure the file path starts with uploads/userId
+        // Security check: Ensure the file path starts with uploads/temp/userId
         const expectedPrefix = `uploads/temp/${userId}/`;
         if (!filePath.startsWith(expectedPrefix)) {
           return reply.status(403).send({ error: 'Access denied' });
