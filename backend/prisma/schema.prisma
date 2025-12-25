@@ -145,12 +145,3 @@ model UserProgress {
 
   @@unique([userId, volumeId]) // A user can only have one progress entry per volume
 }
-
-// Description filters for metadata scraping
-model DescriptionFilter {
-  id        String   @id @default(cuid())
-  pattern   String
-  isRegex   Boolean
-  enabled   Boolean  @default(true)
-  createdAt DateTime @default(now())
-}
