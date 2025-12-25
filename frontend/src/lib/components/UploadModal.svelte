@@ -153,7 +153,7 @@
 						<polyline points="17 8 12 3 7 8" />
 						<line x1="12" x2="12" y1="3" y2="15" />
 					</svg>
-					<h2 class="text-2xl font-bold text-white">Import Volumes</h2>
+					<h2 class="text-2xl font-bold text-theme-primary">Import Volumes</h2>
 				</div>
 				<button
 					onclick={handleClose}
@@ -177,7 +177,7 @@
 				</button>
 			</div>
 
-			<div class="flex-1 overflow-y-auto p-6 space-y-6">
+			<div class="flex-1 p-6 space-y-6">
 				<MenuGridRadio
 					bind:value={activeTab}
 					options={[
@@ -191,7 +191,7 @@
 						<span
 							class="text-sm font-bold uppercase tracking-wider {isSelected
 								? 'text-accent'
-								: 'text-gray-400'}"
+								: 'text-theme-secondary'}"
 						>
 							{option.label}
 						</span>
@@ -225,13 +225,13 @@
 											<line x1="12" x2="12" y1="3" y2="15" />
 										</svg>
 									</div>
-									<p class="text-lg font-medium text-white mb-1">Drag & Drop Folder</p>
+									<p class="text-lg font-medium text-theme-primary mb-1">Drag & Drop Folder</p>
 									<p class="text-sm text-theme-secondary">or click to browse</p>
 									<input type="file" class="hidden" webkitdirectory bind:files />
 								</label>
 							</div>
 						{:else}
-							<div class="space-y-4">
+							<div class="flex-col space-y-4">
 								<div class="flex justify-between items-end">
 									<h3 class="text-sm font-bold text-theme-secondary uppercase tracking-wider">
 										Queue Status
@@ -241,7 +241,7 @@
 									</span>
 								</div>
 
-								<div class="space-y-2">
+								<div class="h-[40vh] space-y-2 overflow-y-auto">
 									{#each jobs as job (job.id)}
 										<div
 											class="p-4 rounded-xl bg-theme-main border border-theme-border-light flex items-center gap-4"
@@ -290,11 +290,11 @@
 											<div class="flex-1 min-w-0">
 												<div class="flex items-center justify-between mb-1 gap-3">
 													<span
-														class="text-sm font-medium text-white truncate min-w-0 flex-1"
+														class="text-sm font-medium text-theme-primary truncate min-w-0 flex-1"
 														title={job.name}>{job.name}</span
 													>
 													<span
-														class="text-xs font-bold text-gray-500 uppercase whitespace-nowrap flex-shrink-0"
+														class="text-xs font-bold text-theme-secondary uppercase whitespace-nowrap flex-shrink-0"
 													>
 														{job.status === 'done'
 															? job.resultMsg === 'OK'
@@ -320,7 +320,7 @@
 									{#if !isProcessingQueue}
 										<button
 											onclick={handleClose}
-											class="px-6 py-2.5 rounded-xl bg-theme-main hover:bg-theme-surface-hover text-white font-semibold transition-colors border border-theme-border-light"
+											class="px-6 py-2.5 rounded-xl bg-theme-main hover:bg-theme-surface-hover text-theme-primary font-semibold transition-colors border border-theme-border-light"
 										>
 											Done
 										</button>

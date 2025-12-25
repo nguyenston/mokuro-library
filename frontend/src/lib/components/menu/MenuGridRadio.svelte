@@ -37,7 +37,7 @@
 	{#if title}
 		<div class="mb-1 flex items-center justify-between">
 			<div class="flex items-center">
-				<p class="text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em]">
+				<p class="text-[10px] font-bold text-theme-secondary uppercase tracking-[0.2em]">
 					{title}
 				</p>
 				{#if tooltip}

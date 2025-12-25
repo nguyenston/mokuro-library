@@ -3,10 +3,9 @@
 	import { user } from '$lib/authStore';
 	import { goto } from '$app/navigation';
 	import { browser } from '$app/environment';
-	import { confirmation } from '$lib/confirmationStore';
-	import { contextMenu } from '$lib/contextMenuStore';
 	import { uiState } from '$lib/states/uiState.svelte';
 	import { metadataOps } from '$lib/states/metadataOperations.svelte';
+	import { formatLastReadDate } from '$lib/utils/dateHelpers';
 
 	import EditSeriesModal from '$lib/components/EditSeriesModal.svelte';
 	import EditVolumeModal from '$lib/components/EditVolumeModal.svelte';
@@ -114,6 +113,8 @@
 					);
 				case 'lastRead':
 					return (uiState.sortOrder === 'asc' ? 1 : -1) * (statsA.lastRead - statsB.lastRead);
+				case 'progress':
+					return (uiState.sortOrder === 'asc' ? 1 : -1) * (statsA.percent - statsB.percent);
 				default:
 					return 0;
 			}
@@ -149,7 +150,8 @@
 					[
 						{ key: 'title', label: 'Number' },
 						{ key: 'updated', label: 'Date Added' },
-						{ key: 'lastRead', label: 'Recent' }
+						{ key: 'lastRead', label: 'Recent' },
+						{ key: 'progress', label: '% Progress' }
 					],
 					series.id
 				);
@@ -326,9 +328,7 @@
 							}}
 							href={`/volume/${vol.id}`}
 							mainStat={`${vol.progress[0]?.page ?? 0}/${vol.pageCount} P`}
-							subStat={vol.progress[0]?.lastReadAt
-								? `READ ${new Date(vol.progress[0].lastReadAt).toLocaleDateString()}`
-								: 'UNREAD'}
+							subStat={formatLastReadDate(vol.progress[0]?.lastReadAt)}
 							onSelect={(e) => handleVolumeClick(e, vol.id)}
 						>
 							{#snippet circleAction()}

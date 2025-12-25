@@ -10,12 +10,16 @@
 	}>();
 
 	// --- Local State ---
-	let headerIsVisible = $state(false); // Matches original logic where hover handles mouse, this handles touch override
+	let headerForceVisible = $state(false); // Matches original logic where hover handles mouse, this handles touch override
 	let headerTimer: ReturnType<typeof setTimeout> | null = null;
 
 	// Font Slider State
 	let isFontSizeOpen = $state(false);
 	let fontSizePos = $state({ x: 0, y: 0 });
+
+	let headerIsVisible = $derived(
+		!readerState.hideHUD || headerForceVisible || isFontSizeOpen || readerState.isSaving
+	);
 
 	// --- Handlers ---
 	const toggleFontSlider = (e: MouseEvent) => {
@@ -32,26 +36,33 @@
 </script>
 
 <header
-	class="absolute top-0 left-0 right-0 z-40 flex h-12 items-center justify-between px-4 text-white touch-none transition-opacity duration-300
-           bg-theme-main/90 backdrop-blur-md border-b border-white/10 shadow-lg"
-	class:opacity-0={readerState.hideHUD && !headerIsVisible && !isFontSizeOpen}
-	class:hover:opacity-100={readerState.hideHUD}
-	onpointerdown={(e: PointerEvent) => {
-		// --- ORIGINAL LOGIC RESTORED ---
+	class="absolute top-0 left-0 right-0 z-40 flex h-12 items-center justify-between px-4
+  text-white touch-none transition-opacity duration-300 bg-gradient-to-b from-black/80 via-black/40 to-transparent"
+	class:opacity-0={!headerIsVisible}
+	onpointerenter={(e) => {
+		if (e.pointerType === 'mouse') headerForceVisible = true;
+	}}
+	onpointerleave={(e) => {
+		if (e.pointerType === 'mouse') headerForceVisible = false;
+	}}
+	onpointerup={(e: PointerEvent) => {
 		// Make header visible on touch devices
 		if (e.pointerType !== 'mouse') {
-			headerIsVisible = true;
+			setTimeout(() => {
+				headerForceVisible = true;
+			}, 100);
 			if (headerTimer) clearTimeout(headerTimer); // Clear any old timer just in case
 
 			headerTimer = setTimeout(() => {
-				headerIsVisible = false;
+				headerForceVisible = false;
 				headerTimer = null;
-			}, 3000);
+			}, 4000);
 		}
 	}}
 >
 	<div class="flex-1 justify-start overflow-hidden">
 		<button
+			disabled={!headerIsVisible}
 			onclick={(e) => {
 				e.stopPropagation();
 				goto(`/series/${readerState.seriesId}`);
@@ -119,7 +130,7 @@
 		{:else if readerState.isSaving}
 			<div
 				transition:fade
-				class="flex items-center z-50 gap-2 px-3 py-1.5 rounded-full bg-blue-500/20 text-blue-200 border border-blue-500/30"
+				class="flex items-center z-50 gap-2 px-3 py-1.5 rounded-full bg-blue-500/50 text-blue-200 border border-blue-500/30"
 			>
 				<svg class="animate-spin h-3 w-3" viewBox="0 0 24 24"
 					><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"
@@ -134,7 +145,7 @@
 		{:else if readerState.saveSuccess}
 			<div
 				transition:fade
-				class="flex items-center z-50 gap-2 px-3 py-1.5 rounded-full bg-emerald-500/20 text-emerald-200 border border-emerald-500/30"
+				class="flex items-center z-50 gap-2 px-3 py-1.5 rounded-full bg-emerald-500/50 text-emerald-200 border border-emerald-500/30"
 			>
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
@@ -154,7 +165,8 @@
 
 	<div class="flex flex-1 justify-end gap-2 items-center">
 		<span
-			class="hidden sm:flex items-center flex-nowrap whitespace-nowrap px-3 py-2 mr-2 rounded-xl bg-black/20 border border-white/5 text-xs font-medium text-theme-primary font-mono"
+			class="hidden sm:flex items-center flex-nowrap whitespace-nowrap px-3 py-1 mr-2
+        rounded-xl bg-black/20 border border-white/5 text-xs font-medium text-theme-primary font-mono"
 		>
 			<span class="mr-1">
 				{readerState.currentPageIndex + 1}{readerState.visiblePages.length === 2
@@ -170,7 +182,7 @@
 					e.stopPropagation();
 					readerState.saveOcr();
 				}}
-				disabled={readerState.isSaving}
+				disabled={readerState.isSaving || !headerIsVisible}
 				class="p-2 rounded-xl text-theme-secondary hover:text-white hover:bg-white/10 disabled:opacity-50 transition-colors relative group"
 				title="Save OCR"
 			>
@@ -195,6 +207,7 @@
 		{/if}
 
 		<button
+			disabled={!headerIsVisible}
 			onclick={(e) => {
 				e.stopPropagation();
 				readerState.toggleSmartResizeMode();
@@ -219,6 +232,7 @@
 		</button>
 
 		<button
+			disabled={!headerIsVisible}
 			onclick={(e) => {
 				e.stopPropagation();
 				readerState.setOcrMode(readerState.ocrMode === 'BOX' ? 'READ' : 'BOX');
@@ -264,6 +278,7 @@
 		</button>
 
 		<button
+			disabled={!headerIsVisible}
 			onclick={(e) => {
 				e.stopPropagation();
 				settingsOpen = true;
@@ -281,10 +296,12 @@
 				stroke-width="2"
 				stroke-linecap="round"
 				stroke-linejoin="round"
-				><path
-					d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
-				/><circle cx="15" cy="12" r="3" /></svg
 			>
+				<path
+					d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+				/>
+				<circle cx="12" cy="12" r="3" />
+			</svg>
 		</button>
 	</div>
 </header>
