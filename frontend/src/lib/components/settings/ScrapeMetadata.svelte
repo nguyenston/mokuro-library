@@ -428,15 +428,17 @@
 	}
 
 	function saveFilters() {
-		if (browser)
+		if (browser) {
 			localStorage.setItem(
-				'mokuro_series_description__scrape_filters',
+				'mokuro_series_description_scrape_filters',
 				JSON.stringify(descriptionFilters)
 			);
+		}
 	}
+
 	function loadFilters() {
 		if (browser) {
-			const s = localStorage.getItem('mokuro_series_description__scrape_filters');
+			const s = localStorage.getItem('mokuro_series_description_scrape_filters');
 			if (s) descriptionFilters = JSON.parse(s);
 		}
 	}
@@ -501,8 +503,6 @@
 	}
 
 	// Lifecycle
-	$effect(() => saveFilters());
-
 	onMount(() => {
 		loadFilters();
 		loadExcludedSeries();
@@ -553,8 +553,8 @@
 		<div
 			class="rounded-2xl backdrop-blur-2xl p-6 border border-theme-primary/10 shadow-theme-secondary/20 shadow-lg space-y-3"
 		>
-			<div class="flex items-center justify-between mb-2">
-				<div>
+			<div class="flex flex-col gap-2 sm:flex-row items-center justify-between mb-2">
+				<div class="w-max-10">
 					<p class="text-[10px] font-bold text-theme-secondary uppercase tracking-[0.2em]">
 						Description Filters
 					</p>
