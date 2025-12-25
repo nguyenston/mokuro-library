@@ -235,11 +235,11 @@ async function scrapeFromProvider(
         if (!media) return {};
 
         return {
-          englishName: fixMojibake(media.title?.english) || undefined,
-          romajiName: fixMojibake(media.title?.romaji) || undefined,
-          japaneseName: fixMojibake(media.title?.native) || undefined,
+          englishName: fixMojibake(media.title?.english),
+          romajiName: fixMojibake(media.title?.romaji),
+          japaneseName: fixMojibake(media.title?.native),
           synonyms: (media.synonyms || []).map((s: string) => fixMojibake(s) || s).filter(Boolean),
-          description: fixMojibake(media.description) || undefined,
+          description: fixMojibake(media.description),
           coverUrl: media.coverImage?.extraLarge || media.coverImage?.large || media.coverImage?.medium || undefined
         };
       }
@@ -260,12 +260,12 @@ async function scrapeFromProvider(
         if (!manga) return {};
 
         return {
-          englishName: fixMojibake(manga.title_english) || undefined,
-          romajiName: fixMojibake(manga.title) || undefined,
-          japaneseName: fixMojibake(manga.title_japanese) || undefined,
+          englishName: fixMojibake(manga.title_english),
+          romajiName: fixMojibake(manga.title),
+          japaneseName: fixMojibake(manga.title_japanese),
           synonyms: (manga.title_synonyms || []).map((s: string) => fixMojibake(s) || s).filter(Boolean),
-          description: fixMojibake(manga.synopsis) || undefined,
-          coverUrl: manga.images?.jpg?.large_image_url || manga.images?.jpg?.image_url
+          description: fixMojibake(manga.synopsis),
+          coverUrl: manga.images?.jpg?.large_image_url || manga.images?.jpg?.image_url || undefined
         };
       }
 
@@ -285,11 +285,11 @@ async function scrapeFromProvider(
         if (!manga) return {};
 
         return {
-          englishName: fixMojibake(manga.titles?.en || manga.titles?.en_jp) || undefined,
-          romajiName: fixMojibake(manga.canonicalTitle) || undefined,
-          japaneseName: fixMojibake(manga.titles?.ja_jp) || undefined,
+          englishName: fixMojibake(manga.titles?.en || manga.titles?.en_jp),
+          romajiName: fixMojibake(manga.canonicalTitle),
+          japaneseName: fixMojibake(manga.titles?.ja_jp),
           synonyms: (manga.abbreviatedTitles || []).map((s: string) => fixMojibake(s) || s).filter(Boolean),
-          description: fixMojibake(manga.synopsis) || undefined,
+          description: fixMojibake(manga.synopsis),
           coverUrl: manga.posterImage?.large || manga.posterImage?.medium || manga.posterImage?.small || undefined
         };
       }
@@ -646,15 +646,15 @@ const metadataRoutes: FastifyPluginAsync = async (
 
         // 4. Prevent duplicate titles: if Japanese/Romaji is same as English, clear them
         if (scrapedData.japaneseName && scrapedData.englishName &&
-            scrapedData.japaneseName === scrapedData.englishName) {
+          scrapedData.japaneseName === scrapedData.englishName) {
           scrapedData.japaneseName = undefined;
         }
         if (scrapedData.romajiName && scrapedData.englishName &&
-            scrapedData.romajiName === scrapedData.englishName) {
+          scrapedData.romajiName === scrapedData.englishName) {
           scrapedData.romajiName = undefined;
         }
         if (scrapedData.romajiName && scrapedData.japaneseName &&
-            scrapedData.romajiName === scrapedData.japaneseName) {
+          scrapedData.romajiName === scrapedData.japaneseName) {
           scrapedData.romajiName = undefined;
         }
 
@@ -724,49 +724,6 @@ const metadataRoutes: FastifyPluginAsync = async (
       }
     }
   );
-
-  // GET /api/metadata/filters - Get description filters
-  fastify.get('/filters', async (request, reply) => {
-    try {
-      const filters = await fastify.prisma.descriptionFilter.findMany({
-        orderBy: { createdAt: 'asc' }
-      });
-      return reply.send(filters);
-    } catch (err) {
-      fastify.log.error(err, 'Failed to fetch description filters');
-      return reply.status(500).send({ error: 'Failed to fetch filters' });
-    }
-  });
-
-  // POST /api/metadata/filters - Save description filters
-  fastify.post('/filters', async (request, reply) => {
-    const { filters } = request.body as { filters: Array<{ pattern: string; isRegex: boolean; enabled: boolean }> };
-
-    try {
-      // Delete all existing filters
-      await fastify.prisma.descriptionFilter.deleteMany({});
-
-      // Insert new filters
-      if (filters && filters.length > 0) {
-        await fastify.prisma.descriptionFilter.createMany({
-          data: filters.map(f => ({
-            pattern: f.pattern,
-            isRegex: f.isRegex,
-            enabled: f.enabled
-          }))
-        });
-      }
-
-      const savedFilters = await fastify.prisma.descriptionFilter.findMany({
-        orderBy: { createdAt: 'asc' }
-      });
-
-      return reply.send(savedFilters);
-    } catch (err) {
-      fastify.log.error(err, 'Failed to save description filters');
-      return reply.status(500).send({ error: 'Failed to save filters' });
-    }
-  });
 };
 
 export default metadataRoutes;
