@@ -6,6 +6,12 @@
 
 	let { isOpen, onClose } = $props<{ isOpen: boolean; onClose: () => void }>();
 
+	let width = $state(0);
+	let isXs = $derived(width >= 480);
+	let isSm = $derived(width >= 640);
+	let isMd = $derived(width >= 768);
+	let isLg = $derived(width >= 1024);
+
 	// State for appearance settings
 	// Fix: Explicitly type this as keyof ThemeColors to avoid index errors
 	let openColorPicker = $state<keyof ThemeColors | null>(null);
@@ -131,6 +137,7 @@
 	});
 </script>
 
+<svelte:window bind:innerWidth={width} />
 {#snippet darkIcon()}
 	<svg
 		xmlns="http://www.w3.org/2000/svg"
@@ -251,7 +258,7 @@
 				<MenuGridRadio
 					title="Color Mode"
 					bind:value={colorModeValue.value}
-					layout={[3]}
+					layout={isSm ? [3] : [1, 1, 1]}
 					itemClass="flex flex-row items-center gap-3 px-4 py-3"
 					options={[
 						{ value: 'dark', label: 'Dark', icon: darkIcon },
@@ -273,7 +280,7 @@
 					title="Select Theme"
 					bind:value={themeValue.value}
 					layout={[2, 2]}
-					itemClass="flex items-center gap-3 px-4 py-3"
+					itemClass="flex items-center gap-3 sm:px-4 py-3"
 					options={themes.map((t) => ({
 						value: t.id,
 						label: t.name,
@@ -281,35 +288,37 @@
 					}))}
 				>
 					{#snippet children(option, isSelected)}
-						<span
-							class="font-medium flex-shrink-0 {isSelected ? 'text-accent' : 'text-theme-primary'}"
-							>{option.label}</span
-						>
-						<div class="flex-1"></div>
-						<div class="flex gap-1 flex-shrink-0">
-							{#each option.colors as color}
-								<div
-									class="w-4 h-4 rounded border border-theme-border-light"
-									style="background-color: {color};"
-								></div>
-							{/each}
-						</div>
-						{#if isSelected}
-							<svg
-								xmlns="http://www.w3.org/2000/svg"
-								width="18"
-								height="18"
-								viewBox="0 0 24 24"
-								fill="none"
-								stroke="currentColor"
-								stroke-width="2.5"
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								class="text-accent flex-shrink-0 ml-1"
+						<div class="flex flex-1 flex-col items-center sm:flex-row sm:justify-between gap-2">
+							<span
+								class="font-medium flex-shrink-0 text-left {isSelected
+									? 'text-accent'
+									: 'text-theme-primary'}">{option.label}</span
 							>
-								<polyline points="20 6 9 17 4 12" />
-							</svg>
-						{/if}
+							<div class="flex gap-0 sm:gap-1 flex-shrink-0">
+								{#each option.colors as color}
+									<div
+										class="w-3 h-4 sm:w-4 sm:rounded sm:border border-theme-border-light"
+										style="background-color: {color};"
+									></div>
+								{/each}
+							</div>
+						</div>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							width="18"
+							height="18"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2.5"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							class="hidden sm:inline text-accent flex-shrink-0 ml-1 {!isSelected
+								? 'opacity-0'
+								: ''}"
+						>
+							<polyline points="20 6 9 17 4 12" />
+						</svg>
 					{/snippet}
 				</MenuGridRadio>
 
@@ -369,7 +378,9 @@
 								</button>
 							</div>
 
-							<div class="rounded-2xl border border-theme-border-light bg-theme-main overflow-hidden">
+							<div
+								class="rounded-2xl border border-theme-border-light bg-theme-main overflow-hidden"
+							>
 								<button
 									onclick={() => (isDarkColorsExpanded = !isDarkColorsExpanded)}
 									class="w-full flex items-center justify-between gap-2 px-4 py-3 hover:bg-theme-surface-hover transition-colors"
@@ -459,7 +470,9 @@
 								{/if}
 							</div>
 
-							<div class="rounded-2xl border border-theme-border-light bg-theme-main overflow-hidden">
+							<div
+								class="rounded-2xl border border-theme-border-light bg-theme-main overflow-hidden"
+							>
 								<button
 									onclick={() => (isLightColorsExpanded = !isLightColorsExpanded)}
 									class="w-full flex items-center justify-between gap-2 px-4 py-3 hover:bg-theme-surface-hover transition-colors"
