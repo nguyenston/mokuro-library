@@ -704,7 +704,7 @@
 
 		{#if !isScraping && !showBulkModal}
 			<div class="rounded-2xl bg-theme-main p-6 border border-theme-border-light">
-				<div class="w-full flex items-center justify-between mb-4">
+				<div class="w-full flex items-center justify-between">
 					<button
 						onclick={() => (showMissingData = !showMissingData)}
 						class="flex items-center gap-2 hover:opacity-80 transition-opacity flex-1 text-left"
@@ -741,6 +741,7 @@
 						<button
 							onclick={() => (showMissingData = !showMissingData)}
 							class="p-1 hover:bg-theme-surface-hover rounded-lg transition-colors"
+							title="toggle show missing data"
 						>
 							<svg
 								xmlns="http://www.w3.org/2000/svg"
@@ -763,7 +764,7 @@
 				</div>
 
 				{#if showMissingData}
-					<div class="space-y-3 max-h-[600px] overflow-y-auto">
+					<div class="space-y-3 max-h-[600px] mt-4 overflow-y-auto">
 						{#each missingDataSeries as item (item.id)}
 							<div class="flex flex-col sm:flex-row gap-4 p-4 rounded-xl bg-theme-surface">
 								<div class="flex-1 min-w-0">
@@ -813,7 +814,7 @@
 			<div class="rounded-2xl bg-theme-main p-6 border border-theme-border-light">
 				<button
 					onclick={() => (showScraped = !showScraped)}
-					class="w-full flex items-center justify-between mb-4 hover:opacity-80 transition-opacity"
+					class="w-full flex items-center justify-between hover:opacity-80 transition-opacity"
 				>
 					<div class="flex items-center gap-2">
 						<svg
@@ -850,7 +851,7 @@
 					</svg>
 				</button>
 				{#if showScraped}
-					<div class="space-y-3 max-h-[600px] overflow-y-auto">
+					<div class="space-y-3 max-h-[600px] mt-4 overflow-y-auto">
 						{#each scrapedSeries as item (item.id)}
 							<div class="flex flex-col sm:flex-row gap-4 p-4 rounded-xl bg-theme-surface">
 								<div class="flex-1 min-w-0">
@@ -878,7 +879,7 @@
 			<div class="rounded-2xl bg-theme-main p-6 border border-theme-border-light">
 				<button
 					onclick={() => (showExcluded = !showExcluded)}
-					class="w-full flex items-center justify-between mb-4 hover:opacity-80 transition-opacity"
+					class="w-full flex items-center justify-between hover:opacity-80 transition-opacity"
 				>
 					<div class="flex items-center gap-2">
 						<svg
@@ -916,7 +917,7 @@
 					</svg>
 				</button>
 				{#if showExcluded}
-					<div class="space-y-3 max-h-[600px] overflow-y-auto">
+					<div class="space-y-3 max-h-[600px] mt-6 overflow-y-auto">
 						{#each excludedSeries as item (item.id)}
 							<div class="flex flex-col sm:flex-row gap-4 p-4 rounded-xl bg-theme-surface">
 								<div class="flex-1 min-w-0">
@@ -982,7 +983,7 @@
 				class="bg-theme-surface border-b border-theme-border p-4 flex items-center justify-between"
 			>
 				<div class="flex items-center gap-4">
-					<h2 class="text-lg font-bold text-theme-primary">Bulk Review</h2>
+					<h2 class="hidden sm:inline text-lg font-bold text-theme-primary">Bulk Review</h2>
 					<div class="flex items-center gap-2 text-xs font-mono">
 						<span
 							class="px-2 py-1 rounded bg-theme-main border border-theme-border text-theme-secondary"
@@ -994,17 +995,47 @@
 						</span>
 					</div>
 				</div>
-				<div class="flex gap-3">
+				<div class="flex gap-2">
 					{#if isScraping}
 						<button
 							onclick={stopScraping}
-							class="text-red-400 text-xs font-bold px-3 py-1 bg-red-500/10 border border-red-500/20 rounded hover:bg-red-500/20"
+							class="p-2 text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg hover:bg-red-500/20 transition-colors"
+							title="Stop Scan"
 						>
-							STOP SCAN
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								width="16"
+								height="16"
+								viewBox="0 0 24 24"
+								fill="currentColor"
+								stroke="currentColor"
+								stroke-width="2"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+							>
+								<rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+							</svg>
 						</button>
 					{/if}
-					<button onclick={clearQueue} class="text-theme-secondary hover:text-white text-sm">
-						Close
+					<button
+						onclick={clearQueue}
+						class="p-2 text-theme-secondary hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+						title="Close"
+					>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							width="20"
+							height="20"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+						>
+							<line x1="18" y1="6" x2="6" y2="18" />
+							<line x1="6" y1="6" x2="18" y2="18" />
+						</svg>
 					</button>
 				</div>
 			</div>
@@ -1048,7 +1079,11 @@
 					</div>
 				</div>
 
-				<div class="flex-1 bg-theme-main p-4 flex flex-col items-center justify-center">
+				<div
+					class="flex-1 w-full bg-theme-main {isXs
+						? 'p-4'
+						: 'p-2'} flex flex-col items-center justify-center"
+				>
 					{#if session.current}
 						<div class="flex flex-col w-full h-full max-w-3xl">
 							<div class="flex justify-between mb-2">
@@ -1094,18 +1129,18 @@
 
 {#snippet previewCard(preview: ScrapedPreview, isBulk: boolean)}
 	<div
-		class="p-6 flex-1 min-h-0 flex flex-col {isBulk
+		class="{isXs ? 'p-4' : 'p-2'} flex-1 min-h-0 flex flex-col {isBulk
 			? 'rounded-xl bg-theme-surface border border-theme-border shadow-lg'
 			: ''}"
 	>
 		<div class="mb-4">
 			<h3 class="text-xl font-bold text-theme-primary truncate">{preview.seriesTitle}</h3>
-			<p class="text-xs text-theme-secondary">
+			<p class="hidden sm:inline text-xs text-theme-secondary">
 				{isBulk ? 'Reviewing from queue' : 'Single series review'}
 			</p>
 		</div>
 
-		<div class="mb-4 flex gap-2">
+		<div class="mb-4 flex {isXs ? 'flex-row' : 'flex-col'} gap-2">
 			<input
 				type="text"
 				bind:value={preview.searchQuery}
@@ -1130,16 +1165,16 @@
 			</div>
 
 			<div class="grid grid-cols-2 gap-4 mb-6">
-				<div class="relative max-w-40">
+				<div class="relative max-w-30">
 					{#if preview.current.coverPath}
 						<img
 							src="/api/files/series/{preview.seriesId}/cover"
 							alt="Current"
-							class="w-full max-w-40 aspect-[7/11] object-cover rounded-lg border border-theme-border"
+							class="w-full max-w-30 aspect-[7/11] object-cover rounded-lg border border-theme-border"
 						/>
 					{:else}
 						<div
-							class="w-full max-w-40 aspect-[7/11] rounded-lg border-2 border-dashed border-theme-border flex items-center justify-center"
+							class="w-full max-w-30 aspect-[7/11] rounded-lg border-2 border-dashed border-theme-border flex items-center justify-center"
 						>
 							<span class="text-xs text-red-400">No Cover</span>
 						</div>
@@ -1147,11 +1182,11 @@
 				</div>
 				<div>
 					{#if preview.scraped.tempCoverPath}
-						<div class="relative max-w-40">
+						<div class="relative max-w-30">
 							<img
 								src="/api/files/preview?path={encodeURIComponent(preview.scraped.tempCoverPath)}"
 								alt="New"
-								class="w-full max-w-40 aspect-[7/11] rounded-lg border-2 border-dashed border-theme-border flex items-center justify-center"
+								class="w-full max-w-30 aspect-[7/11] rounded-lg border-2 border-dashed border-theme-border flex items-center justify-center"
 							/>
 							<div
 								class="absolute -top-2 -right-2 bg-accent text-white text-[10px] px-2 py-0.5 rounded-full"
@@ -1161,7 +1196,7 @@
 						</div>
 					{:else}
 						<div
-							class="w-full max-w-40 aspect-[7/11] rounded-lg border border-theme-border flex items-center justify-center opacity-50"
+							class="w-full max-w-30 aspect-[7/11] rounded-lg border border-theme-border flex items-center justify-center opacity-50"
 						>
 							<span class="text-xs">No Change</span>
 						</div>
@@ -1208,27 +1243,27 @@
 			{#if isBulk}
 				<button
 					onclick={handleBulkSkip}
-					class="px-6 py-2 rounded-lg bg-theme-main border border-theme-border text-theme-secondary hover:text-theme-primary"
+					class="p-2 rounded-lg bg-theme-main border border-theme-border text-theme-secondary hover:text-theme-primary"
 				>
 					Skip (Esc)
 				</button>
 				<button
 					onclick={handleBulkConfirm}
-					class="px-6 py-2 rounded-lg bg-accent text-white hover:bg-accent/80 font-bold"
+					class="p-2 rounded-lg bg-accent text-white hover:bg-accent/80 font-bold"
 				>
 					Confirm (Enter)
 				</button>
 			{:else}
 				<button
 					onclick={() => (currentPreview = null)}
-					class="px-6 py-2 rounded-lg bg-theme-main border border-theme-border text-theme-secondary"
+					class="px-4 py-2 rounded-lg bg-theme-main border border-theme-border text-theme-secondary"
 				>
 					Cancel
 				</button>
 				<button
 					onclick={handleSingleConfirm}
 					disabled={preview.status === 'applying'}
-					class="px-6 py-2 rounded-lg bg-accent text-white hover:bg-accent/80 font-bold"
+					class="px-4 py-2 rounded-lg bg-accent text-white hover:bg-accent/80 font-bold"
 				>
 					{preview.status === 'applying' ? 'Saving...' : 'Apply'}
 				</button>
