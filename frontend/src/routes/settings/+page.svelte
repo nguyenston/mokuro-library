@@ -10,7 +10,7 @@
 	import ReaderSettings from '$lib/components/settings/ReaderSettings.svelte';
 	import AnkiSettings from '$lib/components/settings/AnkiSettings.svelte';
 	import LibraryOverview from '$lib/components/settings/LibraryOverview.svelte';
-	import ScrapeMetadata from '$lib/components/settings/ScrapeMetadata.svelte';
+	import ScrapeMetadata from '$lib/components/settings/scrapeMetadata/ScrapeMetadata.svelte';
 
 	// Define available categories
 	const categories = [
