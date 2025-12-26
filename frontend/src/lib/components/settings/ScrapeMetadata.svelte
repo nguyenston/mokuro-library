@@ -479,7 +479,7 @@
 		saveFilters();
 	}
 
-	function addRecommendedFilters() {
+	function addPresetFilters() {
 		const newFilters = defaultFilters.map((f) => ({
 			...f,
 			id: createId(),
@@ -564,21 +564,21 @@
 				</div>
 				<div class="flex gap-2">
 					<button
-						onclick={addRecommendedFilters}
-						class="px-3 py-1 rounded-lg bg-accent/20 text-accent hover:bg-accent/30 transition-colors text-xs font-semibold"
+						onclick={addPresetFilters}
+						class="px-3 py-1 w-20 rounded-lg bg-accent/20 text-accent hover:bg-accent/30 transition-colors text-xs font-semibold"
 					>
-						Add Recommended Filters
+						Add Preset Filters
 					</button>
 					<button
 						onclick={clearAllFilters}
 						disabled={descriptionFilters.length === 0}
-						class="px-3 py-1 rounded-lg bg-red-500/20 text-red-500 hover:bg-red-500/30 transition-colors text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+						class="px-3 py-1 w-15 rounded-lg bg-red-500/20 text-red-500 hover:bg-red-500/30 transition-colors text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
 					>
 						Clear All
 					</button>
 					<button
 						onclick={() => (showFilterManager = !showFilterManager)}
-						class="px-3 py-1 rounded-lg bg-accent/20 text-accent hover:bg-accent/30 transition-colors text-xs font-semibold"
+						class="px-3 py-1 w-20 rounded-lg bg-accent/20 text-accent hover:bg-accent/30 transition-colors text-xs font-semibold"
 					>
 						{showFilterManager ? 'Close' : 'Manage'} ({descriptionFilters.filter((f) => f.enabled)
 							.length})
@@ -590,26 +590,28 @@
 				<!-- Add New Filter -->
 				<div class="p-4 rounded-xl bg-theme-surface border border-theme-border space-y-3">
 					<p class="text-xs font-semibold text-theme-primary">Add New Filter</p>
-					<div class="flex gap-2">
+					<div class="flex flex-col sm:flex-row gap-2">
 						<input
 							type="text"
 							bind:value={newFilterText}
 							placeholder="Text or regex pattern..."
 							class="flex-1 px-3 py-2 rounded-lg bg-theme-main border border-theme-border text-theme-primary placeholder-gray-500 focus:border-accent focus:outline-none transition-colors text-sm font-mono"
 						/>
-						<label
-							class="flex items-center gap-2 px-3 py-2 rounded-lg bg-theme-main border border-theme-border cursor-pointer hover:border-accent transition-colors"
-						>
-							<input type="checkbox" bind:checked={newFilterIsRegex} class="accent-accent" />
-							<span class="text-xs text-theme-primary">Regex</span>
-						</label>
-						<button
-							onclick={addCustomFilter}
-							disabled={!newFilterText.trim()}
-							class="px-4 py-2 rounded-lg bg-accent text-white hover:bg-accent/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm font-semibold"
-						>
-							Add
-						</button>
+						<div class="flex gap-2">
+							<label
+								class="flex items-center gap-2 px-3 py-2 rounded-lg bg-theme-main border border-theme-border cursor-pointer hover:border-accent transition-colors"
+							>
+								<input type="checkbox" bind:checked={newFilterIsRegex} class="accent-accent" />
+								<span class="text-xs text-theme-primary">Regex</span>
+							</label>
+							<button
+								onclick={addCustomFilter}
+								disabled={!newFilterText.trim()}
+								class="px-4 py-2 rounded-lg bg-accent text-white hover:bg-accent/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm font-semibold"
+							>
+								Add
+							</button>
+						</div>
 					</div>
 				</div>
 
@@ -1103,7 +1105,7 @@
 		></button>
 
 		<div
-			class="relative z-10 bg-theme-surface rounded-2xl border border-theme-border max-w-4xl w-full max-h-[90vh] overflow-y-auto"
+			class="relative z-10 bg-theme-surface rounded-2xl border border-theme-border max-w-4xl w-full h-[90vh]"
 		>
 			{@render previewCard(currentPreview, true)}
 		</div>
@@ -1114,7 +1116,7 @@
 {#if isBulkScraping}
 	<div class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
 		<div
-			class="bg-theme-main rounded-2xl border border-accent max-w-6xl w-full h-[90vh] flex flex-col"
+			class="bg-theme-main rounded-2xl border border-accent max-w-6xl w-full h-[90vh] flex flex-col overflow-hidden"
 		>
 			<div class="bg-theme-main border-b border-accent p-6 flex-shrink-0">
 				<div class="flex items-center justify-between mb-4">
@@ -1227,8 +1229,8 @@
 {#snippet previewCard(preview: ScrapedPreview, isModal = false)}
 	<div
 		class="p-6 {isModal
-			? ''
-			: 'rounded-xl bg-theme-surface border border-theme-border'} flex flex-col min-h-[600px]"
+			? 'h-full'
+			: 'rounded-xl bg-theme-surface border border-theme-border min-h-[50vh]'} w-full flex flex-col"
 	>
 		<div class="mb-4 flex-shrink-0">
 			<h3 class="text-xl font-bold text-theme-primary mb-1 line-clamp-1">{preview.seriesTitle}</h3>
@@ -1238,7 +1240,7 @@
 		<!-- Editable Search Query -->
 		<div class="mb-6 p-4 rounded-xl bg-theme-main border border-theme-border flex-shrink-0">
 			<div class="block text-xs text-theme-secondary mb-2">Search Query (edit if needed)</div>
-			<div class="flex gap-2">
+			<div class="flex flex-col sm:flex-row justify-start gap-2">
 				<input
 					type="text"
 					bind:value={preview.searchQuery}
@@ -1248,7 +1250,9 @@
 				<button
 					onclick={() => rescrapeWithQuery(preview)}
 					disabled={preview.status === 'applying' || !preview.searchQuery.trim()}
-					class="px-4 py-2 rounded-lg bg-accent/20 text-accent hover:bg-accent/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-semibold text-sm flex items-center gap-2"
+					class="px-4 py-2 w-32 rounded-lg bg-accent/20 text-accent hover:bg-accent/30
+            transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-semibold
+            text-sm flex items-center justify-center gap-2"
 				>
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
@@ -1274,223 +1278,211 @@
 			</p>
 		</div>
 
-		<!-- Two-column layout: Metadata on left, Covers on right -->
-		<div class="flex gap-6 mb-6">
-			<!-- Left: Metadata Comparison -->
-			<div class="flex-1">
-				<!-- Column Headers -->
-				<div class="grid grid-cols-2 gap-4 mb-4">
-					<div class="flex items-center gap-2">
-						<div class="w-2 h-2 rounded-full bg-gray-500"></div>
-						<h4 class="text-xs font-bold text-theme-tertiary uppercase tracking-wider">Current</h4>
-					</div>
-					<div class="flex items-center gap-2">
-						<div class="w-2 h-2 rounded-full bg-accent"></div>
-						<h4 class="text-xs font-bold text-accent uppercase tracking-wider">Scraped</h4>
-					</div>
+		<!-- comparison layout -->
+		<div
+			class="overflow-y-auto p-4 border border-theme-border rounded-xl"
+			onwheel={(e) => e.stopPropagation()}
+		>
+			<!-- Column Headers -->
+			<div class="grid grid-cols-2 gap-4 mb-4">
+				<div class="flex items-center gap-2">
+					<div class="w-2 h-2 rounded-full bg-gray-500"></div>
+					<h4 class="text-xs font-bold text-theme-tertiary uppercase tracking-wider">Current</h4>
 				</div>
-
-				<!-- Title Row -->
-				<div class="grid grid-cols-2 gap-4 mb-3">
-					<div>
-						<p class="text-[10px] text-theme-secondary mb-1">Title</p>
-						<p class="text-sm text-theme-primary line-clamp-1">
-							{#if preview.current.title}
-								{preview.current.title}
-							{:else}
-								<span class="text-theme-secondary italic text-xs">None</span>
-							{/if}
-						</p>
-					</div>
-					<div>
-						<p class="text-[10px] text-theme-secondary mb-1">Title</p>
-						<p class="text-sm text-theme-primary line-clamp-1">
-							{#if preview.scraped.title}
-								{preview.scraped.title}
-							{:else}
-								<span class="text-theme-secondary italic text-xs">No change</span>
-							{/if}
-						</p>
-					</div>
-				</div>
-
-				<!-- Japanese Title Row -->
-				<div class="grid grid-cols-2 gap-4 mb-3">
-					<div>
-						<p class="text-[10px] text-theme-secondary mb-1">Japanese</p>
-						<p class="text-sm text-theme-primary line-clamp-1">
-							{#if preview.current.japaneseTitle}
-								{preview.current.japaneseTitle}
-							{:else}
-								<span class="text-theme-secondary italic text-xs">None</span>
-							{/if}
-						</p>
-					</div>
-					<div>
-						<p class="text-[10px] text-theme-secondary mb-1">Japanese</p>
-						<p class="text-sm text-theme-primary line-clamp-1">
-							{#if preview.scraped.japaneseTitle}
-								{preview.scraped.japaneseTitle}
-							{:else}
-								<span class="text-theme-secondary italic text-xs">No change</span>
-							{/if}
-						</p>
-					</div>
-				</div>
-
-				<!-- Romaji Title Row -->
-				<div class="grid grid-cols-2 gap-4 mb-3">
-					<div>
-						<p class="text-[10px] text-theme-secondary mb-1">Romaji</p>
-						<p class="text-sm text-theme-primary line-clamp-1">
-							{#if preview.current.romajiTitle}
-								{preview.current.romajiTitle}
-							{:else}
-								<span class="text-theme-secondary italic text-xs">None</span>
-							{/if}
-						</p>
-					</div>
-					<div>
-						<p class="text-[10px] text-theme-secondary mb-1">Romaji</p>
-						<p class="text-sm text-theme-primary line-clamp-1">
-							{#if preview.scraped.romajiTitle}
-								{preview.scraped.romajiTitle}
-							{:else}
-								<span class="text-theme-secondary italic text-xs">No change</span>
-							{/if}
-						</p>
-					</div>
-				</div>
-
-				<!-- Synonyms Row -->
-				<div class="grid grid-cols-2 gap-4 mb-3">
-					<div>
-						<p class="text-[10px] text-theme-secondary mb-1">Synonyms</p>
-						<p class="text-xs text-theme-primary line-clamp-1">
-							{#if preview.current.synonyms}
-								{@const parsedSynonyms = (() => {
-									try {
-										const parsed = JSON.parse(preview.current.synonyms);
-										return Array.isArray(parsed) ? parsed : [];
-									} catch {
-										return [];
-									}
-								})()}
-								{#if parsedSynonyms.length > 0}
-									{parsedSynonyms.join(', ')}
-								{:else}
-									<span class="text-theme-secondary italic">None</span>
-								{/if}
-							{:else}
-								<span class="text-theme-secondary italic">None</span>
-							{/if}
-						</p>
-					</div>
-					<div>
-						<p class="text-[10px] text-theme-secondary mb-1">Synonyms</p>
-						<p class="text-xs text-theme-primary line-clamp-1">
-							{#if preview.scraped.synonyms}
-								{@const parsedSynonyms = (() => {
-									try {
-										const parsed = JSON.parse(preview.scraped.synonyms);
-										return Array.isArray(parsed) ? parsed : [];
-									} catch {
-										return [];
-									}
-								})()}
-								{#if parsedSynonyms.length > 0}
-									{parsedSynonyms.join(', ')}
-								{:else}
-									<span class="text-theme-secondary italic">No change</span>
-								{/if}
-							{:else}
-								<span class="text-theme-secondary italic">No change</span>
-							{/if}
-						</p>
-					</div>
-				</div>
-
-				<!-- Description Row -->
-				<div class="grid grid-cols-2 gap-4">
-					<div>
-						<p class="text-[10px] text-theme-secondary mb-1">Description</p>
-						<p class="text-xs text-theme-primary line-clamp-3 h-[3.6rem] overflow-hidden">
-							{#if preview.current.description}
-								{preview.current.description}
-							{:else}
-								<span class="text-theme-secondary italic">None</span>
-							{/if}
-						</p>
-					</div>
-					<div>
-						<p class="text-[10px] text-theme-secondary mb-1">Description</p>
-						<p class="text-xs text-theme-primary line-clamp-3 h-[3.6rem] overflow-hidden">
-							{#if preview.scraped.description}
-								{@html preview.scraped.description}
-							{:else}
-								<span class="text-theme-secondary italic">No change</span>
-							{/if}
-						</p>
-					</div>
+				<div class="flex items-center gap-2">
+					<div class="w-2 h-2 rounded-full bg-accent"></div>
+					<h4 class="text-xs font-bold text-accent uppercase tracking-wider">Scraped</h4>
 				</div>
 			</div>
 
-			<!-- Right: Cover Comparison -->
-			<div class="flex-shrink-0">
-				<div class="grid grid-cols-2 gap-4">
-					<div>
-						<div class="flex items-center gap-2 mb-2">
-							<div class="w-2 h-2 rounded-full bg-gray-500"></div>
-							<p class="text-[10px] font-bold text-theme-tertiary uppercase tracking-wider">
-								Current
-							</p>
+			<!-- Cover Comparison -->
+			<div class="grid grid-cols-2 gap-4 mb-3">
+				<div>
+					{#if preview.current.coverPath}
+						<img
+							src="/api/files/series/{preview.seriesId}/cover"
+							alt="Current cover"
+							class="w-full aspect-[7/11] object-cover rounded-lg border border-theme-border"
+						/>
+					{:else}
+						<div
+							class="w-full aspect-[7/11] rounded-lg border-2 border-dashed border-theme-border flex items-center justify-center"
+						>
+							<span class="text-xs text-red-400">No cover</span>
 						</div>
-						{#if preview.current.coverPath}
+					{/if}
+				</div>
+				<div>
+					{#if preview.scraped.tempCoverPath}
+						<div class="relative">
 							<img
-								src="/api/files/series/{preview.seriesId}/cover"
-								alt="Current cover"
-								class="w-28 h-40 object-cover rounded-lg border border-theme-border"
+								src="/api/files/preview?path={encodeURIComponent(preview.scraped.tempCoverPath)}"
+								alt="Scraped cover"
+								class="w-full aspect-[7/11] object-cover rounded-lg border-2 border-accent shadow-lg shadow-accent/20"
 							/>
-						{:else}
 							<div
-								class="w-28 h-40 rounded-lg border-2 border-dashed border-theme-border flex items-center justify-center"
+								class="absolute top-2 right-2 bg-accent text-white text-[10px] font-bold px-2 py-1 rounded-full shadow-lg"
 							>
-								<span class="text-xs text-red-400">No cover</span>
+								NEW
 							</div>
-						{/if}
-					</div>
-					<div>
-						<div class="flex items-center gap-2 mb-2">
-							<div class="w-2 h-2 rounded-full bg-accent"></div>
-							<p class="text-[10px] font-bold text-accent uppercase tracking-wider">Scraped</p>
 						</div>
-						{#if preview.scraped.tempCoverPath}
-							<div class="relative">
-								<img
-									src="/api/files/preview?path={encodeURIComponent(preview.scraped.tempCoverPath)}"
-									alt="Scraped cover"
-									class="w-28 h-40 object-cover rounded-lg border-2 border-accent shadow-lg shadow-accent/20"
-								/>
-								<div
-									class="absolute -top-2 -right-2 bg-accent text-white text-[10px] font-bold px-2 py-1 rounded-full shadow-lg"
-								>
-									NEW
-								</div>
-							</div>
-						{:else if preview.scraped.hasCover}
-							<div
-								class="w-28 h-40 rounded-lg border border-theme-border flex items-center justify-center bg-theme-surface"
-							>
-								<span class="text-xs text-green-400">✓ Has</span>
-							</div>
+					{:else if preview.scraped.hasCover}
+						<div
+							class="w-full aspect-[7/11] rounded-lg border border-theme-border flex items-center justify-center bg-theme-surface"
+						>
+							<span class="text-xs text-green-400">✓ Has</span>
+						</div>
+					{:else}
+						<div
+							class="w-full aspect-[7/11] rounded-lg border border-theme-border flex items-center justify-center bg-theme-surface"
+						>
+							<span class="text-xs text-theme-secondary italic">No change</span>
+						</div>
+					{/if}
+				</div>
+			</div>
+
+			<!-- Title Row -->
+			<div class="grid grid-cols-2 gap-4 mb-3">
+				<div>
+					<p class="text-[10px] text-theme-secondary mb-1">Title</p>
+					<p class="text-sm text-theme-primary">
+						{#if preview.current.title}
+							{preview.current.title}
 						{:else}
-							<div
-								class="w-28 h-40 rounded-lg border border-theme-border flex items-center justify-center bg-theme-surface"
-							>
-								<span class="text-xs text-theme-secondary italic">No change</span>
-							</div>
+							<span class="text-theme-secondary italic text-xs">None</span>
 						{/if}
-					</div>
+					</p>
+				</div>
+				<div>
+					<p class="text-[10px] text-theme-secondary mb-1">Title</p>
+					<p class="text-sm text-theme-primary">
+						{#if preview.scraped.title}
+							{preview.scraped.title}
+						{:else}
+							<span class="text-theme-secondary italic text-xs">No change</span>
+						{/if}
+					</p>
+				</div>
+			</div>
+
+			<!-- Japanese Title Row -->
+			<div class="grid grid-cols-2 gap-4 mb-3">
+				<div>
+					<p class="text-[10px] text-theme-secondary mb-1">Japanese</p>
+					<p class="text-sm text-theme-primary">
+						{#if preview.current.japaneseTitle}
+							{preview.current.japaneseTitle}
+						{:else}
+							<span class="text-theme-secondary italic text-xs">None</span>
+						{/if}
+					</p>
+				</div>
+				<div>
+					<p class="text-[10px] text-theme-secondary mb-1">Japanese</p>
+					<p class="text-sm text-theme-primary">
+						{#if preview.scraped.japaneseTitle}
+							{preview.scraped.japaneseTitle}
+						{:else}
+							<span class="text-theme-secondary italic text-xs">No change</span>
+						{/if}
+					</p>
+				</div>
+			</div>
+
+			<!-- Romaji Title Row -->
+			<div class="grid grid-cols-2 gap-4 mb-3">
+				<div>
+					<p class="text-[10px] text-theme-secondary mb-1">Romaji</p>
+					<p class="text-sm text-theme-primary">
+						{#if preview.current.romajiTitle}
+							{preview.current.romajiTitle}
+						{:else}
+							<span class="text-theme-secondary italic text-xs">None</span>
+						{/if}
+					</p>
+				</div>
+				<div>
+					<p class="text-[10px] text-theme-secondary mb-1">Romaji</p>
+					<p class="text-sm text-theme-primary">
+						{#if preview.scraped.romajiTitle}
+							{preview.scraped.romajiTitle}
+						{:else}
+							<span class="text-theme-secondary italic text-xs">No change</span>
+						{/if}
+					</p>
+				</div>
+			</div>
+
+			<!-- Synonyms Row -->
+			<div class="grid grid-cols-2 gap-4 mb-3">
+				<div>
+					<p class="text-[10px] text-theme-secondary mb-1">Synonyms</p>
+					<p class="text-xs text-theme-primary">
+						{#if preview.current.synonyms}
+							{@const parsedSynonyms = (() => {
+								try {
+									const parsed = JSON.parse(preview.current.synonyms);
+									return Array.isArray(parsed) ? parsed : [];
+								} catch {
+									return [];
+								}
+							})()}
+							{#if parsedSynonyms.length > 0}
+								{parsedSynonyms.join(', ')}
+							{:else}
+								<span class="text-theme-secondary italic">None</span>
+							{/if}
+						{:else}
+							<span class="text-theme-secondary italic">None</span>
+						{/if}
+					</p>
+				</div>
+				<div>
+					<p class="text-[10px] text-theme-secondary mb-1">Synonyms</p>
+					<p class="text-xs text-theme-primary">
+						{#if preview.scraped.synonyms}
+							{@const parsedSynonyms = (() => {
+								try {
+									const parsed = JSON.parse(preview.scraped.synonyms);
+									return Array.isArray(parsed) ? parsed : [];
+								} catch {
+									return [];
+								}
+							})()}
+							{#if parsedSynonyms.length > 0}
+								{parsedSynonyms.join(', ')}
+							{:else}
+								<span class="text-theme-secondary italic">No change</span>
+							{/if}
+						{:else}
+							<span class="text-theme-secondary italic">No change</span>
+						{/if}
+					</p>
+				</div>
+			</div>
+
+			<!-- Description Row -->
+			<div class="grid grid-cols-2 gap-4">
+				<div>
+					<p class="text-[10px] text-theme-secondary mb-1">Description</p>
+					<p class="text-xs text-theme-primary line-clamp-3 flex">
+						{#if preview.current.description}
+							{preview.current.description}
+						{:else}
+							<span class="text-theme-secondary italic">None</span>
+						{/if}
+					</p>
+				</div>
+				<div>
+					<p class="text-[10px] text-theme-secondary mb-1">Description</p>
+					<p class="text-xs text-theme-primary line-clamp-3 flex">
+						{#if preview.scraped.description}
+							{@html preview.scraped.description}
+						{:else}
+							<span class="text-theme-secondary italic">No change</span>
+						{/if}
+					</p>
 				</div>
 			</div>
 		</div>
