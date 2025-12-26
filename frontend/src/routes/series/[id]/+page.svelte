@@ -60,12 +60,6 @@
 	let editVolumeTarget = $state<{ id: string; title: string | null } | null>(null);
 
 	// --- Helpers ---
-	const formatTime = (seconds: number) => {
-		const h = Math.floor(seconds / 3600);
-		const m = Math.floor((seconds % 3600) / 60);
-		return h > 0 ? `${h}h ${m}m` : `${m}m`;
-	};
-
 	const getVolumeStats = (vol: Volume) => {
 		const p = vol.progress?.[0];
 		const currentPage = p?.page ?? 0;
@@ -270,8 +264,8 @@
 			{series}
 			{stats}
 			{coverRefreshTrigger}
+			onRefresh={handleRefresh}
 			onCoverUpload={handleCoverUpload}
-			onEditMetadata={() => (isEditSeriesOpen = true)}
 			onBookmarkToggle={toggleBookmark}
 			isBookmarked={series.bookmarked ?? false}
 		/>
