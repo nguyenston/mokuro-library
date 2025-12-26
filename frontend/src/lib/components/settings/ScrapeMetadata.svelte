@@ -328,33 +328,31 @@
 	async function scrapeWithFallback(
 		seriesId: string,
 		seriesTitle: string,
-		primaryProvider: string
+		primaryProvider: 'anilist' | 'mal' | 'kitsu'
 	) {
-		// Simplified for brevity - assumes your API logic here matches previous
-		const providers = ['anilist', 'mal', 'kitsu'];
-		const ordered = [primaryProvider, ...providers.filter((p) => p !== primaryProvider)];
+		try {
+			// Just make ONE call. The backend handles the fallback.
+			const response = await apiFetch('/api/metadata/series/scrape', {
+				method: 'POST',
+				body: {
+					seriesId,
+					seriesName: seriesTitle,
+					provider: primaryProvider
+				}
+			});
 
-		let merged: any = {};
-		let current = null;
-
-		for (const provider of ordered) {
-			try {
-				const res = await apiFetch('/api/metadata/series/scrape', {
-					method: 'POST',
-					body: { seriesId, seriesName: seriesTitle, provider }
-				});
-				if (res.error || !res.scraped) continue;
-				if (!current) current = res.current;
-
-				// Merge logic (simplified)
-				merged = { ...merged, ...res.scraped };
-				// If we have essential data, break
-				if (merged.description && merged.tempCoverPath) break;
-			} catch (e) {
-				console.error(e);
+			if (response.error || !response.scraped) {
+				return { scraped: {}, current: null };
 			}
+
+			return {
+				scraped: response.scraped,
+				current: response.current
+			};
+		} catch (error) {
+			console.error(`Failed to scrape:`, error);
+			return { scraped: {}, current: null };
 		}
-		return { scraped: merged, current };
 	}
 
 	async function scrapeSingleSeries(seriesId: string, seriesTitle: string) {
