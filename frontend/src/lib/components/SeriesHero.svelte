@@ -230,50 +230,7 @@
 				{/if}
 
 				<div class="absolute top-0 right-0 hidden md:flex items-center gap-2">
-					<button
-						onclick={onBookmarkToggle}
-						class="p-2 rounded-lg transition-colors hover:bg-theme-surface-hover/50 {isBookmarked
-							? 'text-status-warning'
-							: 'text-theme-secondary hover:text-theme-primary'}"
-						title={isBookmarked ? 'Remove Bookmark' : 'Add Bookmark'}
-					>
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							width="20"
-							height="20"
-							viewBox="0 0 24 24"
-							fill={isBookmarked ? 'currentColor' : 'none'}
-							stroke="currentColor"
-							stroke-width="2.5"
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							class={`relative transition-all ${isBookmarked ? 'animate-pop neon-glow' : 'neon-off'}`}
-						>
-							<path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
-						</svg>
-					</button>
-
-					<button
-						onclick={handleMenuOpen}
-						class="p-2 text-theme-secondary hover:text-theme-primary hover:bg-theme-surface-hover/50 rounded-lg transition-colors"
-						title="Options"
-					>
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							width="20"
-							height="20"
-							viewBox="0 0 24 24"
-							fill="none"
-							stroke="currentColor"
-							stroke-width="2"
-							stroke-linecap="round"
-							stroke-linejoin="round"
-						>
-							<circle cx="12" cy="12" r="1" />
-							<circle cx="19" cy="12" r="1" />
-							<circle cx="5" cy="12" r="1" />
-						</svg>
-					</button>
+					{@render seriesActions()}
 				</div>
 			</div>
 
@@ -289,26 +246,7 @@
 
 			<div class="mt-auto space-y-6">
 				<div class="flex flex-wrap items-center justify-center md:justify-start gap-3 md:hidden">
-					<button
-						onclick={() => (isEditOpen = true)}
-						class="flex items-center gap-2 px-5 py-2.5 bg-transparent border border-white/10 rounded-full text-sm font-medium text-theme-secondary hover:text-theme-primary hover:bg-white/5 transition-colors"
-					>
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							width="16"
-							height="16"
-							viewBox="0 0 24 24"
-							fill="none"
-							stroke="currentColor"
-							stroke-width="2"
-							stroke-linecap="round"
-							stroke-linejoin="round"
-						>
-							<path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
-							<path d="m15 5 4 4" />
-						</svg>
-						Edit Metadata
-					</button>
+					{@render seriesActions()}
 				</div>
 
 				<div class="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 text-left">
@@ -422,6 +360,53 @@
 		}
 	}}
 />
+
+{#snippet seriesActions()}
+	<button
+		onclick={onBookmarkToggle}
+		class="p-2 rounded-lg transition-colors hover:bg-theme-surface-hover/50 {isBookmarked
+			? 'text-status-warning'
+			: 'text-theme-secondary hover:text-theme-primary'}"
+		title={isBookmarked ? 'Remove Bookmark' : 'Add Bookmark'}
+	>
+		<svg
+			xmlns="http://www.w3.org/2000/svg"
+			width="20"
+			height="20"
+			viewBox="0 0 24 24"
+			fill={isBookmarked ? 'currentColor' : 'none'}
+			stroke="currentColor"
+			stroke-width="2.5"
+			stroke-linecap="round"
+			stroke-linejoin="round"
+			class={`relative transition-all ${isBookmarked ? 'animate-pop neon-glow' : 'neon-off'}`}
+		>
+			<path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+		</svg>
+	</button>
+
+	<button
+		onclick={handleMenuOpen}
+		class="p-2 text-theme-secondary hover:text-theme-primary hover:bg-theme-surface-hover/50 rounded-lg transition-colors"
+		title="Options"
+	>
+		<svg
+			xmlns="http://www.w3.org/2000/svg"
+			width="20"
+			height="20"
+			viewBox="0 0 24 24"
+			fill="none"
+			stroke="currentColor"
+			stroke-width="2"
+			stroke-linecap="round"
+			stroke-linejoin="round"
+		>
+			<circle cx="12" cy="12" r="1" />
+			<circle cx="19" cy="12" r="1" />
+			<circle cx="5" cy="12" r="1" />
+		</svg>
+	</button>
+{/snippet}
 
 <style>
 	.neon-glow {
