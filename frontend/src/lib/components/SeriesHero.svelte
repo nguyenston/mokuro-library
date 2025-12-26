@@ -1,4 +1,16 @@
 <script lang="ts">
+	import { createId } from '@paralleldrive/cuid2';
+
+	// Global State & Components
+	import { contextMenu } from '$lib/contextMenuStore';
+	import { scrapingState } from '$lib/states/ScrapingState.svelte';
+
+	// Local Components
+	import EditSeriesModal from '$lib/components/EditSeriesModal.svelte';
+	import SingleScrapePanel from '$lib/components/panels/SingleScrapePanel.svelte';
+	import SeriesActionsMenu from '$lib/components/menu/SeriesActionsMenu.svelte';
+	import type { ScrapedPreview } from '$lib/states/ReviewSession.svelte';
+
 	// --- Types ---
 	interface Series {
 		id: string;
@@ -21,37 +33,111 @@
 		series,
 		stats,
 		coverRefreshTrigger = 0,
+		isBookmarked = false,
 		onCoverUpload,
-		onEditMetadata,
 		onBookmarkToggle,
-		isBookmarked = false
+		onRefresh
 	} = $props<{
 		series: Series;
 		stats: SeriesStats;
 		coverRefreshTrigger?: number;
-		onCoverUpload: (e: Event, fileInput: HTMLInputElement | undefined) => void;
-		onEditMetadata: () => void;
-		onBookmarkToggle: () => void;
 		isBookmarked?: boolean;
+		onCoverUpload: (e: Event, fileInput: HTMLInputElement | undefined) => void;
+		onBookmarkToggle: () => void;
+		onRefresh: () => void;
 	}>();
 
-	// --- Helpers ---
-	const formatTime = (seconds: number) => {
-		const h = Math.floor(seconds / 3600);
-		const m = Math.floor((seconds % 3600) / 60);
-		return h > 0 ? `${h}h ${m}m` : `${m}m`;
-	};
+	// --- Local State ---
+	let fileInput: HTMLInputElement | undefined = $state();
 
+	// Modal States
+	let isEditOpen = $state(false);
+
+	// Scrape State
+	let isScrapeModalOpen = $state(false);
+	let isScrapeLoading = $state(false);
+	let scrapePreview = $state<ScrapedPreview | null>(null);
+
+	// --- Computed ---
 	let displayTitle = $derived(series.title ?? series.folderName);
-
-	// Display Japanese / Romaji format when both are available
 	let displayJapaneseTitle = $derived(
 		series.japaneseTitle && series.romajiTitle
 			? `${series.japaneseTitle} / ${series.romajiTitle}`
 			: series.japaneseTitle || series.romajiTitle || null
 	);
 
-	let fileInput: HTMLInputElement | undefined = $state();
+	// --- Actions ---
+
+	const formatTime = (seconds: number) => {
+		const h = Math.floor(seconds / 3600);
+		const m = Math.floor((seconds % 3600) / 60);
+		return h > 0 ? `${h}h ${m}m` : `${m}m`;
+	};
+
+	async function handleQuickScrape() {
+		// 1. Open Modal Immediately
+		isScrapeModalOpen = true;
+		isScrapeLoading = true;
+		scrapePreview = null;
+
+		try {
+			const { scraped, current } = await scrapingState.scrapeWithFallback(
+				series.id,
+				series.title || series.folderName,
+				'anilist'
+			);
+
+			if (current) {
+				scrapePreview = {
+					id: createId(),
+					seriesId: series.id,
+					seriesTitle: series.title || series.folderName,
+					searchQuery: series.title || series.folderName,
+					current,
+					scraped,
+					status: 'pending'
+				};
+			} else {
+				// No results found - preview remains null, modal shows "No Results" state
+				scrapePreview = null;
+			}
+		} catch (e) {
+			console.error('Scrape failed:', e);
+			scrapePreview = null;
+		} finally {
+			isScrapeLoading = false;
+		}
+	}
+
+	function handleEditClick() {
+		isEditOpen = true;
+	}
+
+	function handleMenuOpen(e: MouseEvent) {
+		e.preventDefault();
+		e.stopPropagation();
+		if ($contextMenu.component === SeriesActionsMenu) {
+			contextMenu.close();
+			return;
+		}
+
+		const target = e.currentTarget as HTMLElement;
+		const rect = target.getBoundingClientRect();
+
+		// Align to the bottom-right of the button
+		// The ContextMenu component handles screen boundary collision automatically
+		contextMenu.open(
+			rect.right,
+			rect.bottom,
+			SeriesActionsMenu,
+			{
+				xEdgeAlign: 'right',
+				onEdit: handleEditClick,
+				onScrape: handleQuickScrape
+			},
+			target
+		);
+	}
 </script>
 
 <div
@@ -106,10 +192,11 @@
 						stroke-linecap="round"
 						stroke-linejoin="round"
 						class="text-theme-primary mb-2"
-						><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline
-							points="17 8 12 3 7 8"
-						/><line x1="12" x2="12" y1="3" y2="15" /></svg
 					>
+						<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+						<polyline points="17 8 12 3 7 8" />
+						<line x1="12" x2="12" y1="3" y2="15" />
+					</svg>
 					<span class="text-xs font-bold uppercase tracking-wider text-theme-primary"
 						>Change Cover</span
 					>
@@ -142,11 +229,11 @@
 					<p class="text-theme-secondary/40 text-sm italic mb-4">No Japanese title</p>
 				{/if}
 
-				<div class="absolute top-0 right-0 flex items-center gap-2 hidden md:flex">
+				<div class="absolute top-0 right-0 hidden md:flex items-center gap-2">
 					<button
 						onclick={onBookmarkToggle}
-						class="p-2 rounded-lg transition-colors hover:bg-white/10 {isBookmarked
-							? 'text-status-warning' 
+						class="p-2 rounded-lg transition-colors hover:bg-theme-surface-hover/50 {isBookmarked
+							? 'text-status-warning'
 							: 'text-theme-secondary hover:text-theme-primary'}"
 						title={isBookmarked ? 'Remove Bookmark' : 'Add Bookmark'}
 					>
@@ -160,17 +247,16 @@
 							stroke-width="2.5"
 							stroke-linecap="round"
 							stroke-linejoin="round"
-							class={`relative transition-all ${
-								isBookmarked ? 'animate-pop neon-glow' : 'neon-off'
-							}`}
+							class={`relative transition-all ${isBookmarked ? 'animate-pop neon-glow' : 'neon-off'}`}
 						>
 							<path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
 						</svg>
 					</button>
+
 					<button
-						onclick={onEditMetadata}
-						class="p-2 text-theme-secondary hover:text-theme-primary hover:bg-white/10 rounded-lg transition-colors"
-						title="Edit Metadata"
+						onclick={handleMenuOpen}
+						class="p-2 text-theme-secondary hover:text-theme-primary hover:bg-theme-surface-hover/50 rounded-lg transition-colors"
+						title="Options"
 					>
 						<svg
 							xmlns="http://www.w3.org/2000/svg"
@@ -182,10 +268,11 @@
 							stroke-width="2"
 							stroke-linecap="round"
 							stroke-linejoin="round"
-							><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" /><path
-								d="m15 5 4 4"
-							/></svg
 						>
+							<circle cx="12" cy="12" r="1" />
+							<circle cx="19" cy="12" r="1" />
+							<circle cx="5" cy="12" r="1" />
+						</svg>
 					</button>
 				</div>
 			</div>
@@ -201,10 +288,10 @@
 			{/if}
 
 			<div class="mt-auto space-y-6">
-				<div class="flex flex-wrap items-center justify-center md:justify-start gap-3">
+				<div class="flex flex-wrap items-center justify-center md:justify-start gap-3 md:hidden">
 					<button
-						onclick={onEditMetadata}
-						class="md:hidden flex items-center gap-2 px-5 py-2.5 bg-transparent border border-white/10 rounded-full text-sm font-medium text-theme-secondary hover:text-theme-primary hover:bg-white/5 transition-colors"
+						onclick={() => (isEditOpen = true)}
+						class="flex items-center gap-2 px-5 py-2.5 bg-transparent border border-white/10 rounded-full text-sm font-medium text-theme-secondary hover:text-theme-primary hover:bg-white/5 transition-colors"
 					>
 						<svg
 							xmlns="http://www.w3.org/2000/svg"
@@ -216,10 +303,10 @@
 							stroke-width="2"
 							stroke-linecap="round"
 							stroke-linejoin="round"
-							><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" /><path
-							d="m15 5 4 4"
-						/></svg
-					>
+						>
+							<path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+							<path d="m15 5 4 4" />
+						</svg>
 						Edit Metadata
 					</button>
 				</div>
@@ -322,8 +409,21 @@
 	</div>
 </div>
 
+<EditSeriesModal {series} isOpen={isEditOpen} onClose={() => (isEditOpen = false)} {onRefresh} />
+
+<SingleScrapePanel
+	isOpen={isScrapeModalOpen}
+	isLoading={isScrapeLoading}
+	bind:preview={scrapePreview}
+	onClose={() => {
+		isScrapeModalOpen = false;
+		if (scrapePreview?.status === 'applied') {
+			onRefresh();
+		}
+	}}
+/>
+
 <style>
-	/* Intensity Control: Change the % next to transparent to adjust glow strength */
 	.neon-glow {
 		transition: filter 0.6s cubic-bezier(0.4, 0, 0.2, 1);
 		filter: drop-shadow(0 0 1px color-mix(in srgb, var(--color-status-warning), transparent 30%))
@@ -333,7 +433,6 @@
 
 	.neon-off {
 		transition: filter 0.8s ease-in;
-		/* Transitioning to 100% transparent version of the SAME variable */
 		filter: drop-shadow(0 0 0px color-mix(in srgb, var(--color-status-warning), transparent 100%))
 			drop-shadow(0 0 0px color-mix(in srgb, var(--color-status-warning), transparent 100%))
 			drop-shadow(0 0 0px color-mix(in srgb, var(--color-status-warning), transparent 100%));

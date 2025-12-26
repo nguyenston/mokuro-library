@@ -1,9 +1,8 @@
 import { Deque } from "$lib/utils/Deque.svelte";
-import { createId } from '@paralleldrive/cuid2';
 import { apiFetch } from '$lib/api';
 
 export interface ScrapedPreview {
-  id: string; // Unique ID for each preview
+  id: string; // Unique ID for the preview card
   seriesId: string;
   seriesTitle: string;
   searchQuery: string;
@@ -23,14 +22,11 @@ export interface ScrapedPreview {
     synonyms?: string;
     description?: string;
     hasCover?: boolean;
-    tempCoverPath?: string; // Changed from coverPath
+    tempCoverPath?: string;
   };
   status: 'pending' | 'applying' | 'applied' | 'error' | 'denied';
 }
 
-/**
- * Manages the review workflow and API interactions.
- */
 export class ReviewSession {
   // --- Data Structures ---
   upcoming = new Deque<ScrapedPreview>();
@@ -46,7 +42,6 @@ export class ReviewSession {
   });
 
   // --- Callbacks ---
-  // Function to call when a series is successfully updated (to update UI list)
   private onSeriesUpdated: (seriesId: string) => void;
 
   constructor(onSeriesUpdated: (seriesId: string) => void) {
@@ -54,11 +49,14 @@ export class ReviewSession {
   }
 
   // --- Getters ---
-  get current() { return this.upcoming.peekFront(); }
-  get totalPending() { return this.upcoming.size + this.deferred.length; }
+  get current() {
+    return this.upcoming.peekFront();
+  }
+  get totalPending() {
+    return this.upcoming.size + this.deferred.length;
+  }
 
   // --- Queue Management ---
-
   reset(totalItemsToScrape: number) {
     this.upcoming.clear();
     this.deferred = [];
@@ -75,7 +73,6 @@ export class ReviewSession {
   }
 
   // --- Navigation ---
-
   defer() {
     const item = this.upcoming.popFront();
     if (item) this.deferred.push(item);
@@ -87,7 +84,6 @@ export class ReviewSession {
   }
 
   // --- Actions (Bulk) ---
-
   async confirmCurrent() {
     const item = this.upcoming.peekFront();
     if (!item) return;
@@ -113,12 +109,7 @@ export class ReviewSession {
     }
   }
 
-  // --- Shared Logic (Used by Bulk and Single) ---
-
-  /**
-   * Performs the actual API call and triggers the success callback.
-   * Can be used by the queue or by a single scrape modal.
-   */
+  // --- Shared Logic ---
   async commitChange(preview: ScrapedPreview) {
     preview.status = 'applying';
     try {
@@ -135,16 +126,10 @@ export class ReviewSession {
       });
 
       preview.status = 'applied';
-
-      // Notify the parent (Svelte component) to update its list
       this.onSeriesUpdated(preview.seriesId);
-
     } catch (error) {
       console.error('Failed to apply metadata:', error);
       preview.status = 'error';
-      // Note: If this was an optimistic update in the queue, 
-      // the UI will show 'Applied' in history but the console has the error.
-      // You might want to update the item in history to 'error' here if strictly needed.
     }
   }
 }
