@@ -26,7 +26,6 @@
 	let isProcessing = $state(false);
 	let showScrapeModal = $state(false);
 	let selectionCount = $derived(uiState.selection.size);
-	let selectedIdsArray = $derived(uiState.selectedIdsArray);
 
 	// --- Hotkeys ---
 	const handleKeyDown = (e: KeyboardEvent) => {

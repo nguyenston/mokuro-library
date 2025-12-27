@@ -23,6 +23,5 @@ frontend/build/
 # IDE
 .vscode/
 .idea/
-.claude/settings.local.json
+.claude/
 frontend/src/routes/background.png
-.gitignore

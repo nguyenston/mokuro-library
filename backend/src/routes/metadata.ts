@@ -683,18 +683,13 @@ const metadataRoutes: FastifyPluginAsync = async (
           }
         }
 
-        // 4. Prevent duplicate titles: if Japanese/Romaji is same as English, clear them
-        if (scrapedData.japaneseName && scrapedData.englishName &&
-          scrapedData.japaneseName === scrapedData.englishName) {
-          scrapedData.japaneseName = undefined;
-        }
-        if (scrapedData.romajiName && scrapedData.englishName &&
-          scrapedData.romajiName === scrapedData.englishName) {
-          scrapedData.romajiName = undefined;
-        }
-        if (scrapedData.romajiName && scrapedData.japaneseName &&
-          scrapedData.romajiName === scrapedData.japaneseName) {
-          scrapedData.romajiName = undefined;
+        // Note: We intentionally keep all title variants even if they're identical.
+        // This allows users to see all available data and make their own choice.
+
+        // 4.5. Fallback: If no English title, use Romaji as the primary title
+        // This ensures the "Title" field is always populated when possible
+        if (!scrapedData.englishName && scrapedData.romajiName) {
+          scrapedData.englishName = scrapedData.romajiName;
         }
 
         // 5. Download cover image if available
