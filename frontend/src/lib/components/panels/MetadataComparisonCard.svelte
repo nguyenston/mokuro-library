@@ -184,14 +184,16 @@
 	<div class="flex gap-3 justify-end pt-4 border-t border-theme-border">
 		{#if isBulk}
 			<button
+				disabled={preview.status !== 'pending'}
 				onclick={onCancel}
-				class="p-2 rounded-lg bg-theme-main border border-theme-border text-theme-secondary hover:text-theme-primary transition-colors"
+				class="p-2 rounded-lg bg-theme-surface hover:bg-theme-surface-hover border border-theme-border text-theme-secondary hover:text-theme-primary transition-colors disabled:bg-theme-main disabled:text-theme-border"
 			>
 				Skip (Esc)
 			</button>
 			<button
+				disabled={preview.status !== 'pending'}
 				onclick={onConfirm}
-				class="p-2 rounded-lg bg-accent text-white hover:bg-accent/80 font-bold transition-colors shadow-lg shadow-accent/20"
+				class="p-2 rounded-lg bg-accent text-white hover:bg-accent/80 font-bold transition-colors shadow-lg shadow-accent/20 disabled:bg-accent/20 disabled:text-gray-400"
 			>
 				Confirm (Enter)
 			</button>
