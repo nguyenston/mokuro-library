@@ -59,6 +59,13 @@ export default defineConfig({
           { text: 'Appearance Settings', link: '/appearance-settings' },
           { text: 'Reader Settings', link: '/reader-settings' },
         ]
+      },
+      {
+        text: 'Development',
+        collapsed: true,
+        items: [
+          { text: 'Developer Guide', link: '/developer-guide' },
+        ]
       }
     ],
 

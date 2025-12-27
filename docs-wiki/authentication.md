@@ -2,13 +2,13 @@
 
 Multi-user support with separate reading progress, bookmarks, and preferences per account.
 
-## Quick Start
+## Account Management
 
-**First time:** Click "Create an account" on the login screen. First registered user becomes admin.
+**First time setup:** Click "Create an account" on the login screen. The first registered user automatically becomes admin.
 
-**Returning:** Login with your credentials. Sessions persist until explicit logout.
+**Login:** Enter your credentials. Sessions persist until you explicitly log out.
 
-**Logout:** Menu → Logout (bottom of menu)
+**Logout:** Menu → Logout
 
 ## Multi-User Features
 
@@ -84,10 +84,6 @@ Same account works across desktop, tablet, and phone. Progress syncs automatical
 
 **Registration fails:** Ensure password is 6+ characters and both password fields match.
 
-## Coming Soon
-- Password change functionality
-- Self-service account deletion
-- Enhanced admin panel
 
 ## Next Steps
 - [Upload your manga](/managing-your-library)

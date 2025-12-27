@@ -13,19 +13,17 @@ Automatically populate series information from online databases.
 3. Search for your series by name
 4. Select the correct match from results
 5. Choose which fields to import:
-   - Title
-   - Author/Artist
+   - Title (English, Japanese, Romaji)
+   - Synonyms/Alternative titles
    - Description/Synopsis
    - Cover Image
-   - Publication Year
    - Status (Ongoing/Completed)
-   - Tags/Genres
 
 ![Metadata Scraper](/scraper-placeholder.svg)
 *Search and select metadata from online sources*
 
 ::: tip Supported Sources
-The scraper pulls data from multiple manga databases including MyAnimeList, AniList, and MangaUpdates for comprehensive coverage.
+The scraper pulls data from **AniList**, **MyAnimeList**, and **Kitsu** with automatic fallback between providers for comprehensive coverage.
 :::
 
 ### Manual Metadata Entry
@@ -33,48 +31,14 @@ The scraper pulls data from multiple manga databases including MyAnimeList, AniL
 If auto-scraping doesn't find your series or you prefer manual control:
 
 1. Click the "**Edit**" button (pencil icon)
-2. Fill in the metadata fields:
+2. Fill in available metadata fields:
    - **Title** - Official or preferred series name
-   - **Alternative Titles** - Other names (romaji, English, etc.)
-   - **Author** - Mangaka name
-   - **Artist** - If different from author
+   - **Alternative Titles** - Other names (romaji, English, Japanese)
    - **Description** - Plot summary or synopsis
-   - **Publication Year** - Original release year
-   - **Status** - Ongoing, Completed, Hiatus, Cancelled
-   - **Tags** - Genres and themes
+   - **Status** - Ongoing or Completed
 
 ![Edit Metadata Form](/edit-metadata-placeholder.svg)
 *Manual metadata editing interface*
-
-## Tagging System
-
-Organize your library with tags for easy filtering and discovery.
-
-### Creating Tags
-
-Tags are automatically extracted from scraped metadata, or you can add custom tags:
-
-**Common Tag Categories:**
-
-| Category | Examples |
-|----------|----------|
-| Genre | Action, Romance, Comedy, Horror, Slice of Life |
-| Theme | School, Isekai, Time Travel, Supernatural |
-| Demographic | Shounen, Shoujo, Seinen, Josei |
-| Format | 4-koma, Anthology, Oneshot, Long-running |
-| Language Learning | Beginner-friendly, Advanced, Furigana |
-
-**Best Practices:**
-- Use consistent capitalization (prefer "Slice of Life" over "slice of life")
-- Separate multiple tags with commas
-- Avoid overly specific tags
-- Use standard genre names for better search results
-
-### Filtering by Tags
-
-::: tip Coming Soon
-Tag-based filtering is planned for a future release. Currently, tags appear in search results and series pages.
-:::
 
 ## Organization Flags
 
@@ -184,31 +148,15 @@ Quick actions available in the library toolbar:
 - 📊 **Selection Info** - Shows count of selected items
 - 🎯 **Bulk Actions Menu** - Available operations
 
-## Series Collections
+## Bookmarking
 
-### Reading Lists
+Mark favorite series for quick access:
 
-::: tip Coming Soon
-Custom reading lists and collections are planned for a future release. You can currently use bookmarks for favorites.
-:::
-
-**Planned Features:**
-- Create custom collections
-- "Want to Read" lists
-- "Currently Reading" auto-collection
-- "Completed" archive
-- Share lists with other users
-
-### Bookmarks as Collections
-
-Currently, use bookmarks to create a simple collection system:
-
-**Star your favorites:**
 1. Open a series page
 2. Click the bookmark/star icon
 3. Series is added to bookmarks
 
-**View bookmarked series:**
+**Filter bookmarked series:**
 1. Open filter menu
 2. Enable "Bookmarked Only"
 3. Only starred series appear
@@ -241,17 +189,15 @@ Combine multiple filters for precise library searches.
 The search bar supports natural language queries:
 
 **Search Across:**
-- Series titles (primary)
-- Volume names
-- Author names
-- Description text
-- Tags
+- Series titles
+- Alternative titles
+- Synonyms
+- Romaji titles
 
 **Search Tips:**
 - Case-insensitive by default
 - Partial matching supported
-- Searches all metadata fields
-- Results ranked by relevance
+- Searches across all title variants
 
 ## Naming Conventions
 

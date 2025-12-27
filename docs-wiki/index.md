@@ -90,27 +90,31 @@ Mokuro Library transforms your [Mokuro](https://github.com/kha-white/mokuro)-pro
 
 ## Quick Start
 
-::: tip Prerequisites
-- Mokuro-processed manga files (`.mokuro` format)
-- Server or computer to host the application
-- Node.js and npm/pnpm installed
-:::
+### 🐳 Docker (Recommended)
 
 ```bash
-# Clone the repository
-git clone https://github.com/nguyenston/mokuro-library
+# Clone and navigate
+git clone https://github.com/nguyenston/mokuro-library.git
 cd mokuro-library
 
-# Install dependencies
-pnpm install
-
-# Start the application
-pnpm dev
+# Build and run
+docker compose build
+docker compose up -d
 ```
 
-Visit `http://localhost:5173` to access your library!
+**Access at:** `http://localhost:3001`
 
-For detailed installation instructions, see the [Installation Guide](/installation).
+Your data will be stored in `./data` and `./data/uploads`
+
+### 💻 Windows Portable
+
+1. Download `MokuroLibrary-Windows.zip` from [Releases](https://github.com/nguyenston/mokuro-library/releases)
+2. Extract and run `mokuro-library.exe`
+3. Access at `http://localhost:3001`
+
+---
+
+For more details, see the [Installation Guide](/installation).
 
 ## Screenshots
 

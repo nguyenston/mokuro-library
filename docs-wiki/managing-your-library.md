@@ -156,9 +156,9 @@ Click any series card to open its dedicated page.
 
 **Available Operations:**
 
-- 📝 **Edit Metadata** - Change title, description, author
+- 📝 **Edit Metadata** - Change title, description, status
 - 🖼️ **Update Cover** - Upload a new cover image
-- 🔍 **Scrape Metadata** - Auto-fill from online sources
+- 🔍 **Scrape Metadata** - Auto-fill from AniList, MyAnimeList, or Kitsu
 - 📚 **View Volumes** - See all chapters/volumes
 - 🗑️ **Delete Series** - Remove entire series
 
@@ -187,11 +187,9 @@ If you include an image file named after your series (e.g., `Yotsuba&!.png`) in 
 Click the edit button (pencil icon) to modify:
 
 - **Title** - Display name
-- **Author** - Creator name
+- **Alternative Titles** - Romaji, Japanese, English titles
 - **Description** - Summary or synopsis
-- **Tags** - Categories or genres
-- **Publication Year** - Release date
-- **Status** - Ongoing, Completed, Hiatus
+- **Status** - Ongoing or Completed
 
 ![Edit Series Modal](/edit-series-placeholder.svg)
 *Edit metadata form*
@@ -286,21 +284,25 @@ Mark favorite series for quick access:
 Bookmarks are personal - each user has their own set.
 :::
 
-## Library Statistics
+## Reading Statistics
 
-View collection stats in the **Statistics** modal:
+View your personal reading stats in the **Statistics** modal:
 
-- Total series count
-- Total volume count
-- Total page count
-- Reading progress percentage
-- Most read series
-- Recent activity
+- Recent reading speed (characters/min)
+- Total characters read
+- Volumes completed
+- Total time spent reading
+- Reading speed history (line chart)
+- Speed improvements per series
 
 Access via: Menu → Stats
 
 ![Statistics Modal](/stats-placeholder.svg)
-*Library statistics overview*
+*Personal reading statistics overview*
+
+::: info User-Specific
+Statistics are personal - each user has their own reading stats.
+:::
 
 ## Exporting Your Library
 
@@ -308,34 +310,24 @@ Create backups or share your collection:
 
 ### Export Options
 
-**ZIP Archive (Full):**
-- All images included
-- OCR data preserved
+**ZIP Archive:**
+- Images and OCR data included
 - Folder structure maintained
-- Large file size
-
-**ZIP Archive (Metadata Only):**
-- No images
-- OCR data included
-- Lightweight backup
-- Quick download
+- Can export single volume, series, or entire library
+- Includes metadata and progress data
 
 **PDF Export:**
-- Rendered pages
-- No OCR data
-- Portable format
-- Medium file size
+- Rendered pages with selectable OCR text
+- Portable format for sharing
+- Can export single volume, series, or entire library
+- No editing capability after export
 
 ### Export Process
 
-1. Open the menu
-2. Click "Download"
-3. Choose export format
-4. Wait for generation
-5. File downloads automatically
+Export from the action menu on series/volume cards or use bulk operations in selection mode.
 
 ::: tip Backup Strategy
-Regular metadata-only exports provide quick backups. Full exports before major changes.
+Regular ZIP exports preserve your entire library including OCR edits and reading progress.
 :::
 
 ## Organizing Best Practices
@@ -370,9 +362,9 @@ Regular metadata-only exports provide quick backups. Full exports before major c
 ### Metadata Quality
 
 - Fill in all available fields
-- Use consistent author naming
 - Add meaningful descriptions
-- Tag appropriately for search
+- Use the metadata scraper for accuracy
+- Keep titles consistent
 
 ## Troubleshooting
 

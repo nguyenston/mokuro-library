@@ -99,21 +99,38 @@ Your data will be stored in `./data` and `./data/uploads`
 
 ---
 
-## 💡 Why Mokuro Library?
+## 💡 Comparison with mokuro-reader
 
-### vs. [ZXY101/mokuro-reader](https://github.com/ZXY101/mokuro-reader) (Client-Side PWA)
+Two approaches to reading Mokuro-processed manga, each with distinct advantages:
 
-| | **Mokuro Library** | **mokuro-reader** |
-|-|-------------------|-------------------|
+| Feature | **Mokuro Library** | **[mokuro-reader](https://github.com/ZXY101/mokuro-reader)** |
+|---------|-------------------|-------------------|
 | **Architecture** | Self-hosted server | Browser-based PWA |
 | **Storage** | Server filesystem + SQL database | Browser IndexedDB |
-| **Multi-User** | ✅ Full support | ❌ Single user per browser |
-| **Sync** | ✅ Automatic across devices | ☁️ Requires cloud storage (GDrive/MEGA) |
-| **Library Size** | ♾️ Unlimited | ~2000 volumes (browser limits) |
-| **OCR Edits** | ✅ Save to source files | ⚠️ Browser storage only |
+| **Multi-User** | ✅ Full support | Single user per browser |
+| **Sync** | Automatic across devices | Cloud storage (GDrive/MEGA) |
+| **Library Size** | Unlimited | ~2000 volumes (browser limits) |
+| **OCR Edits** | Saved to source files | Browser storage only |
+| **Setup** | Requires server/Docker | Zero infrastructure |
+| **Offline** | Server must be accessible | Works fully offline |
 
-**Choose mokuro-reader if:** You want zero-infrastructure setup with cloud sync
-**Choose Mokuro Library if:** You self-host, need multi-user support, or have a large collection
+### **Best Use Cases**
+
+**Mokuro Library is ideal for:**
+- 🏠 Self-hosters with a NAS or home server
+- 👨‍👩‍👧‍👦 Families or groups sharing a collection
+- 📚 Large libraries (1000+ volumes)
+- 💾 Permanent OCR corrections across all users
+- 🔄 Seamless sync without cloud dependencies
+
+**mokuro-reader is ideal for:**
+- 🚀 Quick setup with no server required
+- ☁️ Users already using cloud storage
+- 📱 Single-user portable reading
+- ✈️ Fully offline reading anywhere
+- 🎒 Lightweight, zero-maintenance solution
+
+Both tools complement each other and share the same Mokuro format!
 
 ---
 
