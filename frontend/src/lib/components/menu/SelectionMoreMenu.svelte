@@ -14,10 +14,6 @@
 		onRefresh: () => void;
 	} = $props();
 
-	// Limits
-	const SCRAPE_LIMIT = 100;
-	let isScrapeDisabled = $derived(selectionCount > SCRAPE_LIMIT);
-
 	async function handleOrganize(value: boolean) {
 		const ids = uiState.selectedIdsArray;
 		try {
@@ -40,14 +36,6 @@
 		const rect = target.getBoundingClientRect();
 
 		const menuItems: MenuOption[] = [
-			// Section: Maintenance
-			{
-				label: isScrapeDisabled ? `Limit: ${SCRAPE_LIMIT} items` : 'Scrape Metadata',
-				// Disable if too many items selected
-				disabled: isScrapeDisabled,
-				action: onScrape
-			},
-			{ separator: true },
 			// Section: Organization
 			{
 				label: 'Mark as Organized',

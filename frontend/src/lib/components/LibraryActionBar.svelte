@@ -22,9 +22,11 @@
 		onSelectAll?: () => void;
 	}>();
 
+	const SCRAPE_LIMIT = 100;
 	let isProcessing = $state(false);
 	let showScrapeModal = $state(false);
 	let selectionCount = $derived(uiState.selection.size);
+	let selectedIdsArray = $derived(uiState.selectedIdsArray);
 
 	// --- Hotkeys ---
 	const handleKeyDown = (e: KeyboardEvent) => {
@@ -154,7 +156,6 @@
 	async function startScrapeSession() {
 		if (type !== 'series') return;
 
-		// Get the full objects from our map (Instant O(1) access)
 		// We cast to Series[] because we checked type === 'series' above
 		const selectedItems = Array.from(uiState.selection.values()) as Series[];
 
@@ -231,6 +232,38 @@
 						<line x1="12" y1="15" x2="12" y2="3"></line>
 					</svg>
 				</button>
+
+				{#if type === 'series'}
+					<button
+						onclick={startScrapeSession}
+						disabled={isProcessing || selectionCount > SCRAPE_LIMIT}
+						class="p-2.5 rounded-xl hover:bg-accent/10 text-theme-secondary hover:text-accent transition-colors disabled:opacity-50"
+						title={selectionCount > SCRAPE_LIMIT
+							? `Limit: ${SCRAPE_LIMIT} items`
+							: 'Scrape Metadata'}
+					>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							width="20"
+							height="20"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+						>
+							<ellipse cx="12" cy="5" rx="9" ry="3"></ellipse>
+							<path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path>
+							<path d="M3 12c0 1.66 4 3 9 3s9-1.34 9-3"></path>
+
+							<g>
+								<circle cx="16" cy="16" r="5" fill="white" stroke="currentColor"></circle>
+								<line x1="19.5" y1="19.5" x2="23" y2="23"></line>
+							</g>
+						</svg>
+					</button>
+				{/if}
 
 				{#if selectionCount === 1}
 					<button

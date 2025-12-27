@@ -2,6 +2,7 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { fade } from 'svelte/transition';
 	import { scrapingState } from '$lib/states/ScrapingState.svelte';
+	import { lockScroll } from '$lib/actions/lockScroll';
 	import MetadataComparisonCard from './MetadataComparisonCard.svelte';
 
 	let {
@@ -61,6 +62,7 @@
 <svelte:window bind:innerWidth={width} onkeydown={handleKeydown} />
 
 <div
+	use:lockScroll
 	class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4"
 	transition:fade={{ duration: 200 }}
 >
@@ -164,12 +166,12 @@
 								? 'bg-accent text-white shadow-md'
 								: 'text-theme-secondary opacity-70'}"
 						>
-							<div class="flex justify-between items-center">
+							<div class="flex justify-between items-center gap-1">
 								<span class="truncate">{item.seriesTitle}</span>
 								{#if item.status === 'scraping'}
-									<div class="w-2 h-2 rounded-full bg-theme-tertiary animate-pulse"></div>
+									<div class="w-2 aspect-square rounded-full bg-theme-tertiary animate-pulse"></div>
 								{:else if item.status === 'pending'}
-									<div class="w-2 h-2 rounded-full bg-status-success"></div>
+									<div class="w-2 aspect-square rounded-full bg-status-success"></div>
 								{/if}
 							</div>
 						</div>
