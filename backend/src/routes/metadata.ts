@@ -683,6 +683,11 @@ const metadataRoutes: FastifyPluginAsync = async (
           }
         }
 
+        const isEmpty = !scrapedData || Object.keys(scrapedData).length === 0;
+        if (isEmpty) {
+          throw new Error("Scrape returned empty.");
+        }
+
         // Note: We intentionally keep all title variants even if they're identical.
         // This allows users to see all available data and make their own choice.
 
