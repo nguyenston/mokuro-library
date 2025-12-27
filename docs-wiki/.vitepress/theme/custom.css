@@ -491,6 +491,8 @@ html:not(.dark) .VPLocalSearchBox .result.selected {
   border: 1px solid var(--vp-c-border) !important;
   border-radius: 8px !important;
   transition: all 0.2s ease !important;
+  width: 100% !important;
+  max-width: 280px !important; /* Wider search bar */
 }
 
 .DocSearch-Button:hover {
@@ -501,6 +503,18 @@ html:not(.dark) .VPLocalSearchBox .result.selected {
 
 html:not(.dark) .DocSearch-Button:hover {
   box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.1) !important;
+}
+
+/* Make search container wider */
+.VPNavBarSearch {
+  flex-grow: 1 !important;
+  max-width: 280px !important;
+}
+
+@media (min-width: 960px) {
+  .VPNavBarSearch {
+    padding-left: 24px !important;
+  }
 }
 
 /* Fix VitePress local search styling */

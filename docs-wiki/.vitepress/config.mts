@@ -13,9 +13,10 @@ export default defineConfig({
 
   themeConfig: {
     logo: '/logo.svg',
+    siteTitle: 'Mokuro Library',
 
-    // Appearance toggle
-    appearance: 'dark', // Enable dark mode by default with toggle
+    // Appearance toggle - follow system preference
+    appearance: 'auto',
 
     // Navigation bar
     nav: [
