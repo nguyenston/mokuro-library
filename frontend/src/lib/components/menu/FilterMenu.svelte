@@ -134,44 +134,46 @@
 	</MenuGroup>
 
 	<MenuGroup title="Ordering">
-		{#each uiState.availableSorts as sort}
-			{@const isActive = uiState.sortKey === sort.key}
-			<button
-				onclick={() => {
-					if (isActive) uiState.toggleSortOrder();
-					else uiState.sortKey = sort.key;
-				}}
-				class={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-sm font-bold transition-all duration-200
+		<div class="space-y-2">
+			{#each uiState.availableSorts as sort}
+				{@const isActive = uiState.sortKey === sort.key}
+				<button
+					onclick={() => {
+						if (isActive) uiState.toggleSortOrder();
+						else uiState.sortKey = sort.key;
+					}}
+					class={`w-full flex items-center justify-between px-4 py-3.5 rounded-xl text-sm font-bold transition-all duration-200
                     ${
-											isActive
-												? 'bg-accent-surface text-accent border-2 border-accent/60 shadow-lg shadow-accent/40'
-												: 'text-theme-primary hover:bg-theme-surface-hover/70 hover:text-white border-2 border-transparent'
-										}`}
-			>
-				<span class="capitalize">{sort.label}</span>
+												isActive
+													? 'bg-accent-surface text-accent border-2 border-accent/70 shadow-lg shadow-accent/40'
+													: 'bg-theme-main/70 text-theme-primary hover:bg-theme-surface-hover/70 hover:text-white border-2 border-theme-border-light hover:border-theme-border'
+											}`}
+				>
+					<span class="capitalize">{sort.label}</span>
 
-				{#if isActive}
-					<div class="flex items-center gap-2">
-						<span class="text-[10px] opacity-70 uppercase tracking-wider font-bold">
-							{uiState.sortOrder === 'asc' ? 'Asc' : 'Desc'}
-						</span>
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							width="16"
-							height="16"
-							viewBox="0 0 24 24"
-							fill="none"
-							stroke="currentColor"
-							stroke-width="2.5"
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							class={`transition-transform duration-200 drop-shadow-sm ${uiState.sortOrder === 'desc' ? 'rotate-180' : ''}`}
-							><path d="M12 19V5" /><path d="m5 12 7-7 7 7" /></svg
-						>
-					</div>
-				{/if}
-			</button>
-		{/each}
+					{#if isActive}
+						<div class="flex items-center gap-2">
+							<span class="text-[10px] opacity-70 uppercase tracking-wider font-bold">
+								{uiState.sortOrder === 'asc' ? 'Asc' : 'Desc'}
+							</span>
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								width="16"
+								height="16"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2.5"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								class={`transition-transform duration-200 drop-shadow-sm ${uiState.sortOrder === 'desc' ? 'rotate-180' : ''}`}
+								><path d="M12 19V5" /><path d="m5 12 7-7 7 7" /></svg
+							>
+						</div>
+					{/if}
+				</button>
+			{/each}
+		</div>
 	</MenuGroup>
 
 	<div class="lg:hidden">
