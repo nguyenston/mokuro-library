@@ -1,0 +1,12 @@
+<svg width="800" height="600" xmlns="http://www.w3.org/2000/svg">
+  <rect width="800" height="600" fill="#1e293b"/>
+  <text x="400" y="280" font-family="Arial, sans-serif" font-size="32" fill="#94a3b8" text-anchor="middle">
+    Library View Placeholder
+  </text>
+  <text x="400" y="320" font-family="Arial, sans-serif" font-size="18" fill="#64748b" text-anchor="middle">
+    Replace with actual screenshot
+  </text>
+  <rect x="50" y="100" width="200" height="280" fill="#334155" rx="12"/>
+  <rect x="300" y="100" width="200" height="280" fill="#334155" rx="12"/>
+  <rect x="550" y="100" width="200" height="280" fill="#334155" rx="12"/>
+</svg>

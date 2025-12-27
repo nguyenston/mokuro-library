@@ -1,0 +1,6 @@
+<svg width="800" height="600" xmlns="http://www.w3.org/2000/svg">
+  <rect width="800" height="600" fill="#1e293b"/>
+  <text x="400" y="280" font-family="Arial, sans-serif" font-size="24" fill="#94a3b8" text-anchor="middle">edit-series-placeholder</text>
+  <text x="400" y="320" font-family="Arial, sans-serif" font-size="16" fill="#64748b" text-anchor="middle">Screenshot placeholder - replace with actual image</text>
+  <rect x="150" y="120" width="500" height="360" fill="#334155" rx="12" stroke="#6366f1" stroke-width="2"/>
+</svg>
