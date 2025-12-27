@@ -179,6 +179,30 @@
 		}
 	});
 
+	// Reactive effect to handle logout - reinitialize auth UI when user becomes null
+	$effect(() => {
+		if ($user === null && browser) {
+			// User logged out, reinitialize auth UI
+			showCard = true;
+			floatingElements = Array.from({ length: 8 }, (_, i) => ({
+				id: i,
+				delay: Math.random() * 2,
+				duration: 15 + Math.random() * 10,
+				x: Math.random() * 100,
+				y: Math.random() * 100
+			}));
+
+			// Reset form state
+			isRegisterMode = false;
+			username = '';
+			password = '';
+			confirmPassword = '';
+			error = null;
+			successMessage = null;
+			isLoading = false;
+		}
+	});
+
 	onMount(() => {
 		// Hydrate State from URL (only if authenticated)
 		if (browser && $user) {
