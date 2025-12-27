@@ -54,7 +54,24 @@
 
 <div class="flex-1 min-h-0 flex flex-col">
 	<div class="mb-4">
-		<h3 class="text-xl font-bold text-theme-primary truncate">{preview.seriesTitle}</h3>
+		<div class="flex justify-between items-center gap-1 pr-4">
+			<div class="text-xl flex-1 pb-1 font-bold text-theme-primary truncate">
+				{preview.seriesTitle}
+			</div>
+			{#if preview.status === 'scraping'}
+				<div
+					class="neon-glow block w-[8px] aspect-square rounded-full text-theme-tertiary bg-theme-tertiary animate-pulse"
+				></div>
+			{:else if preview.status === 'pending'}
+				<div
+					class="neon-glow block w-[8px] aspect-square rounded-full text-status-success bg-status-success"
+				></div>
+			{:else if preview.status === 'error'}
+				<div
+					class="neon-glow block w-[8px] aspect-square rounded-full text-status-danger bg-status-danger"
+				></div>
+			{/if}
+		</div>
 		<p class="hidden sm:inline text-xs text-theme-secondary">
 			{isBulk ? 'Reviewing from queue' : 'Single series review'}
 		</p>

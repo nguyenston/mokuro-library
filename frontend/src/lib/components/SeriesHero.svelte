@@ -212,7 +212,7 @@
 		</div>
 
 		<div class="flex-grow flex flex-col min-w-0 text-center md:text-left">
-			<div class="relative pr-0 md:pr-12">
+			<div class="relative pr-0 md:pr-24">
 				<h1
 					class="text-3xl sm:text-4xl lg:text-5xl font-bold text-theme-primary leading-tight tracking-tight drop-shadow-lg mb-2 select-text cursor-text"
 				>
@@ -409,20 +409,6 @@
 {/snippet}
 
 <style>
-	.neon-glow {
-		transition: filter 0.6s cubic-bezier(0.4, 0, 0.2, 1);
-		filter: drop-shadow(0 0 1px color-mix(in srgb, var(--color-status-warning), transparent 30%))
-			drop-shadow(0 0 3px color-mix(in srgb, var(--color-status-warning), transparent 50%))
-			drop-shadow(0 0 6px color-mix(in srgb, var(--color-status-warning), transparent 70%));
-	}
-
-	.neon-off {
-		transition: filter 0.8s ease-in;
-		filter: drop-shadow(0 0 0px color-mix(in srgb, var(--color-status-warning), transparent 100%))
-			drop-shadow(0 0 0px color-mix(in srgb, var(--color-status-warning), transparent 100%))
-			drop-shadow(0 0 0px color-mix(in srgb, var(--color-status-warning), transparent 100%));
-	}
-
 	@keyframes bookmark-pop {
 		0% {
 			transform: scale(1);

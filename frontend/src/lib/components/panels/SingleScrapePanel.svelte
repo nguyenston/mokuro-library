@@ -75,7 +75,7 @@
 				>
 			</button>
 
-			<div class="h-full flex flex-col">
+			<div class="h-full flex flex-col mt-[24px]">
 				{#if isLoading}
 					<div class="flex-1 flex flex-col items-center justify-center p-8 text-center space-y-4">
 						<div

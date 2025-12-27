@@ -170,10 +170,16 @@
 								<span class="truncate max-w-[94%]">{item.seriesTitle}</span>
 								{#if item.status === 'scraping'}
 									<div
-										class="block w-[8px] aspect-square rounded-full bg-theme-tertiary animate-pulse"
+										class="neon-glow block w-[8px] aspect-square rounded-full text-theme-tertiary bg-theme-tertiary animate-pulse"
 									></div>
 								{:else if item.status === 'pending'}
-									<div class="block w-[8px] aspect-square rounded-full bg-status-success"></div>
+									<div
+										class="neon-glow block w-[8px] aspect-square rounded-full text-status-success bg-status-success"
+									></div>
+								{:else if item.status === 'error'}
+									<div
+										class="neon-glow block w-[8px] aspect-square rounded-full text-status-danger bg-status-danger"
+									></div>
 								{/if}
 							</div>
 						</div>
@@ -202,9 +208,9 @@
 			</div>
 
 			<div
-				class="flex-1 w-full bg-theme-main {isXs
+				class="flex-1 bg-theme-main {isXs
 					? 'p-4'
-					: 'p-2'} flex flex-col items-center justify-center"
+					: 'p-2'} flex items-center justify-center overflow-hidden"
 			>
 				{#if session.current}
 					<div class="flex flex-col w-full h-full max-w-3xl">
