@@ -167,11 +167,13 @@
 								: 'text-theme-secondary opacity-70'}"
 						>
 							<div class="flex justify-between items-center gap-1">
-								<span class="truncate">{item.seriesTitle}</span>
+								<span class="truncate max-w-[94%]">{item.seriesTitle}</span>
 								{#if item.status === 'scraping'}
-									<div class="w-2 aspect-square rounded-full bg-theme-tertiary animate-pulse"></div>
+									<div
+										class="block w-[8px] aspect-square rounded-full bg-theme-tertiary animate-pulse"
+									></div>
 								{:else if item.status === 'pending'}
-									<div class="w-2 aspect-square rounded-full bg-status-success"></div>
+									<div class="block w-[8px] aspect-square rounded-full bg-status-success"></div>
 								{/if}
 							</div>
 						</div>
