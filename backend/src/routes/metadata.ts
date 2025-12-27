@@ -25,6 +25,7 @@ const seriesUpdateSchema = {
     title: { type: ['string', 'null'] }, // Allow string or explicit null
     description: { type: ['string', 'null'] },
     bookmarked: { type: 'boolean' },
+    organized: { type: 'boolean' },
     japaneseTitle: { type: ['string', 'null'] },
     romajiTitle: { type: ['string', 'null'] },
     synonyms: { type: ['string', 'null'] },
@@ -62,6 +63,7 @@ interface SeriesUpdateBody {
   title?: string | null;
   description?: string | null;
   bookmarked?: boolean;
+  organized?: boolean;
   japaneseTitle?: string | null;
   romajiTitle?: string | null;
   synonyms?: string | null;
@@ -502,6 +504,7 @@ const metadataRoutes: FastifyPluginAsync = async (
    */
   fastify.patch<{ Params: IdParams; Body: SeriesUpdateBody }>(
     '/series/:id',
+    { schema: { body: seriesUpdateSchema } },
     async (request, reply) => {
       const { id } = request.params;
       const userId = request.user.id;
@@ -586,6 +589,42 @@ const metadataRoutes: FastifyPluginAsync = async (
       } catch (error) {
         fastify.log.error(error);
         return reply.status(500).send({ message: 'Update failed.' });
+      }
+    }
+  );
+
+  /**
+   * POST /api/metadata/batch/organize
+   * Batch updates the 'organized' status.
+   */
+  fastify.post<{ Body: { ids: string[]; value: boolean } }>(
+    '/batch/organize',
+    async (request, reply) => {
+      const { ids, value } = request.body;
+      const userId = request.user.id;
+
+      if (!ids || !Array.isArray(ids) || ids.length === 0) {
+        return reply.status(400).send({ message: 'No IDs provided' });
+      }
+
+      try {
+        const result = await fastify.prisma.series.updateMany({
+          where: {
+            id: { in: ids },
+            ownerId: userId // Security: Only touch user's own series
+          },
+          data: {
+            organized: value
+          }
+        });
+
+        return reply.send({
+          message: 'Batch update successful.',
+          count: result.count
+        });
+      } catch (error) {
+        fastify.log.error(error);
+        return reply.status(500).send({ message: 'Batch update failed.' });
       }
     }
   );

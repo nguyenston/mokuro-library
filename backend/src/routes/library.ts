@@ -131,6 +131,8 @@ interface LibraryQuery {
   order?: 'asc' | 'desc';
   status?: 'all' | 'read' | 'unread' | 'reading';
   bookmarked?: string;
+  filter_missing?: 'cover' | 'description' | 'title' | 'any' | 'none';
+  is_organized?: 'true' | 'false';
 }
 
 interface MokuroPage { }
@@ -161,31 +163,83 @@ const libraryRoutes: FastifyPluginAsync = async (
     const order = request.query.order ?? 'asc';
     const status = request.query.status ?? 'all';
     const bookmarked = request.query.bookmarked === 'true';
+    const filter_missing = request.query.filter_missing ?? 'none';
+    const is_organized = request.query.is_organized;
 
     // 2. Build Where Clause (Search)
-    const where: Prisma.SeriesWhereInput = {
-      ownerId: userId,
-    };
+    // We use AND[] to combine multiple independent filters safely
+    const andConditions: Prisma.SeriesWhereInput[] = [];
 
+    // A. Base Ownership
+    andConditions.push({ ownerId: userId });
+
+    // B. Search (q)
     if (q) {
-      // Search across all title fields: English, Japanese, Romaji, and Synonyms
-      where.OR = [
-        { sortTitle: { contains: q } },
-        { japaneseTitle: { contains: q } },
-        { romajiTitle: { contains: q } },
-        { synonyms: { contains: q } },
-      ];
+      andConditions.push({
+        OR: [
+          { sortTitle: { contains: q } },
+          { japaneseTitle: { contains: q } },
+          { romajiTitle: { contains: q } },
+          { synonyms: { contains: q } },
+        ]
+      });
     }
 
+    // C. Bookmark & Status
     if (bookmarked) {
-      where.bookmarked = true;
+      andConditions.push({ bookmarked: true });
     }
 
     if (status !== 'all') {
-      if (status === 'unread') where.status = 0;
-      else if (status === 'reading') where.status = 1;
-      else if (status === 'read') where.status = 2;
+      if (status === 'unread') andConditions.push({ status: 0 });
+      else if (status === 'reading') andConditions.push({ status: 1 });
+      else if (status === 'read') andConditions.push({ status: 2 });
     }
+
+    // D. Organization Filter
+    if (is_organized === 'true') {
+      andConditions.push({ organized: true });
+    } else if (is_organized === 'false') {
+      andConditions.push({ organized: false });
+    }
+
+    // E. Missing Metadata Filter
+    if (filter_missing !== 'none') {
+      if (filter_missing === 'cover') {
+        andConditions.push({ coverPath: null });
+      }
+      else if (filter_missing === 'description') {
+        andConditions.push({
+          OR: [{ description: null }, { description: "" }]
+        });
+      }
+      else if (filter_missing === 'title') {
+        // Matches frontend logic: Missing "Metadata Titles" (JP or Romaji)
+        andConditions.push({
+          OR: [
+            { japaneseTitle: null }, { japaneseTitle: "" },
+            { romajiTitle: null }, { romajiTitle: "" }
+          ]
+        });
+      }
+      else if (filter_missing === 'any') {
+        // Matches any of the above
+        andConditions.push({
+          OR: [
+            { coverPath: null },
+            { description: null }, { description: "" },
+            { japaneseTitle: null }, { japaneseTitle: "" },
+            { romajiTitle: null }, { romajiTitle: "" }
+          ]
+        });
+      }
+    }
+
+    // Combine into final where object
+    const where: Prisma.SeriesWhereInput = {
+      AND: andConditions
+    };
+
     // 3. Build OrderBy Clause
     let orderBy: Prisma.SeriesOrderByWithRelationInput | Prisma.SeriesOrderByWithRelationInput[];
 
