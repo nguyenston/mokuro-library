@@ -84,7 +84,7 @@ class ScrapingState {
 
   /**
    * Initializes the review session with the selected series.
-   * Creates "Pending" preview items instantly using the known current metadata.
+   * Creates "scraping" preview items instantly using the known current metadata.
    */
   initSession(seriesList: Series[]) {
     this.session.reset(seriesList.length);
@@ -114,7 +114,7 @@ class ScrapingState {
 
   /**
    * The Main Loop: Processes the 'upcoming' queue.
-   * Fetches metadata for pending items one by one.
+   * Fetches metadata for scraping items one by one.
    */
   async startScrapingQueue(provider: 'anilist' | 'mal' | 'kitsu') {
     if (this.isScraping) return;
@@ -151,7 +151,7 @@ class ScrapingState {
 
       } catch (e) {
         console.error(`Failed to scrape ${item.seriesTitle}`, e);
-        item.status = 'pending'; // Mark as pending even if scraping failed
+        item.status = 'error'; // Mark as pending even if scraping failed
       }
 
       // Small delay to prevent rate-limiting and allow UI to breathe

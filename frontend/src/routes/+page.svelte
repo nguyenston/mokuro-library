@@ -38,7 +38,9 @@
 	let successMessage = $state<string | null>(null);
 	let isLoading = $state(false);
 	let showCard = $state(false);
-	let floatingElements = $state<{ id: number; delay: number; duration: number; x: number; y: number }[]>([]);
+	let floatingElements = $state<
+		{ id: number; delay: number; duration: number; x: number; y: number }[]
+	>([]);
 
 	// --- Library State ---
 	let library = $state<Series[]>([]);
@@ -404,7 +406,9 @@
 			       background-position: center;"
 		>
 			<!-- Animated gradient overlay -->
-			<div class="absolute inset-0 bg-gradient-to-br from-black/50 via-black/40 to-purple-900/30"></div>
+			<div
+				class="absolute inset-0 bg-gradient-to-br from-black/50 via-black/40 to-purple-900/30"
+			></div>
 
 			<!-- Floating manga-style elements -->
 			{#each floatingElements as element (element.id)}
@@ -417,7 +421,9 @@
 						animation-duration: {element.duration}s;
 					"
 				>
-					<div class="w-full h-full bg-white/5 backdrop-blur-sm rounded-lg rotate-12 border border-white/10"></div>
+					<div
+						class="w-full h-full bg-white/5 backdrop-blur-sm rounded-lg rotate-12 border border-white/10"
+					></div>
 				</div>
 			{/each}
 		</div>
@@ -427,16 +433,23 @@
 			<!-- Login Card -->
 			<div
 				class="w-full max-w-md transform transition-all duration-700 ease-out"
-				style="opacity: {showCard ? 1 : 0}; transform: translateY({showCard ? 0 : 20}px) scale({showCard ? 1 : 0.95});"
+				style="opacity: {showCard ? 1 : 0}; transform: translateY({showCard
+					? 0
+					: 20}px) scale({showCard ? 1 : 0.95});"
 			>
 				<!-- Decorative glow effect -->
-				<div class="absolute -inset-1 bg-gradient-to-r from-accent/20 via-purple-500/20 to-accent/20 rounded-3xl blur-xl opacity-75 group-hover:opacity-100 transition-opacity"></div>
+				<div
+					class="absolute -inset-1 bg-gradient-to-r from-accent/20 via-purple-500/20 to-accent/20 rounded-3xl blur-xl opacity-75 group-hover:opacity-100 transition-opacity"
+				></div>
 
 				<!-- Card with glass effect -->
-				<div class="relative bg-theme-surface/95 backdrop-blur-3xl rounded-3xl border-2 border-theme-border-light/30 shadow-2xl overflow-hidden">
-
+				<div
+					class="relative bg-theme-surface/95 backdrop-blur-3xl rounded-3xl border-2 border-theme-border-light/30 shadow-2xl overflow-hidden"
+				>
 					<!-- Animated top accent bar -->
-					<div class="h-1.5 bg-gradient-to-r from-accent via-purple-500 to-accent animate-gradient-x"></div>
+					<div
+						class="h-1.5 bg-gradient-to-r from-accent via-purple-500 to-accent animate-gradient-x"
+					></div>
 
 					<!-- Header Section with Logo -->
 					<div class="px-8 pt-10 pb-8 text-center relative">
@@ -447,7 +460,9 @@
 								<div class="absolute inset-0 bg-accent/30 blur-2xl rounded-full scale-150"></div>
 
 								<!-- Logo -->
-								<div class="relative h-20 w-20 bg-gradient-to-br from-accent to-purple-600 rounded-2xl flex items-center justify-center text-white shadow-2xl shadow-accent/40 ring-4 ring-accent/20 transform hover:scale-110 hover:rotate-6 transition-all duration-300">
+								<div
+									class="relative h-20 w-20 bg-gradient-to-br from-accent to-purple-600 rounded-2xl flex items-center justify-center text-white shadow-2xl shadow-accent/40 ring-4 ring-accent/20 transform hover:scale-110 hover:rotate-6 transition-all duration-300"
+								>
 									<svg
 										xmlns="http://www.w3.org/2000/svg"
 										width="40"
@@ -472,10 +487,14 @@
 						<div class="relative h-20 overflow-hidden">
 							<div
 								class="absolute inset-0 transition-all duration-500 ease-out"
-								style="opacity: {isRegisterMode ? 0 : 1}; transform: translateY({isRegisterMode ? -20 : 0}px);"
+								style="opacity: {isRegisterMode ? 0 : 1}; transform: translateY({isRegisterMode
+									? -20
+									: 0}px);"
 							>
 								<h1 class="text-4xl font-black text-theme-primary mb-3 tracking-tight">
-									<span class="bg-gradient-to-r from-accent via-purple-400 to-accent bg-clip-text text-transparent animate-gradient-x">
+									<span
+										class="bg-gradient-to-r from-accent via-purple-400 to-accent bg-clip-text text-transparent animate-gradient-x"
+									>
 										Welcome Back!
 									</span>
 								</h1>
@@ -485,10 +504,14 @@
 							</div>
 							<div
 								class="absolute inset-0 transition-all duration-500 ease-out"
-								style="opacity: {isRegisterMode ? 1 : 0}; transform: translateY({isRegisterMode ? 0 : 20}px);"
+								style="opacity: {isRegisterMode ? 1 : 0}; transform: translateY({isRegisterMode
+									? 0
+									: 20}px);"
 							>
 								<h1 class="text-4xl font-black text-theme-primary mb-3 tracking-tight">
-									<span class="bg-gradient-to-r from-accent via-purple-400 to-accent bg-clip-text text-transparent animate-gradient-x">
+									<span
+										class="bg-gradient-to-r from-accent via-purple-400 to-accent bg-clip-text text-transparent animate-gradient-x"
+									>
 										Join the Library!
 									</span>
 								</h1>
@@ -499,21 +522,44 @@
 						</div>
 
 						<!-- Decorative manga speed lines -->
-						<div class="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none opacity-5">
-							<div class="absolute top-0 left-0 w-full h-0.5 bg-gradient-to-r from-transparent via-white to-transparent transform -rotate-12"></div>
-							<div class="absolute top-10 left-0 w-full h-0.5 bg-gradient-to-r from-transparent via-white to-transparent transform rotate-12"></div>
+						<div
+							class="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none opacity-5"
+						>
+							<div
+								class="absolute top-0 left-0 w-full h-0.5 bg-gradient-to-r from-transparent via-white to-transparent transform -rotate-12"
+							></div>
+							<div
+								class="absolute top-10 left-0 w-full h-0.5 bg-gradient-to-r from-transparent via-white to-transparent transform rotate-12"
+							></div>
 						</div>
 					</div>
 
 					<!-- Form Section -->
-					<form onsubmit={(e) => { e.preventDefault(); handleSubmit(); }} class="px-8 py-6 space-y-5">
+					<form
+						onsubmit={(e) => {
+							e.preventDefault();
+							handleSubmit();
+						}}
+						class="px-8 py-6 space-y-5"
+					>
 						<!-- Username Input -->
 						<div class="space-y-2.5 group">
 							<label
 								for="username"
 								class="block text-xs font-bold text-theme-secondary uppercase tracking-widest flex items-center gap-2"
 							>
-								<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-accent">
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									width="14"
+									height="14"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="2.5"
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									class="text-accent"
+								>
 									<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path>
 									<circle cx="12" cy="7" r="4"></circle>
 								</svg>
@@ -539,7 +585,18 @@
 								for="password"
 								class="block text-xs font-bold text-theme-secondary uppercase tracking-widest flex items-center gap-2"
 							>
-								<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-accent">
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									width="14"
+									height="14"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="2.5"
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									class="text-accent"
+								>
 									<rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
 									<path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
 								</svg>
@@ -550,7 +607,7 @@
 								type="password"
 								bind:value={password}
 								required
-								placeholder={isRegisterMode ? "Min. 6 characters" : "Enter your password"}
+								placeholder={isRegisterMode ? 'Min. 6 characters' : 'Enter your password'}
 								class="w-full px-5 py-4 rounded-2xl bg-theme-main/50 border-2 border-theme-border
 								       text-theme-primary placeholder-theme-tertiary text-base font-medium
 								       focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/30
@@ -566,7 +623,18 @@
 									for="confirmPassword"
 									class="block text-xs font-bold text-theme-secondary uppercase tracking-widest flex items-center gap-2"
 								>
-									<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-accent">
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										width="14"
+										height="14"
+										viewBox="0 0 24 24"
+										fill="none"
+										stroke="currentColor"
+										stroke-width="2.5"
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										class="text-accent"
+									>
 										<path d="M9 11l3 3L22 4"></path>
 										<path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
 									</svg>
@@ -589,12 +657,27 @@
 
 						<!-- Error Message with shake animation -->
 						{#if error}
-							<div class="error-shake px-5 py-4 rounded-2xl bg-red-500/15 border-2 border-red-500/40 backdrop-blur-sm relative overflow-hidden">
+							<div
+								class="error-shake px-5 py-4 rounded-2xl bg-red-500/15 border-2 border-red-500/40 backdrop-blur-sm relative overflow-hidden"
+							>
 								<!-- Animated error background -->
-								<div class="absolute inset-0 bg-gradient-to-r from-red-500/5 via-red-500/10 to-red-500/5 animate-pulse"></div>
+								<div
+									class="absolute inset-0 bg-gradient-to-r from-red-500/5 via-red-500/10 to-red-500/5 animate-pulse"
+								></div>
 
 								<div class="relative flex items-center gap-3">
-									<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-red-400 flex-shrink-0">
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										width="20"
+										height="20"
+										viewBox="0 0 24 24"
+										fill="none"
+										stroke="currentColor"
+										stroke-width="2.5"
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										class="text-red-400 flex-shrink-0"
+									>
 										<circle cx="12" cy="12" r="10"></circle>
 										<line x1="12" y1="8" x2="12" y2="12"></line>
 										<line x1="12" y1="16" x2="12.01" y2="16"></line>
@@ -606,12 +689,27 @@
 
 						<!-- Success Message -->
 						{#if successMessage}
-							<div class="px-5 py-4 rounded-2xl bg-green-500/15 border-2 border-green-500/40 backdrop-blur-sm relative overflow-hidden animate-in fade-in slide-in-from-top-2 duration-300">
+							<div
+								class="px-5 py-4 rounded-2xl bg-green-500/15 border-2 border-green-500/40 backdrop-blur-sm relative overflow-hidden animate-in fade-in slide-in-from-top-2 duration-300"
+							>
 								<!-- Animated success background -->
-								<div class="absolute inset-0 bg-gradient-to-r from-green-500/5 via-green-500/10 to-green-500/5 animate-pulse"></div>
+								<div
+									class="absolute inset-0 bg-gradient-to-r from-green-500/5 via-green-500/10 to-green-500/5 animate-pulse"
+								></div>
 
 								<div class="relative flex items-center gap-3">
-									<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-green-400 flex-shrink-0">
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										width="20"
+										height="20"
+										viewBox="0 0 24 24"
+										fill="none"
+										stroke="currentColor"
+										stroke-width="2.5"
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										class="text-green-400 flex-shrink-0"
+									>
 										<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
 										<polyline points="22 4 12 14.01 9 11.01"></polyline>
 									</svg>
@@ -631,22 +729,61 @@
 							       focus:outline-none focus:ring-4 focus:ring-accent/40 overflow-hidden"
 						>
 							<!-- Animated shimmer effect -->
-							<div class="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000"></div>
+							<div
+								class="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000"
+							></div>
 
 							<span class="relative flex items-center justify-center gap-3">
 								{#if isLoading}
-									<svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-										<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-										<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+									<svg
+										class="animate-spin h-5 w-5"
+										xmlns="http://www.w3.org/2000/svg"
+										fill="none"
+										viewBox="0 0 24 24"
+									>
+										<circle
+											class="opacity-25"
+											cx="12"
+											cy="12"
+											r="10"
+											stroke="currentColor"
+											stroke-width="4"
+										></circle>
+										<path
+											class="opacity-75"
+											fill="currentColor"
+											d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+										></path>
 									</svg>
 									{isRegisterMode ? 'Creating Account...' : 'Signing in...'}
 								{:else if successMessage}
-									<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										width="20"
+										height="20"
+										viewBox="0 0 24 24"
+										fill="none"
+										stroke="currentColor"
+										stroke-width="2.5"
+										stroke-linecap="round"
+										stroke-linejoin="round"
+									>
 										<polyline points="20 6 9 17 4 12"></polyline>
 									</svg>
 									Account Created!
 								{:else if isRegisterMode}
-									<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="transform group-hover:scale-110 transition-transform">
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										width="20"
+										height="20"
+										viewBox="0 0 24 24"
+										fill="none"
+										stroke="currentColor"
+										stroke-width="2.5"
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										class="transform group-hover:scale-110 transition-transform"
+									>
 										<path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
 										<circle cx="8.5" cy="7" r="4"></circle>
 										<line x1="20" y1="8" x2="20" y2="14"></line>
@@ -654,7 +791,18 @@
 									</svg>
 									Create Account
 								{:else}
-									<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="transform group-hover:translate-x-1 transition-transform">
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										width="20"
+										height="20"
+										viewBox="0 0 24 24"
+										fill="none"
+										stroke="currentColor"
+										stroke-width="2.5"
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										class="transform group-hover:translate-x-1 transition-transform"
+									>
 										<path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path>
 										<polyline points="10 17 15 12 10 7"></polyline>
 										<line x1="15" y1="12" x2="3" y2="12"></line>
@@ -675,7 +823,18 @@
 								class="font-bold text-accent hover:text-accent-hover transition-all ml-2 inline-flex items-center gap-1 hover:gap-2 group"
 							>
 								{isRegisterMode ? 'Sign in' : 'Create an account'}
-								<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="transform group-hover:translate-x-0.5 transition-transform">
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									width="16"
+									height="16"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="2.5"
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									class="transform group-hover:translate-x-0.5 transition-transform"
+								>
 									<line x1="5" y1="12" x2="19" y2="12"></line>
 									<polyline points="12 5 19 12 12 19"></polyline>
 								</svg>
@@ -864,7 +1023,7 @@
 			<LibraryActionBar
 				type="series"
 				onRefresh={handleRefresh}
-				onSelectAll={() => uiState.selectAll(library)}
+				onSelectAll={() => uiState.selectAll(library as GlobalSeries[])}
 				onRename={handleOpenEdit}
 			/>
 
@@ -905,7 +1064,8 @@
 
 	/* Custom Animations */
 	@keyframes gradient-x {
-		0%, 100% {
+		0%,
+		100% {
 			background-position: 0% 50%;
 		}
 		50% {
@@ -914,7 +1074,8 @@
 	}
 
 	@keyframes bounce-slow {
-		0%, 100% {
+		0%,
+		100% {
 			transform: translateY(0);
 		}
 		50% {
@@ -923,7 +1084,8 @@
 	}
 
 	@keyframes float {
-		0%, 100% {
+		0%,
+		100% {
 			transform: translateY(0) rotate(12deg);
 		}
 		50% {
@@ -932,13 +1094,21 @@
 	}
 
 	@keyframes error-shake {
-		0%, 100% {
+		0%,
+		100% {
 			transform: translateX(0);
 		}
-		10%, 30%, 50%, 70%, 90% {
+		10%,
+		30%,
+		50%,
+		70%,
+		90% {
 			transform: translateX(-5px);
 		}
-		20%, 40%, 60%, 80% {
+		20%,
+		40%,
+		60%,
+		80% {
 			transform: translateX(5px);
 		}
 	}
@@ -975,19 +1145,11 @@
 			0 0 30px rgba(99, 102, 241, 0.3);
 	}
 
-	/* Intensity Control: Change the % next to transparent to adjust glow strength */
-	.neon-glow {
-		transition: filter 0.6s cubic-bezier(0.4, 0, 0.2, 1);
-		filter: drop-shadow(0 0 1px color-mix(in srgb, var(--color-status-warning), transparent 30%))
-			drop-shadow(0 0 3px color-mix(in srgb, var(--color-status-warning), transparent 50%))
-			drop-shadow(0 0 6px color-mix(in srgb, var(--color-status-warning), transparent 70%));
-	}
-
 	.neon-off {
 		transition: filter 0.8s ease-in;
-		filter: drop-shadow(0 0 0px color-mix(in srgb, var(--color-status-warning), transparent 100%))
-			drop-shadow(0 0 0px color-mix(in srgb, var(--color-status-warning), transparent 100%))
-			drop-shadow(0 0 0px color-mix(in srgb, var(--color-status-warning), transparent 100%));
+		filter: drop-shadow(0 0 0px color-mix(in srgb, currentColor, transparent 100%))
+			drop-shadow(0 0 0px color-mix(in srgb, currentColor, transparent 100%))
+			drop-shadow(0 0 0px color-mix(in srgb, currentColor, transparent 100%));
 	}
 
 	@keyframes bookmark-pop {
