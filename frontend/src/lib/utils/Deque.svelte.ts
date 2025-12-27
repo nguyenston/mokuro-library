@@ -34,6 +34,11 @@ export class Deque<T> {
     return this._data;
   }
 
+  // Helper to get all items as an array snapshot
+  toArray(): T[] {
+    return [...this._data];
+  }
+
   clear() {
     this._data = [];
   }

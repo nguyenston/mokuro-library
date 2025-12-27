@@ -100,12 +100,12 @@ class ScrapingState {
           title: s.title,
           japaneseTitle: s.japaneseTitle,
           romajiTitle: s.romajiTitle,
-          synonyms: s.synonyms ?? null, // Ensure your Series type has this or use optional chaining
+          synonyms: s.synonyms ?? null,
           description: s.description,
           hasCover: !!s.coverPath,
           coverPath: s.coverPath
         },
-        scraped: {}, // Empty until fetched
+        scraped: {},
         status: 'scraping'
       };
       this.session.addIncoming(newItem);
@@ -120,8 +120,10 @@ class ScrapingState {
     if (this.isScraping) return;
     this.isScraping = true;
 
-    // We access the raw array from the Deque to iterate
-    // (Assuming Deque.svelte exposes `items` or `toArray()`)
+    // Wait for next tick to ensure Svelte's reactive updates have completed
+    await new Promise(resolve => setTimeout(resolve, 0));
+
+    // Access the raw array from the Deque to iterate
     const queue = this.session.upcoming.items;
 
     for (const item of queue) {
@@ -149,7 +151,7 @@ class ScrapingState {
 
       } catch (e) {
         console.error(`Failed to scrape ${item.seriesTitle}`, e);
-        // We leave it as 'pending' (but empty scraped data) or you could set status='error'
+        item.status = 'pending'; // Mark as pending even if scraping failed
       }
 
       // Small delay to prevent rate-limiting and allow UI to breathe
