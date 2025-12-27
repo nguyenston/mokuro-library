@@ -177,7 +177,7 @@
 	<div
 		class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center p-2 rounded-2xl bg-theme-surface/90 backdrop-blur-xl border border-theme-primary/20 shadow-2xl animate-in slide-in-from-bottom-10"
 	>
-		<div class="px-3 font-bold text-theme-primary flex items-center gap-3">
+		<div class="flex-shrink px-3 font-bold text-theme-primary flex items-center gap-3">
 			<span
 				class="bg-accent text-white text-xs rounded-full w-6 h-6 flex items-center justify-center shadow-sm"
 			>
@@ -189,7 +189,7 @@
 					{#if onSelectAll}
 						<button
 							onclick={onSelectAll}
-							class="text-[10px] font-bold text-accent hover:text-accent-hover hover:underline"
+							class="whitespace-nowrap flex-shrink-0 text-[10px] font-bold text-accent hover:text-accent-hover hover:underline"
 							title="Add all visible items to selection"
 						>
 							+ ALL
