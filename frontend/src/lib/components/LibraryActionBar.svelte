@@ -5,6 +5,10 @@
 	import { triggerDownload } from '$lib/api';
 	import { contextMenu } from '$lib/contextMenuStore';
 	import { onMount, onDestroy } from 'svelte';
+	import { scrapingState } from '$lib/states/ScrapingState.svelte';
+	import type { Series } from '$lib/types';
+	import SelectionMoreMenu from './menu/SelectionMoreMenu.svelte';
+	import BulkScrapePanel from './panels/BulkScrapePanel.svelte';
 
 	let {
 		type = 'series',
@@ -17,13 +21,14 @@
 	}>();
 
 	let isProcessing = $state(false);
-
-	let selectionCount = $derived(uiState.selectedIds.size);
+	let showScrapeModal = $state(false);
+	let selectionCount = $derived(uiState.selection.size);
 
 	// Handle Escape key to exit selection mode
 	const handleKeyDown = (e: KeyboardEvent) => {
-		if (e.key === 'Escape' && uiState.isSelectionMode) {
-			uiState.exitSelectionMode();
+		if (e.key === 'Escape') {
+			if (showScrapeModal) return; // Don't exit selection if modal is open
+			if (uiState.isSelectionMode) uiState.exitSelectionMode();
 		}
 	};
 
@@ -40,7 +45,7 @@
 	// --- 1. Batch ZIP Logic (Ticket Pattern) ---
 	const executeBatchDownload = async (includeImages: boolean) => {
 		if (selectionCount === 0) return;
-		const ids = Array.from(uiState.selectedIds);
+		const ids = Array.from(uiState.selection.keys());
 
 		try {
 			isProcessing = true;
@@ -69,7 +74,7 @@
 
 	// --- 2. Single PDF Logic (Legacy GET) ---
 	const executePdfDownload = () => {
-		const id = Array.from(uiState.selectedIds)[0];
+		const id = Array.from(uiState.selection.keys())[0];
 		if (!id) return;
 
 		// Use existing GET endpoint for single PDF
@@ -110,7 +115,7 @@
 		contextMenu.open(rect.left, rect.top, menuItems, { yEdgeAlign: 'top' }, target);
 	};
 	const handleDelete = () => {
-		const ids = Array.from(uiState.selectedIds);
+		const ids = Array.from(uiState.selection.keys());
 
 		confirmation.open(
 			`Delete ${selectionCount} item${selectionCount > 1 ? 's' : ''}?`,
@@ -135,11 +140,33 @@
 			}
 		);
 	};
+
+	// Scrape Setup (The New Logic)
+	async function startScrapeSession() {
+		if (type !== 'series') return;
+
+		// Get the full objects from our map (Instant O(1) access)
+		// We cast to Series[] because we checked type === 'series' above
+		const selectedItems = Array.from(uiState.selection.values()) as Series[];
+
+		// Initialize the state machine
+		scrapingState.initSession(selectedItems);
+
+		// Open the UI (The Panel will auto-start the queue on mount)
+		showScrapeModal = true;
+	}
+
+	function handleScrapeClose() {
+		showScrapeModal = false;
+		// Refresh library to show new covers/titles/organized status
+		onRefresh();
+		uiState.exitSelectionMode();
+	}
 </script>
 
 {#if uiState.isSelectionMode}
 	<div
-		class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center p-2 rounded-2xl bg-theme-surface/90 backdrop-blur-xl border border-theme-primary/20 shadow-2xl animate-in slide-in-from-bottom-10 fade-in duration-300"
+		class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center p-2 rounded-2xl bg-theme-surface/90 backdrop-blur-xl border border-theme-primary/20 shadow-2xl animate-in slide-in-from-bottom-10"
 	>
 		<div class="px-2 font-bold text-theme-primary flex items-center gap-2">
 			<span
@@ -159,44 +186,21 @@
 					class="p-2.5 rounded-xl hover:bg-theme-primary/10 text-theme-secondary hover:text-theme-primary transition-colors disabled:opacity-50"
 					title="Download"
 				>
-					{#if isProcessing}
-						<svg
-							class="animate-spin h-5 w-5"
-							xmlns="http://www.w3.org/2000/svg"
-							fill="none"
-							viewBox="0 0 24 24"
-						>
-							<circle
-								class="opacity-25"
-								cx="12"
-								cy="12"
-								r="10"
-								stroke="currentColor"
-								stroke-width="4"
-							></circle>
-							<path
-								class="opacity-75"
-								fill="currentColor"
-								d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-							></path>
-						</svg>
-					{:else}
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							width="20"
-							height="20"
-							viewBox="0 0 24 24"
-							fill="none"
-							stroke="currentColor"
-							stroke-width="2"
-							stroke-linecap="round"
-							stroke-linejoin="round"
-						>
-							<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-							<polyline points="7 10 12 15 17 10"></polyline>
-							<line x1="12" y1="15" x2="12" y2="3"></line>
-						</svg>
-					{/if}
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						width="20"
+						height="20"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+					>
+						<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+						<polyline points="7 10 12 15 17 10"></polyline>
+						<line x1="12" y1="15" x2="12" y2="3"></line>
+					</svg>
 				</button>
 
 				{#if selectionCount === 1}
@@ -245,6 +249,10 @@
 						></path>
 					</svg>
 				</button>
+
+				{#if type === 'series'}
+					<SelectionMoreMenu {selectionCount} onScrape={startScrapeSession} {onRefresh} />
+				{/if}
 			</div>
 		{/if}
 
@@ -272,4 +280,8 @@
 			</button>
 		</div>
 	</div>
+{/if}
+
+{#if showScrapeModal}
+	<BulkScrapePanel provider={scrapingState.preferredProvider} onClose={handleScrapeClose} />
 {/if}

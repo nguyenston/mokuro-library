@@ -29,6 +29,55 @@ export interface VolumeReaderResponse {
   mokuroData: MokuroData;
 }
 
+// --- Core Library Types ---
+
+export interface UserProgress {
+  page: number;
+  completed: boolean;
+  timeRead: number;
+  charsRead: number;
+  lastReadAt?: string;
+}
+
+export interface Volume {
+  id: string;
+  seriesId?: string; // Helpful for back-references
+  title: string | null;
+  sortTitle?: string | null;
+  folderName: string;
+  pageCount: number;
+  coverImageName: string | null;
+  createdAt: string;
+  // Progress is usually an array from Prisma relations, though often 1 item per user
+  progress: UserProgress[];
+}
+
+export interface Series {
+  id: string;
+  title: string | null;
+  sortTitle?: string | null;
+  japaneseTitle?: string | null;
+  romajiTitle?: string | null;
+  synonyms?: string | null;
+  folderName: string;
+  description: string | null;
+  coverPath: string | null;
+  bookmarked: boolean;
+  organized: boolean; // New Flag
+  status: number; // 0=Unread, 1=Reading, 2=Finished
+  updatedAt: string;
+  lastReadAt?: string | null;
+
+  // Relations
+  volumes?: Volume[]; // Optional, present in Detail View
+  _count?: {
+    volumes: number;
+  };
+}
+
+// Union for Selection State
+export type LibraryItem = Series | Volume;
+
 // --- Upload Pipeline Types ---
 
 export interface UploadJob {

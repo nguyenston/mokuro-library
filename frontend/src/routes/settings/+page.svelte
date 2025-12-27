@@ -10,12 +10,12 @@
 	import ReaderSettings from '$lib/components/settings/ReaderSettings.svelte';
 	import AnkiSettings from '$lib/components/settings/AnkiSettings.svelte';
 	import LibraryOverview from '$lib/components/settings/LibraryOverview.svelte';
-	import ScrapeMetadata from '$lib/components/settings/ScrapeMetadata.svelte';
+	import ScrapeSettings from '$lib/components/settings/ScrapeSettings.svelte';
 
 	// Define available categories
 	const categories = [
 		{ id: 'reader', label: 'Reader Settings', icon: 'book', component: ReaderSettings },
-		{ id: 'scrape', label: 'Scrape Metadata', icon: 'download', component: ScrapeMetadata }
+		{ id: 'scrape', label: 'Scrape Settings', icon: 'download', component: ScrapeSettings }
 	];
 
 	const categories_WIP = [

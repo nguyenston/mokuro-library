@@ -5,14 +5,14 @@
 	import { browser } from '$app/environment';
 	import { page } from '$app/state';
 	import { apiFetch } from '$lib/api';
-	import { confirmation } from '$lib/confirmationStore';
+	import type { Series as GlobalSeries, Volume as GlobalVolume, LibraryItem } from '$lib/types';
 	import { uiState } from '$lib/states/uiState.svelte';
 	import { metadataOps } from '$lib/states/metadataOperations.svelte';
 	import Footer from '$lib/components/Footer.svelte';
 	import LibraryActionBar from '$lib/components/LibraryActionBar.svelte';
 	import LibraryEntry from '$lib/components/LibraryEntry.svelte';
 	import EditSeriesModal from '$lib/components/EditSeriesModal.svelte';
-	import { type FilterStatus } from '$lib/states/uiState.svelte';
+	import type { FilterStatus, FilterMissing, FilterOrganization } from '$lib/states/uiState.svelte';
 	import { formatLastReadDate } from '$lib/utils/dateHelpers';
 
 	// --- Type Definitions ---
@@ -21,22 +21,11 @@
 		completed: boolean;
 	}
 
-	interface Volume {
-		pageCount: number;
-		progress: UserProgress[];
-	}
+	type Volume = Pick<GlobalVolume, 'pageCount' | 'progress'>;
 
-	interface Series {
-		id: string;
-		title: string | null;
-		description: string | null;
-		folderName: string;
-		coverPath: string | null;
+	type Series = Omit<GlobalSeries, 'volumes'> & {
 		volumes: Volume[];
-		updatedAt: string;
-		lastReadAt?: string | null;
-		bookmarked?: boolean;
-	}
+	};
 
 	// --- State ---
 	let library = $state<Series[]>([]);
@@ -124,6 +113,18 @@
 			if (bookmarked === 'true') {
 				uiState.filterBookmarked = true;
 			}
+
+			// Organization
+			const isOrganized = params.get('is_organized');
+			if (isOrganized === 'true') uiState.filterOrganization = 'organized';
+			else if (isOrganized === 'false') uiState.filterOrganization = 'unorganized';
+			else uiState.filterOrganization = 'all';
+
+			// Missing Metadata
+			const missing = params.get('filter_missing');
+			if (missing) {
+				uiState.filterMissing = missing as FilterMissing;
+			}
 		}
 	});
 
@@ -141,7 +142,7 @@
 	// --- Data Fetching & URL Sync ---
 	$effect(() => {
 		if ($user && browser) {
-			// Dependency tracking: include libraryVersion to force re-fetches
+			// Dependency tracking: include libraryVersion
 			const _version = uiState.libraryVersion;
 
 			const currentParams = new URLSearchParams(page.url.searchParams);
@@ -149,14 +150,14 @@
 
 			// A. Construct Query Params (Map UI -> Backend)
 
-			// 1. Search (q)
+			// 1. Search
 			if (uiState.searchQuery) newParams.set('q', uiState.searchQuery);
 			else newParams.delete('q');
 
-			// 2. Sort & Order (Separate keys, matching backend library.ts)
+			// 2. Sort
 			let backendSort = 'title';
 			if (uiState.sortKey === 'updated') backendSort = 'updated';
-			if (uiState.sortKey === 'lastRead') backendSort = 'recent'; // 'recent' maps to lastReadAt in backend
+			if (uiState.sortKey === 'lastRead') backendSort = 'recent';
 
 			newParams.set('sort', backendSort);
 			newParams.set('order', uiState.sortOrder);
@@ -175,6 +176,24 @@
 				newParams.delete('bookmarked');
 			}
 
+			// 5. Organization
+			if (uiState.filterOrganization !== 'all') {
+				// Map UI 'organized'/'unorganized' -> Backend 'true'/'false'
+				newParams.set(
+					'is_organized',
+					uiState.filterOrganization === 'organized' ? 'true' : 'false'
+				);
+			} else {
+				newParams.delete('is_organized');
+			}
+
+			// 6. Missing Metadata
+			if (uiState.filterMissing !== 'none') {
+				newParams.set('filter_missing', uiState.filterMissing);
+			} else {
+				newParams.delete('filter_missing');
+			}
+
 			// B. Handle Pagination Reset
 			// Detect if query criteria changed (excluding page)
 			const criteriaChanged =
@@ -182,7 +201,10 @@
 				currentParams.get('sort') !== newParams.get('sort') ||
 				currentParams.get('order') !== newParams.get('order') ||
 				currentParams.get('status') !== newParams.get('status') ||
-				currentParams.get('bookmarked') !== newParams.get('bookmarked');
+				currentParams.get('bookmarked') !== newParams.get('bookmarked') ||
+				currentParams.get('is_organized') !== newParams.get('is_organized') ||
+				currentParams.get('filter_missing') !== newParams.get('filter_missing');
+
 			if (criteriaChanged) {
 				newParams.set('page', '1');
 			}
@@ -232,21 +254,18 @@
 	// --- Actions ---
 	//
 	const handleOpenEdit = () => {
-		const selectedId = Array.from(uiState.selectedIds)[0];
-		if (!selectedId) return;
-
-		const series = library.find((s) => s.id === selectedId);
+		const series = Array.from(uiState.selection.values())[0] as Series;
 		if (series) {
 			editModalTarget = series;
 			isEditModalOpen = true;
 		}
 	};
 
-	const handleCardClick = (e: MouseEvent, seriesId: string) => {
+	const handleCardClick = (e: MouseEvent, series: Series) => {
 		if (uiState.isSelectionMode) {
 			e.preventDefault();
 			e.stopPropagation();
-			uiState.toggleSelection(seriesId);
+			uiState.toggleSelection(series as GlobalSeries);
 		}
 	};
 
@@ -347,11 +366,11 @@
 				>
 					{#each library as series (series.id)}
 						{@const { percent, isRead } = getSeriesProgress(series)}
-						{@const isSelected = uiState.selectedIds.has(series.id)}
+						{@const isSelected = uiState.selection.has(series.id)}
 
 						<LibraryEntry
 							onLongPress={() => {
-								uiState.enterSelectionMode(series.id);
+								uiState.enterSelectionMode(series as GlobalSeries);
 							}}
 							entry={{
 								id: series.id,
@@ -371,7 +390,7 @@
 							href={`/series/${series.id}`}
 							mainStat={`${series.volumes.length} ${series.volumes.length === 1 ? 'Vol' : 'Vols'}`}
 							subStat={formatLastReadDate(series.lastReadAt)}
-							onSelect={(e) => handleCardClick(e, series.id)}
+							onSelect={(e) => handleCardClick(e, series)}
 						>
 							{#snippet circleAction()}
 								<button

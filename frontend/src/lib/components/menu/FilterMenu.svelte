@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { uiState } from '$lib/states/uiState.svelte';
+	import { uiState, type FilterMissing } from '$lib/states/uiState.svelte';
 	import MenuWrapper from '$lib/components/menu/MenuWrapper.svelte';
 	import MenuGroup from '$lib/components/menu/MenuGroup.svelte';
 	import MenuGrid from '$lib/components/menu/MenuGrid.svelte';
@@ -33,6 +33,22 @@
 			shadow: 'shadow-status-warning/30'
 		}
 	} as const;
+
+	function toggleOrganization(target: 'organized' | 'unorganized') {
+		if (uiState.filterOrganization === target) {
+			uiState.filterOrganization = 'all'; // Toggle off
+		} else {
+			uiState.filterOrganization = target; // Mutually exclusive switch
+		}
+	}
+
+	function toggleMissing(target: Exclude<FilterMissing, 'none'>) {
+		if (uiState.filterMissing === target) {
+			uiState.filterMissing = 'none'; // Toggle off (Default)
+		} else {
+			uiState.filterMissing = target;
+		}
+	}
 </script>
 
 <MenuWrapper className="w-80 !bg-theme-surface !border-theme-border shadow-2xl">
@@ -257,8 +273,8 @@
 			</button>
 		{/snippet}
 
-		<MenuGroup title="Filter Status">
-			<MenuGrid items={['status', 'bookmark']} layout={[1, 1]}>
+		<MenuGroup title="Status">
+			<MenuGrid items={['status', 'bookmark']} innerClass="pb-2 gap-2" layout={[1, 1]}>
 				{#snippet children(index)}
 					{#if index === 'status'}
 						{@render statusFilter()}
@@ -269,4 +285,47 @@
 			</MenuGrid>
 		</MenuGroup>
 	</div>
+
+	{#if uiState.context === 'library'}
+		<MenuGroup title="Organization">
+			<div class="flex gap-2">
+				<button
+					onclick={() => toggleOrganization('unorganized')}
+					class="flex-1 py-2.5 rounded-xl border-2 text-xs font-bold uppercase tracking-wider transition-all duration-200
+					{uiState.filterOrganization === 'unorganized'
+						? 'border-blue-500/70 bg-blue-500/20 text-blue-400 shadow-lg shadow-blue-500/30'
+						: 'bg-theme-surface-hover/50 border-theme-border text-theme-primary hover:bg-theme-surface-hover/80 hover:text-white'}"
+				>
+					Inbox
+				</button>
+
+				<button
+					onclick={() => toggleOrganization('organized')}
+					class="flex-1 py-2.5 rounded-xl border-2 text-xs font-bold uppercase tracking-wider transition-all duration-200
+					{uiState.filterOrganization === 'organized'
+						? 'border-purple-500/70 bg-purple-500/20 text-purple-400 shadow-lg shadow-purple-500/30'
+						: 'bg-theme-surface-hover/50 border-theme-border text-theme-primary hover:bg-theme-surface-hover/80 hover:text-white'}"
+				>
+					Archive
+				</button>
+			</div>
+		</MenuGroup>
+
+		<MenuGroup title="Maintenance">
+			<div class="grid grid-cols-2 gap-2">
+				{#each [{ key: 'any', label: 'Any Missing' }, { key: 'cover', label: 'No Cover' }, { key: 'description', label: 'No Desc' }, { key: 'title', label: 'No Title' }] as item}
+					{@const k = item.key as Exclude<FilterMissing, 'none'>}
+					<button
+						onclick={() => toggleMissing(k)}
+						class="px-3 py-2.5 rounded-xl text-xs font-bold border-2 transition-all duration-200
+						{uiState.filterMissing === k
+							? 'border-status-danger/70 bg-status-danger/20 text-status-danger shadow-lg shadow-status-danger/30'
+							: 'bg-theme-surface-hover/50 border-theme-border text-theme-primary hover:bg-theme-surface-hover/80 hover:text-white'}"
+					>
+						{item.label}
+					</button>
+				{/each}
+			</div>
+		</MenuGroup>
+	{/if}
 </MenuWrapper>

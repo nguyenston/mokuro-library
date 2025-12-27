@@ -1,10 +1,13 @@
-import { SvelteSet } from 'svelte/reactivity';
+import { SvelteMap } from 'svelte/reactivity';
+import type { Series, Volume, LibraryItem } from '$lib/types';
 
 export type AppContext = 'library' | 'series' | 'reader' | 'settings';
 export type ViewMode = 'grid' | 'list';
 export type SortOrder = 'asc' | 'desc';
 export type SortKey = 'title' | 'updated' | 'lastRead' | 'progress';
 export type FilterStatus = 'all' | 'reading' | 'read' | 'unread';
+export type FilterOrganization = 'all' | 'organized' | 'unorganized';
+export type FilterMissing = 'none' | 'cover' | 'description' | 'title' | 'any';
 
 class UiState {
   // --- Context & Navigation ---
@@ -21,6 +24,8 @@ class UiState {
   sortOrder = $state<SortOrder>('asc');
   filterStatus = $state<FilterStatus>('all');
   filterBookmarked = $state(false);
+  filterOrganization = $state<FilterOrganization>('all');
+  filterMissing = $state<FilterMissing>('none');
 
   // --- Data Freshness ---
   // Simple counter to force re-fetches
@@ -28,7 +33,7 @@ class UiState {
 
   // --- Selection Mode ---
   isSelectionMode = $state(false);
-  selectedIds = new SvelteSet<string>();
+  selection = new SvelteMap<string, LibraryItem>();
 
   // --- Modals (Global Visibility) ---
   isUploadOpen = $state(false);
@@ -52,6 +57,10 @@ class UiState {
     }
   }
 
+  get selectedIdsArray(): string[] {
+    return Array.from(this.selection.keys());
+  }
+
   // --- Actions ---
 
   refreshLibrary() {
@@ -69,7 +78,7 @@ class UiState {
     // Reset transient states
     this.searchQuery = '';
     this.isSelectionMode = false;
-    this.selectedIds.clear();
+    this.selection.clear();
     this.filterStatus = 'all';
     this.filterBookmarked = false;
 
@@ -82,41 +91,41 @@ class UiState {
     }
   }
 
-  enterSelectionMode(initialId: string) {
+  enterSelectionMode(initialItem: LibraryItem) {
     if (this.isSelectionMode) return;
-    this.selectedIds.clear();
+    this.selection.clear();
     this.isSelectionMode = true;
-    this.selectedIds.add(initialId);
+    this.selection.set(initialItem.id, initialItem);
   }
 
   exitSelectionMode() {
     this.isSelectionMode = false;
-    this.selectedIds.clear();
+    this.selection.clear();
   }
 
   toggleSelectionMode() {
     this.isSelectionMode = !this.isSelectionMode;
     if (!this.isSelectionMode) {
-      this.selectedIds.clear();
+      this.selection.clear();
     }
   }
 
-  toggleSelection(id: string) {
-    if (this.selectedIds.has(id)) {
-      this.selectedIds.delete(id);
+  toggleSelection(item: LibraryItem) {
+    if (this.selection.has(item.id)) {
+      this.selection.delete(item.id);
     } else {
-      this.selectedIds.add(id);
+      this.selection.set(item.id, item);
     }
   }
 
-  selectAll(ids: string[]) {
-    for (const id of ids) {
-      this.selectedIds.add(id);
+  selectAll(items: LibraryItem[]) {
+    for (const item of items) {
+      this.selection.set(item.id, item);
     }
   }
 
   deselectAll() {
-    this.selectedIds.clear();
+    this.selection.clear();
   }
 
   toggleSortOrder() {
@@ -128,6 +137,14 @@ class UiState {
     if (typeof window !== 'undefined') {
       localStorage.setItem('mokuro_view_mode', mode);
     }
+  }
+
+  // Helper: Get strictly typed list (e.g. ensure all are Series)
+  // Useful for type guards in the Action Bar
+  getSelectedSeries(): Series[] {
+    const items = Array.from(this.selection.values());
+    // Simple runtime check or assumption based on context
+    return items as Series[];
   }
 }
 
