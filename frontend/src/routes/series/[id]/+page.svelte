@@ -1,4 +1,5 @@
 <script lang="ts">
+	import type { Series, Volume } from '$lib/types';
 	import { apiFetch, triggerDownload } from '$lib/api';
 	import { user } from '$lib/authStore';
 	import { goto } from '$app/navigation';
@@ -15,34 +16,6 @@
 	import SeriesHero from '$lib/components/SeriesHero.svelte';
 
 	// --- Type Definitions ---
-	interface UserProgress {
-		page: number;
-		completed: boolean;
-		timeRead: number;
-		charsRead: number;
-		lastReadAt?: string;
-	}
-	interface Volume {
-		id: string;
-		title: string | null;
-		folderName: string;
-		sortTitle: string;
-		pageCount: number;
-		coverImageName: string | null;
-		createdAt: string;
-		progress: UserProgress[];
-	}
-	interface Series {
-		id: string;
-		title: string | null;
-		japaneseTitle?: string | null;
-		romajiTitle?: string | null;
-		folderName: string;
-		description: string | null;
-		coverPath: string | null;
-		volumes: Volume[];
-		bookmarked?: boolean;
-	}
 
 	let { params } = $props<{ params: { id: string } }>();
 
@@ -74,7 +47,7 @@
 	// --- Derived State ---
 	let processedVolumes = $derived.by(() => {
 		if (!series) return [];
-		let vols = [...series.volumes];
+		let vols = [...(series.volumes ?? [])];
 
 		if (uiState.searchQuery) {
 			const q = uiState.searchQuery.toLowerCase();
@@ -121,6 +94,7 @@
 	let stats = $derived.by(() => {
 		if (!series) return { volsRead: 0, totalVols: 0, totalCharsRead: 0, totalTime: 0 };
 		const vols = series.volumes;
+		if (!vols) return { volsRead: 0, totalVols: 0, totalCharsRead: 0, totalTime: 0 };
 		return {
 			totalVols: vols.length,
 			volsRead: vols.filter((v) => {
@@ -174,10 +148,7 @@
 	};
 
 	const handleOpenVolumeEdit = () => {
-		const selectedId = Array.from(uiState.selectedIds)[0];
-		if (!selectedId) return;
-
-		const volume = series?.volumes.find((s) => s.id === selectedId);
+		const volume = Array.from(uiState.selection.values())[0];
 		if (volume) {
 			editVolumeTarget = volume;
 			isEditVolumeOpen = true;
@@ -209,11 +180,11 @@
 		});
 	};
 
-	const handleVolumeClick = (e: MouseEvent, volId: string) => {
+	const handleVolumeClick = (e: MouseEvent, vol: Volume) => {
 		if (uiState.isSelectionMode) {
 			e.preventDefault();
 			e.stopPropagation();
-			uiState.toggleSelection(volId);
+			uiState.toggleSelection(vol);
 		}
 	};
 
@@ -299,11 +270,11 @@
 				>
 					{#each processedVolumes as vol (vol.id)}
 						{@const stats = getVolumeStats(vol)}
-						{@const isSelected = uiState.selectedIds.has(vol.id)}
+						{@const isSelected = uiState.selection.has(vol.id)}
 
 						<LibraryEntry
 							onLongPress={() => {
-								uiState.enterSelectionMode(vol.id);
+								uiState.enterSelectionMode(vol);
 							}}
 							entry={{
 								id: vol.id,
@@ -325,7 +296,7 @@
 							href={`/volume/${vol.id}`}
 							mainStat={`${vol.progress[0]?.page ?? 0}/${vol.pageCount} P`}
 							subStat={formatLastReadDate(vol.progress[0]?.lastReadAt)}
-							onSelect={(e) => handleVolumeClick(e, vol.id)}
+							onSelect={(e) => handleVolumeClick(e, vol)}
 						>
 							{#snippet circleAction()}
 								<button

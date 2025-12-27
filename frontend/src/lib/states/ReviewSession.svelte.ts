@@ -24,7 +24,7 @@ export interface ScrapedPreview {
     hasCover?: boolean;
     tempCoverPath?: string;
   };
-  status: 'pending' | 'applying' | 'applied' | 'error' | 'denied';
+  status: 'scraping' | 'pending' | 'applying' | 'applied' | 'error' | 'denied';
 }
 
 export class ReviewSession {
@@ -121,7 +121,8 @@ export class ReviewSession {
           romajiTitle: preview.scraped.romajiTitle,
           synonyms: preview.scraped.synonyms,
           description: preview.scraped.description,
-          tempCoverPath: preview.scraped.tempCoverPath
+          tempCoverPath: preview.scraped.tempCoverPath,
+          organized: true
         }
       });
 

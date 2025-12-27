@@ -2,6 +2,7 @@ import { browser } from '$app/environment';
 import { apiFetch } from '$lib/api';
 import { createId } from '@paralleldrive/cuid2';
 import { ReviewSession, type ScrapedPreview } from './ReviewSession.svelte';
+import type { Series } from '$lib/types';
 
 export interface DescriptionFilter {
   id: string;
@@ -18,6 +19,7 @@ export interface ScrapeResult {
 class ScrapingState {
   // --- Sub-States ---
   session: ReviewSession;
+  isScraping = $state(false);
 
   // --- Global Lists ---
   descriptionFilters = $state<DescriptionFilter[]>([]);
@@ -56,6 +58,10 @@ class ScrapingState {
     { pattern: '\\s{2,}', isRegex: true }
   ];
 
+  preferredProvider = $state<'anilist' | 'mal' | 'kitsu'>('anilist');
+
+
+
   constructor() {
     // Initialize Session with a callback to update our local list
     this.session = new ReviewSession((id) => this.markAsScraped(id));
@@ -64,10 +70,100 @@ class ScrapingState {
       this.loadFilters();
       this.loadExcludedSeries();
       this.loadScrapedSeries();
+      this.loadProvider();
+
+      // Automatically save provider whenever it changes
+      $effect.root(() => {
+        $effect(() => {
+          localStorage.setItem('mokuro_scrape_provider', this.preferredProvider);
+        });
+      });
+    }
+
+  }
+
+  /**
+   * Initializes the review session with the selected series.
+   * Creates "Pending" preview items instantly using the known current metadata.
+   */
+  initSession(seriesList: Series[]) {
+    this.session.reset(seriesList.length);
+
+    for (const s of seriesList) {
+      // Create a preview item using the data we already have in memory
+      const newItem: ScrapedPreview = {
+        id: createId(),
+        seriesId: s.id,
+        seriesTitle: s.title || s.folderName,
+        searchQuery: s.title || s.folderName,
+        current: {
+          title: s.title,
+          japaneseTitle: s.japaneseTitle,
+          romajiTitle: s.romajiTitle,
+          synonyms: s.synonyms ?? null, // Ensure your Series type has this or use optional chaining
+          description: s.description,
+          hasCover: !!s.coverPath,
+          coverPath: s.coverPath
+        },
+        scraped: {}, // Empty until fetched
+        status: 'scraping'
+      };
+      this.session.addIncoming(newItem);
     }
   }
 
-  // --- 1. Filter Logic ---
+  /**
+   * The Main Loop: Processes the 'upcoming' queue.
+   * Fetches metadata for pending items one by one.
+   */
+  async startScrapingQueue(provider: 'anilist' | 'mal' | 'kitsu') {
+    if (this.isScraping) return;
+    this.isScraping = true;
+
+    // We access the raw array from the Deque to iterate
+    // (Assuming Deque.svelte exposes `items` or `toArray()`)
+    const queue = this.session.upcoming.items;
+
+    for (const item of queue) {
+      if (!this.isScraping) break;
+
+      // Skip if already scraped or if user already processed it (status changed)
+      if (item.scraped.title || item.status !== 'scraping') continue;
+
+      try {
+        // 1. Fetch Metadata
+        const { scraped, current } = await this.scrapeWithFallback(
+          item.seriesId,
+          item.searchQuery,
+          provider
+        );
+
+        // 2. Update the item in-place (Reactivity updates the UI)
+        item.scraped = scraped;
+        item.status = 'pending'
+
+        // Update 'current' if the backend returns fresher data than our initial selection
+        if (current) {
+          item.current = { ...item.current, ...current };
+        }
+
+      } catch (e) {
+        console.error(`Failed to scrape ${item.seriesTitle}`, e);
+        // We leave it as 'pending' (but empty scraped data) or you could set status='error'
+      }
+
+      // Small delay to prevent rate-limiting and allow UI to breathe
+      await new Promise((r) => setTimeout(r, 600));
+    }
+
+    this.isScraping = false;
+  }
+
+  stopScraping() {
+    this.isScraping = false;
+  }
+
+  // --- Filter Logic ---
 
   filterDescription(description: string | undefined): string | undefined {
     if (!description) return description;
@@ -125,7 +221,7 @@ class ScrapingState {
     this.saveFilters();
   }
 
-  // --- 2. List Management ---
+  // --- List Management ---
 
   excludeSeries(id: string) {
     this.excludedSeriesIds = new Set([...this.excludedSeriesIds, id]);
@@ -144,7 +240,7 @@ class ScrapingState {
     this.saveScrapedSeries();
   }
 
-  // --- 3. API Actions ---
+  // --- API Actions ---
 
   async scrapeWithFallback(
     seriesId: string,
@@ -226,6 +322,16 @@ class ScrapingState {
       console.error(e);
     }
   }
+
+  private loadProvider() {
+    if (browser) {
+      const p = localStorage.getItem('mokuro_scrape_provider');
+      if (p === 'anilist' || p === 'mal' || p === 'kitsu') {
+        this.preferredProvider = p;
+      }
+    }
+  }
+
 }
 
 export const scrapingState = new ScrapingState();
