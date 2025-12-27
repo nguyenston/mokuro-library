@@ -18,10 +18,18 @@ datasource db {
 model Series {
   id            String    @id @default(cuid())
   title         String?   // nullable
+  japaneseTitle String?
+  romajiTitle   String?
+  synonyms      String?
+  description   String?
+
   folderName    String    // always exists
   coverPath     String?   // Path to the cover image
 
-  description   String?
+  // False = "Inbox" (Needs review/scraping)
+  // True = "Archive" (User has verified this entry)
+  organized     Boolean   @default(false)
+
   bookmarked    Boolean   @default(false)
 
   // 0 = Unread, 1 = In Progress, 2 = Read
@@ -29,9 +37,6 @@ model Series {
 
   // Always contains either 'title' or 'folderName'
   sortTitle     String
-  japaneseTitle String?
-  romajiTitle   String?
-  synonyms      String?
 
   createdAt     DateTime  @default(now()) // "Date Added"
   updatedAt     DateTime  @updatedAt @default(now())     // "Recently Updated" (Refreshed on new volume)
