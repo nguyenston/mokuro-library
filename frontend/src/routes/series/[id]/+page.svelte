@@ -1,12 +1,12 @@
 <script lang="ts">
+	import type { Series, Volume } from '$lib/types';
 	import { apiFetch, triggerDownload } from '$lib/api';
 	import { user } from '$lib/authStore';
 	import { goto } from '$app/navigation';
 	import { browser } from '$app/environment';
-	import { confirmation } from '$lib/confirmationStore';
-	import { contextMenu } from '$lib/contextMenuStore';
 	import { uiState } from '$lib/states/uiState.svelte';
 	import { metadataOps } from '$lib/states/metadataOperations.svelte';
+	import { formatLastReadDate } from '$lib/utils/dateHelpers';
 
 	import EditSeriesModal from '$lib/components/EditSeriesModal.svelte';
 	import EditVolumeModal from '$lib/components/EditVolumeModal.svelte';
@@ -16,32 +16,6 @@
 	import SeriesHero from '$lib/components/SeriesHero.svelte';
 
 	// --- Type Definitions ---
-	interface UserProgress {
-		page: number;
-		completed: boolean;
-		timeRead: number;
-		charsRead: number;
-		lastReadAt?: string;
-	}
-	interface Volume {
-		id: string;
-		title: string | null;
-		folderName: string;
-		sortTitle: string;
-		pageCount: number;
-		coverImageName: string | null;
-		createdAt: string;
-		progress: UserProgress[];
-	}
-	interface Series {
-		id: string;
-		title: string | null;
-		folderName: string;
-		description: string | null;
-		coverPath: string | null;
-		volumes: Volume[];
-		bookmarked?: boolean;
-	}
 
 	let { params } = $props<{ params: { id: string } }>();
 
@@ -59,12 +33,6 @@
 	let editVolumeTarget = $state<{ id: string; title: string | null } | null>(null);
 
 	// --- Helpers ---
-	const formatTime = (seconds: number) => {
-		const h = Math.floor(seconds / 3600);
-		const m = Math.floor((seconds % 3600) / 60);
-		return h > 0 ? `${h}h ${m}m` : `${m}m`;
-	};
-
 	const getVolumeStats = (vol: Volume) => {
 		const p = vol.progress?.[0];
 		const currentPage = p?.page ?? 0;
@@ -79,7 +47,7 @@
 	// --- Derived State ---
 	let processedVolumes = $derived.by(() => {
 		if (!series) return [];
-		let vols = [...series.volumes];
+		let vols = [...(series.volumes ?? [])];
 
 		if (uiState.searchQuery) {
 			const q = uiState.searchQuery.toLowerCase();
@@ -114,6 +82,8 @@
 					);
 				case 'lastRead':
 					return (uiState.sortOrder === 'asc' ? 1 : -1) * (statsA.lastRead - statsB.lastRead);
+				case 'progress':
+					return (uiState.sortOrder === 'asc' ? 1 : -1) * (statsA.percent - statsB.percent);
 				default:
 					return 0;
 			}
@@ -124,6 +94,7 @@
 	let stats = $derived.by(() => {
 		if (!series) return { volsRead: 0, totalVols: 0, totalCharsRead: 0, totalTime: 0 };
 		const vols = series.volumes;
+		if (!vols) return { volsRead: 0, totalVols: 0, totalCharsRead: 0, totalTime: 0 };
 		return {
 			totalVols: vols.length,
 			volsRead: vols.filter((v) => {
@@ -149,7 +120,8 @@
 					[
 						{ key: 'title', label: 'Number' },
 						{ key: 'updated', label: 'Date Added' },
-						{ key: 'lastRead', label: 'Recent' }
+						{ key: 'lastRead', label: 'Recent' },
+						{ key: 'progress', label: '% Progress' }
 					],
 					series.id
 				);
@@ -176,10 +148,7 @@
 	};
 
 	const handleOpenVolumeEdit = () => {
-		const selectedId = Array.from(uiState.selectedIds)[0];
-		if (!selectedId) return;
-
-		const volume = series?.volumes.find((s) => s.id === selectedId);
+		const volume = Array.from(uiState.selection.values())[0];
 		if (volume) {
 			editVolumeTarget = volume;
 			isEditVolumeOpen = true;
@@ -211,11 +180,11 @@
 		});
 	};
 
-	const handleVolumeClick = (e: MouseEvent, volId: string) => {
+	const handleVolumeClick = (e: MouseEvent, vol: Volume) => {
 		if (uiState.isSelectionMode) {
 			e.preventDefault();
 			e.stopPropagation();
-			uiState.toggleSelection(volId);
+			uiState.toggleSelection(vol);
 		}
 	};
 
@@ -266,8 +235,8 @@
 			{series}
 			{stats}
 			{coverRefreshTrigger}
+			onRefresh={handleRefresh}
 			onCoverUpload={handleCoverUpload}
-			onEditMetadata={() => (isEditSeriesOpen = true)}
 			onBookmarkToggle={toggleBookmark}
 			isBookmarked={series.bookmarked ?? false}
 		/>
@@ -301,11 +270,11 @@
 				>
 					{#each processedVolumes as vol (vol.id)}
 						{@const stats = getVolumeStats(vol)}
-						{@const isSelected = uiState.selectedIds.has(vol.id)}
+						{@const isSelected = uiState.selection.has(vol.id)}
 
 						<LibraryEntry
 							onLongPress={() => {
-								uiState.enterSelectionMode(vol.id);
+								uiState.enterSelectionMode(vol);
 							}}
 							entry={{
 								id: vol.id,
@@ -326,10 +295,8 @@
 							}}
 							href={`/volume/${vol.id}`}
 							mainStat={`${vol.progress[0]?.page ?? 0}/${vol.pageCount} P`}
-							subStat={vol.progress[0]?.lastReadAt
-								? `READ ${new Date(vol.progress[0].lastReadAt).toLocaleDateString()}`
-								: 'UNREAD'}
-							onSelect={(e) => handleVolumeClick(e, vol.id)}
+							subStat={formatLastReadDate(vol.progress[0]?.lastReadAt)}
+							onSelect={(e) => handleVolumeClick(e, vol)}
 						>
 							{#snippet circleAction()}
 								<button
@@ -418,7 +385,12 @@
 		</LibraryListWrapper>
 	{/if}
 
-	<LibraryActionBar type="volume" onRefresh={handleRefresh} onRename={handleOpenVolumeEdit} />
+	<LibraryActionBar
+		type="volume"
+		onRefresh={handleRefresh}
+		onSelectAll={() => uiState.selectAll(processedVolumes)}
+		onRename={handleOpenVolumeEdit}
+	/>
 	<EditSeriesModal
 		{series}
 		isOpen={isEditSeriesOpen}

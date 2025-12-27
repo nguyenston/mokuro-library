@@ -9,8 +9,8 @@
 		onColorChange?: (color: string) => void;
 	}>();
 
-	let colorPickerRef: HTMLDivElement;
-	let hueSliderRef: HTMLDivElement;
+	let colorPickerRef: HTMLDivElement | undefined = $state();
+	let hueSliderRef: HTMLDivElement | undefined = $state();
 	let isDragging = $state(false);
 	let isDraggingHue = $state(false);
 
@@ -91,40 +91,27 @@
 		return `#${[r, g, b].map((x) => x.toString(16).padStart(2, '0')).join('')}`;
 	}
 
-	// Initialize HSL from current color
+	// Initialize HSL from current color (only once on mount)
 	let currentHsl = $state(hexToHsl(color));
-	let isInitialized = $state(false);
-
-	// Initialize from prop when it changes externally
-	$effect(() => {
-		if (!isInitialized) {
-			currentHsl = hexToHsl(color);
-			isInitialized = true;
-		} else {
-			// Only update if color changed externally (not from our HSL changes)
-			const newHsl = hexToHsl(color);
-			const currentColor = hslToHex(currentHsl.h, currentHsl.s, currentHsl.l);
-			if (currentColor !== color) {
-				currentHsl = newHsl;
-			}
-		}
-	});
 
 	// Update color when HSL changes and notify parent
 	$effect(() => {
-		if (isInitialized) {
-			const newColor = hslToHex(currentHsl.h, currentHsl.s, currentHsl.l);
-			if (newColor !== color && onColorChange) {
-				onColorChange(newColor);
-			}
+		const newColor = hslToHex(currentHsl.h, currentHsl.s, currentHsl.l);
+		if (newColor !== color && onColorChange) {
+			onColorChange(newColor);
 		}
 	});
 
 	function handleColorPickerClick(e: MouseEvent) {
-		if (!colorPickerRef) return;
+		if (!colorPickerRef) {
+			console.log('ColorPicker: colorPickerRef is not defined');
+			return;
+		}
 		const rect = colorPickerRef.getBoundingClientRect();
 		const x = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
 		const y = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
+
+		console.log('ColorPicker click:', { x, y, h: currentHsl.h, s: x * 100, l: (1 - y) * 100 });
 
 		currentHsl = {
 			h: currentHsl.h,
@@ -139,9 +126,15 @@
 	}
 
 	function handleHueSliderClick(e: MouseEvent) {
-		if (!hueSliderRef) return;
+		if (!hueSliderRef) {
+			console.log('ColorPicker: hueSliderRef is not defined');
+			return;
+		}
 		const rect = hueSliderRef.getBoundingClientRect();
 		const x = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+
+		console.log('Hue slider click:', { x, newHue: x * 360 });
+
 		currentHsl = {
 			...currentHsl,
 			h: x * 360
@@ -156,11 +149,13 @@
 	function handleHexInput(e: Event) {
 		const value = (e.target as HTMLInputElement).value.replace('#', '');
 		if (/^[0-9A-Fa-f]{6}$/.test(value)) {
-			color = `#${value}`;
+			const hexColor = `#${value}`;
+			currentHsl = hexToHsl(hexColor);
 		}
 	}
 
 	function handleSet() {
+		console.log('handleSet called, current color:', displayColor);
 		onClose();
 	}
 
@@ -208,65 +203,171 @@
 	const pickerX = $derived((currentHsl.s / 100) * 100);
 	const pickerY = $derived((1 - currentHsl.l / 100) * 100);
 	const hueX = $derived((currentHsl.h / 360) * 100);
+
+	// Derive current color from HSL
+	const displayColor = $derived(hslToHex(currentHsl.h, currentHsl.s, currentHsl.l));
+
+	// Debug: Log when component mounts and when color changes
+	$effect(() => {
+		console.log('ColorPicker mounted/updated:', {
+			color,
+			currentHsl,
+			displayColor,
+			colorPickerRef: !!colorPickerRef,
+			hueSliderRef: !!hueSliderRef
+		});
+	});
 </script>
 
 <div
-	class="fixed inset-0 z-[60] flex items-center justify-center p-4"
-	onclick={(e) => {
-		if (e.target === e.currentTarget) onClose();
-	}}
+	class="fixed inset-0 z-[60] flex items-center justify-center p-4 sm:p-0"
+	role="dialog"
+	aria-modal="true"
 >
 	<div
-		class="rounded-2xl bg-black/30 backdrop-blur-2xl border border-white/10 shadow-[0_8px_32px_0_rgba(0,0,0,0.5)] p-6 max-w-md w-full"
+		class="absolute inset-0 bg-black/60 backdrop-blur-sm"
+		onclick={onClose}
+		role="button"
+		tabindex="0"
+		onkeydown={(e) => e.key === 'Escape' && onClose()}
+		aria-label="Close modal"
+	></div>
+
+	<div
+		class="relative w-full max-w-md transform overflow-hidden rounded-2xl border border-theme-border bg-theme-surface shadow-2xl transition-all flex flex-col"
 		onclick={(e) => e.stopPropagation()}
 	>
-		<!-- Color Selection Area -->
+		<!-- Header -->
 		<div
-			bind:this={colorPickerRef}
-			class="relative w-full h-48 rounded-xl overflow-hidden cursor-crosshair mb-4 border border-white/10"
-			style="background: linear-gradient(to bottom, hsl({currentHsl.h}, 100%, 50%), transparent), linear-gradient(to right, white, transparent), black;"
-			onmousedown={(e) => {
-				startDrag();
-				handleColorPickerClick(e);
-			}}
+			class="flex items-center justify-between px-6 py-4 bg-theme-main border-b border-theme-border flex-shrink-0"
 		>
-			<!-- Picker indicator -->
-			<div
-				class="absolute w-4 h-4 border-2 border-white rounded-full pointer-events-none shadow-lg"
-				style="left: {pickerX}%; top: {pickerY}%; transform: translate(-50%, -50%);"
-			></div>
+			<div class="flex items-center gap-3">
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					width="24"
+					height="24"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					class="text-accent"
+				>
+					<path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z" />
+				</svg>
+				<h2 class="text-2xl font-bold theme-primary">Color Picker</h2>
+			</div>
+			<button
+				onclick={onClose}
+				class="p-2 rounded-lg text-theme-secondary hover:text-theme-primary hover:bg-theme-surface-hover transition-colors"
+				aria-label="Close"
+			>
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					width="20"
+					height="20"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+				>
+					<line x1="18" y1="6" x2="6" y2="18" />
+					<line x1="6" y1="6" x2="18" y2="18" />
+				</svg>
+			</button>
 		</div>
 
-		<!-- Hue Slider -->
-		<div
-			bind:this={hueSliderRef}
-			class="relative w-full h-6 rounded-lg overflow-hidden cursor-pointer mb-4 border border-white/10"
-			style="background: linear-gradient(to right, #ff0000, #ffff00, #00ff00, #00ffff, #0000ff, #ff00ff, #ff0000);"
-			onmousedown={(e) => {
-				startHueDrag();
-				handleHueSliderClick(e);
-			}}
-		>
-			<!-- Hue indicator -->
+		<!-- Content -->
+		<div class="p-6 space-y-4">
+			<!-- Color Selection Area -->
 			<div
-				class="absolute top-0 bottom-0 w-1 bg-white border border-black/20 pointer-events-none shadow-lg"
-				style="left: {hueX}%; transform: translateX(-50%);"
-			></div>
+				bind:this={colorPickerRef}
+				class="relative w-full h-48 rounded-xl overflow-hidden cursor-crosshair border border-theme-border"
+				style="background: linear-gradient(to bottom, transparent, black), linear-gradient(to right, white, hsl({currentHsl.h}, 100%, 50%));"
+				onclick={(e) => {
+					e.stopPropagation();
+					handleColorPickerClick(e);
+				}}
+				onmousedown={(e) => {
+					e.stopPropagation();
+					startDrag();
+					handleColorPickerClick(e);
+				}}
+				role="button"
+				tabindex="0"
+				aria-label="Select color saturation and lightness"
+			>
+				<!-- Picker indicator -->
+				<div
+					class="absolute w-5 h-5 border-2 border-white rounded-full pointer-events-none shadow-lg"
+					style="left: {pickerX}%; top: {pickerY}%; transform: translate(-50%, -50%); box-shadow: 0 0 0 1px rgba(0,0,0,0.3), 0 2px 8px rgba(0,0,0,0.5);"
+				></div>
+			</div>
+
+			<!-- Hue Slider -->
+			<div
+				bind:this={hueSliderRef}
+				class="relative w-full h-8 rounded-lg overflow-hidden cursor-pointer border border-theme-border"
+				style="background: linear-gradient(to right, #ff0000, #ffff00, #00ff00, #00ffff, #0000ff, #ff00ff, #ff0000);"
+				onclick={(e) => {
+					e.stopPropagation();
+					handleHueSliderClick(e);
+				}}
+				onmousedown={(e) => {
+					e.stopPropagation();
+					startHueDrag();
+					handleHueSliderClick(e);
+				}}
+				role="slider"
+				tabindex="0"
+				aria-label="Select hue"
+				aria-valuemin="0"
+				aria-valuemax="360"
+				aria-valuenow={Math.round(currentHsl.h)}
+			>
+				<!-- Hue indicator -->
+				<div
+					class="absolute top-0 bottom-0 w-1 bg-white pointer-events-none"
+					style="left: {hueX}%; transform: translateX(-50%); box-shadow: 0 0 0 1px rgba(0,0,0,0.3), 0 2px 8px rgba(0,0,0,0.5);"
+				></div>
+			</div>
+
+			<!-- Color Preview and HEX Input -->
+			<div class="flex items-center gap-3">
+				<div
+					class="w-12 h-12 rounded-lg border-2 border-theme-border flex-shrink-0 shadow-lg"
+					style="background-color: {displayColor};"
+					aria-label="Current color preview"
+				></div>
+				<div class="flex-1">
+					<label class="text-xs font-bold text-theme-secondary uppercase tracking-wider block mb-1.5"
+						>HEX CODE</label
+					>
+					<input
+						type="text"
+						value={displayColor.toUpperCase()}
+						oninput={handleHexInput}
+						class="w-full px-3 py-2 rounded-lg bg-theme-main border border-theme-border theme-primary font-mono text-sm focus:outline-none focus:border-accent transition-colors"
+						placeholder="#1E293B"
+					/>
+				</div>
+			</div>
 		</div>
 
-		<!-- HEX Code Input -->
-		<div class="flex items-center gap-3">
-			<label class="text-xs font-bold text-gray-400 uppercase tracking-wider">HEX CODE</label>
-			<input
-				type="text"
-				value={color.toUpperCase()}
-				oninput={handleHexInput}
-				class="flex-1 px-3 py-2 rounded-lg bg-black/30 border border-white/10 text-white font-mono text-sm focus:outline-none focus:border-accent"
-				placeholder="#1E293B"
-			/>
+		<!-- Footer -->
+		<div class="px-6 py-4 bg-theme-main border-t border-theme-border flex justify-end gap-2 flex-shrink-0">
+			<button
+				onclick={onClose}
+				class="px-4 py-2 rounded-lg border border-theme-border text-theme-primary hover:bg-theme-surface-hover transition-colors"
+			>
+				Cancel
+			</button>
 			<button
 				onclick={handleSet}
-				class="px-4 py-2 rounded-lg bg-accent hover:bg-accent-hover text-white font-medium flex items-center gap-2 transition-colors"
+				class="px-6 py-2.5 rounded-xl bg-accent text-white text-sm font-semibold hover:bg-accent/80 shadow-lg shadow-accent/20 transition-all transform active:scale-95 flex items-center gap-2"
 			>
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
@@ -281,7 +382,7 @@
 				>
 					<polyline points="20 6 9 17 4 12" />
 				</svg>
-				Set
+				Apply
 			</button>
 		</div>
 	</div>

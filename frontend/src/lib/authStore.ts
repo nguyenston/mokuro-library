@@ -11,10 +11,12 @@ export interface ReaderSettingsData {
   showTriggerOutline?: boolean;
   autoFullscreen?: boolean;
   hideHUD?: boolean;
+  autoCompleteVolume?: boolean;
   nightMode?: {
     enabled: boolean;
     scheduleEnabled: boolean;
     intensity: number;
+    redShift: number;
     startHour: number;
     endHour: number;
   };

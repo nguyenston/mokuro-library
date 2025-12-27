@@ -2,6 +2,9 @@ import { apiFetch } from '$lib/api';
 type RevertCallback = () => void;
 type SeriesMetadata = {
   title?: string | null;
+  japaneseTitle?: string | null;
+  romajiTitle?: string | null;
+  synonyms?: string | null;
   description?: string | null;
   bookmarked?: boolean;
 }

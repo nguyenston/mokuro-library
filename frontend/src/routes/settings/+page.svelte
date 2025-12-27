@@ -10,10 +10,12 @@
 	import ReaderSettings from '$lib/components/settings/ReaderSettings.svelte';
 	import AnkiSettings from '$lib/components/settings/AnkiSettings.svelte';
 	import LibraryOverview from '$lib/components/settings/LibraryOverview.svelte';
+	import ScrapeSettings from '$lib/components/settings/ScrapeSettings.svelte';
 
 	// Define available categories
 	const categories = [
-		{ id: 'reader', label: 'Reader Settings', icon: 'book', component: ReaderSettings }
+		{ id: 'reader', label: 'Reader Settings', icon: 'book', component: ReaderSettings },
+		{ id: 'scrape', label: 'Scrape Settings', icon: 'download', component: ScrapeSettings }
 	];
 
 	const categories_WIP = [
@@ -67,6 +69,7 @@
 				'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75',
 			library: 'M22 12h-4l-3 9L9 3l-3 9H2',
 			clock: 'M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10zM12 6v6l4 2',
+			download: 'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3',
 			settings:
 				'M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z'
 		};
@@ -81,12 +84,17 @@
 </script>
 
 <div class="flex min-h-[calc(100vh-4rem)] max-w-7xl mx-auto bg-theme-main">
-	<aside class="w-[72px] md:w-66 bg-theme-main pl-4 py-6 md:p-6">
-		<div class="mb-6 md:px-0 text-center md:text-left overflow-hidden">
+	<aside class="w-15 lg:w-66 bg-theme-main pl-4 py-6 lg:px-6">
+		<div class="mb-6 lg:px-0 text-center lg:text-left overflow-hidden">
 			<p
-				class="hidden md:block text-[11px] font-black text-theme-tertiary uppercase tracking-[0.2em] whitespace-nowrap"
+				class="hidden lg:block text-[11px] font-black text-theme-tertiary uppercase tracking-[0.2em] whitespace-nowrap"
 			>
 				Categories
+			</p>
+			<p
+				class="block lg:hidden text-[11px] font-black text-theme-tertiary uppercase tracking-[0.2em] whitespace-nowrap"
+			>
+				Cat
 			</p>
 		</div>
 
@@ -95,9 +103,10 @@
 				{@const isActive = activeCategory === category.id}
 				<button
 					onclick={() => (activeCategory = category.id)}
-					class="group w-full flex flex-col md:flex-row items-center md:justify-start gap-0 md:gap-3 p-2 md:px-4 md:py-3 rounded-xl border-2 transition-colors duration-200 {isActive
+					class="group w-full flex flex-col lg:flex-row items-center lg:justify-start gap-0 lg:gap-3 p-1
+            lg:px-4 lg:py-3 rounded-xl border-2 transition-colors duration-200 {isActive
 						? 'bg-accent-surface text-accent border-accent/50 shadow-lg shadow-accent/20'
-						: 'text-theme-primary hover:text-white hover:bg-theme-surface-hover/70 border-transparent hover:border-theme-border/50'}"
+						: 'text-theme-secondary hover:text-theme-primary hover:bg-theme-surface-hover/70 border-theme-border/50 hover:border-theme-border/80'}"
 				>
 					<div class="relative flex items-center justify-center w-8 h-8 shrink-0">
 						<svg
@@ -129,6 +138,8 @@
 							{:else if category.icon === 'clock'}
 								<circle cx="12" cy="12" r="10" />
 								<polyline points="12 6 12 12 16 14" />
+							{:else if category.icon === 'download'}
+								<path d={getIconPath(category.icon)} />
 							{:else}
 								<path d={getIconPath(category.icon)} />
 								<circle cx="12" cy="12" r="3" />
@@ -139,15 +150,15 @@
 					<div
 						class="grid transition-[grid-template-rows,opacity,padding] duration-300 ease-in-out
                         {isActive
-							? 'grid-rows-[1fr] opacity-100 py-2 md:py-0'
-							: 'grid-rows-[0fr] opacity-0 md:grid-rows-[1fr] md:opacity-100 md:py-0'}"
+							? 'grid-rows-[1fr] opacity-100 py-2 lg:py-0'
+							: 'grid-rows-[0fr] opacity-0 lg:grid-rows-[1fr] lg:opacity-100 lg:py-0'}"
 					>
 						<div class="overflow-hidden">
 							<span
-								class="block font-medium text-xs md:text-sm whitespace-nowrap
+								class="block font-medium text-xs lg:text-sm whitespace-nowrap
                                 [writing-mode:vertical-rl] rotate-180
-                                md:[writing-mode:horizontal-tb] md:rotate-0
-                                mx-auto md:mx-0"
+                                lg:[writing-mode:horizontal-tb] lg:rotate-0
+                                mx-auto lg:mx-0"
 							>
 								{category.label}
 							</span>
@@ -157,19 +168,17 @@
 					<div
 						class="{isActive
 							? 'opacity-100 translate-x-0'
-							: 'opacity-0 translate-x-2'} hidden md:block ml-auto w-1 h-4 rounded-full bg-accent transition-all duration-300"
+							: 'opacity-0 translate-x-2'} hidden lg:block ml-auto w-1 h-4 rounded-full bg-accent transition-all duration-300"
 					></div>
 				</button>
 			{/each}
 		</nav>
 	</aside>
 
-	<main class="flex-1 px-1 py-6 md:p-6 overflow-y-auto">
+	<main class="flex-1 p-4 overflow-y-auto">
 		{#each categories as category}
 			{#if activeCategory === category.id}
-				<div class="animate-in fade-in slide-in-from-bottom-2 duration-300">
-					<category.component />
-				</div>
+				<category.component />
 			{/if}
 		{/each}
 	</main>

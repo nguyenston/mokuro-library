@@ -359,11 +359,11 @@
 					>
 						<path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
 					</svg>
-					<h2 class="text-2xl font-bold text-white">Reading Statistics</h2>
+					<h2 class="text-2xl font-bold theme-primary">Reading Statistics</h2>
 				</div>
 				<button
 					onclick={onClose}
-					class="p-2 rounded-lg text-theme-secondary hover:text-white hover:bg-theme-surface-hover transition-colors"
+					class="p-2 rounded-lg text-theme-secondary hover:theme-primary hover:bg-theme-surface-hover transition-colors"
 					aria-label="Close"
 				>
 					<svg
@@ -392,12 +392,12 @@
 				{:else}
 					<!-- Reading Speed History Section -->
 					<div>
-						<h3 class="text-xl font-bold text-white mb-4">Reading Speed History</h3>
+						<h3 class="text-xl font-bold theme-primary mb-4">Reading Speed History</h3>
 						{#if stats.volumesCompleted === 0}
 							<div
 								class="rounded-2xl bg-theme-main p-12 border border-theme-border-light text-center"
 							>
-								<p class="text-2xl font-bold text-white mb-2">No Reading History Yet</p>
+								<p class="text-2xl font-bold theme-primary mb-2">No Reading History Yet</p>
 								<p class="text-theme-secondary">Start reading to track your reading speed!</p>
 							</div>
 						{/if}
@@ -425,7 +425,7 @@
 										<path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
 									</svg>
 								</div>
-								<div class="text-2xl font-bold text-white">
+								<div class="text-2xl font-bold theme-primary">
 									{stats.recentSpeed} chars/min
 								</div>
 							</div>
@@ -451,7 +451,7 @@
 										<path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20" />
 									</svg>
 								</div>
-								<div class="text-2xl font-bold text-white">
+								<div class="text-2xl font-bold theme-primary">
 									{stats.charactersRead}
 								</div>
 								<div class="text-xs text-gray-400 mt-1">
@@ -480,7 +480,7 @@
 										<path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20" />
 									</svg>
 								</div>
-								<div class="text-2xl font-bold text-white">
+								<div class="text-2xl font-bold theme-primary">
 									{stats.volumesCompleted}
 								</div>
 								<div class="text-xs text-gray-400 mt-1">
@@ -510,7 +510,7 @@
 										<polyline points="12 6 12 12 16 14" />
 									</svg>
 								</div>
-								<div class="text-2xl font-bold text-white">
+								<div class="text-2xl font-bold theme-primary">
 									{formatTime(stats.totalTime)}
 								</div>
 							</div>
@@ -538,7 +538,7 @@
 									<path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22" />
 									<path d="M18 2H6v7a6 6 0 0 0 12 0V2Z" />
 								</svg>
-								<h3 class="text-xl font-bold text-white">Achievements</h3>
+								<h3 class="text-xl font-bold theme-primary">Achievements</h3>
 							</div>
 							<div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
 								{#each achievements as achievement}
@@ -592,13 +592,13 @@
 											{/if}
 										</div>
 										<div>
-											<p class="font-bold text-white">{achievement.title}</p>
+											<p class="font-bold theme-primary">{achievement.title}</p>
 											<p class="text-sm text-gray-400">{achievement.description}</p>
 										</div>
 									</div>
 								{/each}
 							</div>
-							<button class="text-sm text-theme-secondary hover:text-white transition-colors">
+							<button class="text-sm text-theme-secondary hover:theme-primary transition-colors">
 								Show All Achievements
 							</button>
 						</div>
@@ -621,7 +621,7 @@
 									>
 										<polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
 									</svg>
-									<h3 class="text-xl font-bold text-white">Reading Speed Over Time</h3>
+									<h3 class="text-xl font-bold theme-primary">Reading Speed Over Time</h3>
 								</div>
 								<div class="flex gap-2">
 									{#each ['week', 'month', '3months', '6months', 'year'] as filter}
@@ -635,8 +635,8 @@
 											onclick={() => (selectedTimeFilter = filter as any)}
 											class="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors {selectedTimeFilter ===
 											filter
-												? 'bg-accent text-white'
-												: 'bg-theme-main text-theme-secondary hover:text-white hover:bg-theme-surface-hover'}"
+												? 'bg-accent theme-primary'
+												: 'bg-theme-main text-theme-secondary hover:theme-primary hover:bg-theme-surface-hover'}"
 										>
 											{label}
 										</button>
@@ -680,7 +680,7 @@
 						<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-4">
 							<!-- Speed by Series -->
 							<div>
-								<h3 class="text-lg font-bold text-white mb-4">Speed by Series</h3>
+								<h3 class="text-lg font-bold theme-primary mb-4">Speed by Series</h3>
 								<div
 									class="rounded-2xl bg-theme-main border border-theme-border-light overflow-hidden"
 								>
@@ -720,9 +720,9 @@
 												{:else}
 													{#each speedBySeries.slice(0, 5) as item}
 														<tr class="hover:bg-white/5 transition-colors">
-															<td class="px-4 py-3 text-white font-medium">{item.seriesName}</td>
+															<td class="px-4 py-3 theme-primary font-medium">{item.seriesName}</td>
 															<td class="px-4 py-3 text-theme-secondary">{item.volumes}</td>
-															<td class="px-4 py-3 text-white">{item.avgSpeed} cpm</td>
+															<td class="px-4 py-3 theme-primary">{item.avgSpeed} cpm</td>
 															<td class="px-4 py-3 text-status-success">+{item.improvement}%</td>
 															<td class="px-4 py-3"></td>
 														</tr>
@@ -736,7 +736,7 @@
 
 							<!-- Completed Volumes -->
 							<div>
-								<h3 class="text-lg font-bold text-white mb-4">Completed Volumes</h3>
+								<h3 class="text-lg font-bold theme-primary mb-4">Completed Volumes</h3>
 								<div
 									class="rounded-2xl bg-theme-main border border-theme-border-light overflow-hidden"
 								>
@@ -776,16 +776,16 @@
 												{:else}
 													{#each completedVolumes.slice(0, 5) as vol}
 														<tr class="hover:bg-white/5 transition-colors">
-															<td class="px-4 py-3 text-white font-medium">{vol.seriesName}</td>
+															<td class="px-4 py-3 theme-primary font-medium">{vol.seriesName}</td>
 															<td class="px-4 py-3 text-theme-secondary">{vol.volumeTitle}</td>
 															<td class="px-4 py-3">
-																<div class="text-white">{vol.speed} cpm</div>
+																<div class="theme-primary">{vol.speed} cpm</div>
 																<div class="text-xs text-status-danger">
 																	-{Math.abs(vol.vsAvg)}% vs avg
 																</div>
 															</td>
 															<td class="px-4 py-3">
-																<div class="text-white">{formatTime(vol.duration)}</div>
+																<div class="theme-primary">{formatTime(vol.duration)}</div>
 																<div class="text-xs text-gray-500">
 																	{vol.characters} chars
 																</div>

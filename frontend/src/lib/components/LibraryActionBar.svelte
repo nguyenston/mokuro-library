@@ -4,27 +4,58 @@
 	import { confirmation } from '$lib/confirmationStore';
 	import { triggerDownload } from '$lib/api';
 	import { contextMenu } from '$lib/contextMenuStore';
+	import { onMount, onDestroy } from 'svelte';
+	import { scrapingState } from '$lib/states/ScrapingState.svelte';
+	import type { Series } from '$lib/types';
+	import SelectionMoreMenu from './menu/SelectionMoreMenu.svelte';
+	import BulkScrapePanel from './panels/BulkScrapePanel.svelte';
 
 	let {
 		type = 'series',
 		onRename,
-		onRefresh
+		onRefresh,
+		onSelectAll
 	} = $props<{
 		type: 'series' | 'volume';
 		onRename: () => void;
 		onRefresh: () => void;
+		onSelectAll?: () => void;
 	}>();
 
+	const SCRAPE_LIMIT = 100;
 	let isProcessing = $state(false);
+	let showScrapeModal = $state(false);
+	let selectionCount = $derived(uiState.selection.size);
 
-	let selectionCount = $derived(uiState.selectedIds.size);
+	// --- Hotkeys ---
+	const handleKeyDown = (e: KeyboardEvent) => {
+		if (e.key === 'Escape') {
+			if (showScrapeModal) return;
+			if (uiState.isSelectionMode) uiState.exitSelectionMode();
+		}
+		// Ctrl+A support
+		if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
+			if (uiState.isSelectionMode && onSelectAll) {
+				e.preventDefault();
+				onSelectAll();
+			}
+		}
+	};
+
+	onMount(() => {
+		window.addEventListener('keydown', handleKeyDown);
+	});
+
+	onDestroy(() => {
+		window.removeEventListener('keydown', handleKeyDown);
+	});
 
 	// --- Actions ---
 
 	// --- 1. Batch ZIP Logic (Ticket Pattern) ---
 	const executeBatchDownload = async (includeImages: boolean) => {
 		if (selectionCount === 0) return;
-		const ids = Array.from(uiState.selectedIds);
+		const ids = Array.from(uiState.selection.keys());
 
 		try {
 			isProcessing = true;
@@ -53,7 +84,7 @@
 
 	// --- 2. Single PDF Logic (Legacy GET) ---
 	const executePdfDownload = () => {
-		const id = Array.from(uiState.selectedIds)[0];
+		const id = Array.from(uiState.selection.keys())[0];
 		if (!id) return;
 
 		// Use existing GET endpoint for single PDF
@@ -94,7 +125,7 @@
 		contextMenu.open(rect.left, rect.top, menuItems, { yEdgeAlign: 'top' }, target);
 	};
 	const handleDelete = () => {
-		const ids = Array.from(uiState.selectedIds);
+		const ids = Array.from(uiState.selection.keys());
 
 		confirmation.open(
 			`Delete ${selectionCount} item${selectionCount > 1 ? 's' : ''}?`,
@@ -119,19 +150,60 @@
 			}
 		);
 	};
+
+	// Scrape Setup (The New Logic)
+	async function startScrapeSession() {
+		if (type !== 'series') return;
+
+		// We cast to Series[] because we checked type === 'series' above
+		const selectedItems = Array.from(uiState.selection.values()) as Series[];
+
+		// Initialize the state machine
+		scrapingState.initSession(selectedItems);
+
+		// Open the UI (The Panel will auto-start the queue on mount)
+		showScrapeModal = true;
+	}
+
+	function handleScrapeClose() {
+		showScrapeModal = false;
+		// Refresh library to show new covers/titles/organized status
+		onRefresh();
+		uiState.exitSelectionMode();
+	}
 </script>
 
 {#if uiState.isSelectionMode}
 	<div
-		class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center p-2 rounded-2xl bg-theme-surface/90 backdrop-blur-xl border border-theme-primary/20 shadow-2xl animate-in slide-in-from-bottom-10 fade-in duration-300"
+		class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center p-2 rounded-2xl bg-theme-surface/90 backdrop-blur-xl border border-theme-primary/20 shadow-2xl animate-in slide-in-from-bottom-10"
 	>
-		<div class="px-2 font-bold text-theme-primary flex items-center gap-2">
+		<div class="flex-shrink px-3 font-bold text-theme-primary flex items-center gap-3">
 			<span
-				class="bg-accent text-white text-xs rounded-full w-6 h-6 flex items-center justify-center"
+				class="bg-accent text-white text-xs rounded-full w-6 h-6 flex items-center justify-center shadow-sm"
 			>
 				{selectionCount}
 			</span>
-			<span class="hidden sm:inline">Selected</span>
+			<div class="flex flex-col leading-tight">
+				<span class="text-[10px] text-theme-secondary uppercase tracking-wider">Selected</span>
+				<div class="flex gap-2">
+					{#if onSelectAll}
+						<button
+							onclick={onSelectAll}
+							class="whitespace-nowrap flex-shrink-0 text-[10px] font-bold text-accent hover:text-accent-hover hover:underline"
+							title="Add all visible items to selection"
+						>
+							+ ALL
+						</button>
+					{/if}
+					<button
+						onclick={() => uiState.deselectAll()}
+						class="text-[10px] font-bold text-theme-tertiary hover:text-theme-primary hover:underline"
+						title="Clear selection"
+					>
+						CLEAR
+					</button>
+				</div>
+			</div>
 		</div>
 
 		{#if selectionCount >= 1}
@@ -143,28 +215,32 @@
 					class="p-2.5 rounded-xl hover:bg-theme-primary/10 text-theme-secondary hover:text-theme-primary transition-colors disabled:opacity-50"
 					title="Download"
 				>
-					{#if isProcessing}
-						<svg
-							class="animate-spin h-5 w-5"
-							xmlns="http://www.w3.org/2000/svg"
-							fill="none"
-							viewBox="0 0 24 24"
-						>
-							<circle
-								class="opacity-25"
-								cx="12"
-								cy="12"
-								r="10"
-								stroke="currentColor"
-								stroke-width="4"
-							></circle>
-							<path
-								class="opacity-75"
-								fill="currentColor"
-								d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-							></path>
-						</svg>
-					{:else}
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						width="20"
+						height="20"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+					>
+						<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+						<polyline points="7 10 12 15 17 10"></polyline>
+						<line x1="12" y1="15" x2="12" y2="3"></line>
+					</svg>
+				</button>
+
+				{#if type === 'series'}
+					<button
+						onclick={startScrapeSession}
+						disabled={isProcessing || selectionCount > SCRAPE_LIMIT}
+						class="p-2.5 rounded-xl hover:bg-accent/10 text-theme-secondary hover:text-accent transition-colors disabled:opacity-50"
+						title={selectionCount > SCRAPE_LIMIT
+							? `Limit: ${SCRAPE_LIMIT} items`
+							: 'Scrape Metadata'}
+					>
 						<svg
 							xmlns="http://www.w3.org/2000/svg"
 							width="20"
@@ -176,12 +252,17 @@
 							stroke-linecap="round"
 							stroke-linejoin="round"
 						>
-							<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-							<polyline points="7 10 12 15 17 10"></polyline>
-							<line x1="12" y1="15" x2="12" y2="3"></line>
+							<ellipse cx="12" cy="5" rx="9" ry="3"></ellipse>
+							<path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path>
+							<path d="M3 12c0 1.66 4 3 9 3s9-1.34 9-3"></path>
+
+							<g>
+								<circle cx="16" cy="16" r="5" fill="white" stroke="currentColor"></circle>
+								<line x1="19.5" y1="19.5" x2="23" y2="23"></line>
+							</g>
 						</svg>
-					{/if}
-				</button>
+					</button>
+				{/if}
 
 				{#if selectionCount === 1}
 					<button
@@ -229,6 +310,10 @@
 						></path>
 					</svg>
 				</button>
+
+				{#if type === 'series'}
+					<SelectionMoreMenu {selectionCount} onScrape={startScrapeSession} {onRefresh} />
+				{/if}
 			</div>
 		{/if}
 
@@ -256,4 +341,8 @@
 			</button>
 		</div>
 	</div>
+{/if}
+
+{#if showScrapeModal}
+	<BulkScrapePanel provider={scrapingState.preferredProvider} onClose={handleScrapeClose} />
 {/if}

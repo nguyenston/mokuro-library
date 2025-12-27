@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { browser } from '$app/environment';
 	import MenuGridRadio from '$lib/components/menu/MenuGridRadio.svelte';
 	import MenuToggle from '$lib/components/menu/MenuToggle.svelte';
 	import MenuSlider from '$lib/components/menu/MenuSlider.svelte';
@@ -77,8 +76,8 @@
 	<MenuGridRadio
 		title="Page Layout"
 		tooltip="Single: one page
-Double: side-by-side
-Vertical: continuous scroll"
+      Double: side-by-side
+      Vertical: continuous scroll"
 		bind:value={readerState.layoutMode}
 		layout={[3]}
 		options={[
@@ -89,21 +88,21 @@ Vertical: continuous scroll"
 	/>
 
 	<MenuGridRadio
-		title="Direction"
-		tooltip="LTR: western comics
-RTL: manga/right-to-left"
+		title="Reading Direction"
+		tooltip="Left-to-Right: Western comics/books
+      Right-to-Left: Manga and Japanese books"
 		bind:value={readerState.readingDirection}
 		layout={[2]}
 		options={[
-			{ value: 'ltr', label: 'LTR' },
-			{ value: 'rtl', label: 'RTL' }
+			{ value: 'ltr', label: 'Left to Right' },
+			{ value: 'rtl', label: 'Right to Left' }
 		]}
 	/>
 
 	<MenuGridRadio
 		title="On Page Change"
 		tooltip="Fit to Screen: auto-adjust
-Keep Zoom: maintain level"
+      Keep Zoom: maintain level"
 		bind:value={zoomProxy.value}
 		layout={[2]}
 		options={[
@@ -124,7 +123,7 @@ Keep Zoom: maintain level"
 			<MenuSlider
 				label="Nav Zone Width (%)"
 				tooltip="Clickable area width on edges.
-Higher = easier nav, smaller OCR area."
+          Higher = easier nav, smaller OCR area."
 				bind:value={readerState.navZoneWidth}
 				min={0}
 				max={50}
@@ -134,10 +133,15 @@ Higher = easier nav, smaller OCR area."
 		</div>
 	</div>
 
-	<div class="grid grid-cols-2 gap-4">
+	<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
 		<MenuToggle label="First Page Cover" bind:checked={readerState.firstPageIsCover} />
 		<MenuToggle label="Auto fullscreen" bind:checked={readerState.autoFullscreen} />
 		<MenuToggle label="Autohide HUD" bind:checked={readerState.hideHUD} />
+		<MenuToggle
+			label="Auto-complete Volume"
+			description="Mark volume as read when reaching the last page"
+			bind:checked={readerState.autoCompleteVolume}
+		/>
 		<MenuToggle label="Show Char Count" bind:checked={showCharacterCount} />
 		<MenuToggle label="Show Timer" bind:checked={showTimer} />
 		<MenuToggle label="OCR Outline" bind:checked={readerState.showTriggerOutline} />
@@ -160,6 +164,16 @@ Higher = easier nav, smaller OCR area."
 			step={1}
 			displayValue="{readerState.nightMode.intensity}%"
 		/>
+		<MenuSlider
+			label="Red Shift (%)"
+			tooltip="Reduce blue light by shifting colors toward red/orange spectrum.
+Helps reduce eye strain during night reading."
+			bind:value={readerState.nightMode.redShift}
+			min={0}
+			max={100}
+			step={1}
+			displayValue="{readerState.nightMode.redShift}%"
+		/>
 		<div class="space-y-2">
 			<div class="flex items-center justify-between">
 				<span class="text-sm text-theme-secondary">Schedule (Local Time)</span>
@@ -170,7 +184,7 @@ Higher = easier nav, smaller OCR area."
 			<div class="grid grid-cols-2 gap-4">
 				<div class="flex flex-col">
 					<label for="nightModeStartHour" class="text-sm text-theme-secondary mb-1"
-						>Start Hour (0-23)</label
+						>Start Hr (0-23)</label
 					>
 					<input
 						type="number"
@@ -183,7 +197,7 @@ Higher = easier nav, smaller OCR area."
 				</div>
 				<div class="flex flex-col">
 					<label for="nightModeEndHour" class="text-sm text-theme-secondary mb-1"
-						>End Hour (0-23)</label
+						>End Hr (0-23)</label
 					>
 					<input
 						type="number"
@@ -225,7 +239,7 @@ Higher = easier nav, smaller OCR area."
 			<div class="grid grid-cols-2 gap-4">
 				<div class="flex flex-col">
 					<label for="invertColorsStartHour" class="text-sm text-theme-secondary mb-1"
-						>Start Hour (0-23)</label
+						>Start Hr (0-23)</label
 					>
 					<input
 						type="number"
@@ -238,7 +252,7 @@ Higher = easier nav, smaller OCR area."
 				</div>
 				<div class="flex flex-col">
 					<label for="invertColorsEndHour" class="text-sm text-theme-secondary mb-1"
-						>End Hour (0-23)</label
+						>End Hr (0-23)</label
 					>
 					<input
 						type="number"
@@ -320,7 +334,7 @@ Higher = easier nav, smaller OCR area."
 		</div>
 	</div>
 {:else}
-	<div class="w-full p-8 max-w-4xl">
+	<div class="w-full max-w-4xl">
 		<div class="mb-8">
 			<h1 class="text-3xl font-bold text-theme-primary mb-2">Reader Settings</h1>
 			<p class="text-base text-theme-secondary">Configure how you read your content.</p>
@@ -341,6 +355,7 @@ Higher = easier nav, smaller OCR area."
 	}
 	input[type='number'] {
 		-moz-appearance: textfield;
+		appearance: textfield;
 	}
 
 	/* Hide the empty label container in MenuToggle when used in clean-toggle context */
@@ -361,6 +376,7 @@ Higher = easier nav, smaller OCR area."
 	:global(.reader-page) {
 		/* Apply invert first so brightness dims the result (keeping bg black), not the source */
 		filter: brightness(var(--reader-brightness, 100%))
-			brightness(var(--reader-invert-brightness, 100%)) invert(var(--reader-invert, 0%));
+			brightness(var(--reader-invert-brightness, 100%)) invert(var(--reader-invert, 0%))
+			sepia(var(--reader-red-shift, 0%)) hue-rotate(-20deg) saturate(120%);
 	}
 </style>
