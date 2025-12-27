@@ -385,7 +385,12 @@
 		</LibraryListWrapper>
 	{/if}
 
-	<LibraryActionBar type="volume" onRefresh={handleRefresh} onRename={handleOpenVolumeEdit} />
+	<LibraryActionBar
+		type="volume"
+		onRefresh={handleRefresh}
+		onSelectAll={() => uiState.selectAll(processedVolumes)}
+		onRename={handleOpenVolumeEdit}
+	/>
 	<EditSeriesModal
 		{series}
 		isOpen={isEditSeriesOpen}

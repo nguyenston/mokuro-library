@@ -317,7 +317,7 @@
 					{@const k = item.key as Exclude<FilterMissing, 'none'>}
 					<button
 						onclick={() => toggleMissing(k)}
-						class="px-3 py-2.5 rounded-xl text-xs font-bold border-2 transition-all duration-200
+						class="px-3 py-2.5 rounded-xl text-xs font-bold border-2 uppercase transition-all duration-200
 						{uiState.filterMissing === k
 							? 'border-status-danger/70 bg-status-danger/20 text-status-danger shadow-lg shadow-status-danger/30'
 							: 'bg-theme-surface-hover/50 border-theme-border text-theme-primary hover:bg-theme-surface-hover/80 hover:text-white'}"
