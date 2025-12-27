@@ -1,0 +1,6 @@
+<svg width="800" height="600" xmlns="http://www.w3.org/2000/svg">
+  <rect width="800" height="600" fill="#0f172a"/>
+  <text x="400" y="280" font-family="Arial, sans-serif" font-size="32" fill="#94a3b8" text-anchor="middle">Reader Interface Placeholder</text>
+  <text x="400" y="320" font-family="Arial, sans-serif" font-size="18" fill="#64748b" text-anchor="middle">Replace with actual screenshot</text>
+  <rect x="100" y="80" width="600" height="440" fill="#1e293b" rx="8"/>
+</svg>

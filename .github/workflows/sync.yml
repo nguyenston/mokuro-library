@@ -1,0 +1,34 @@
+name: Sync Fork
+
+permissions:
+  contents: write
+
+on:
+  schedule:
+    - cron: '0 0 * * *' # Runs every day at midnight UTC
+  workflow_dispatch: # Allows you to run it manually from the Actions tab
+
+jobs:
+  sync_with_upstream:
+    name: Sync with Upstream
+    runs-on: ubuntu-latest
+    if: ${{ github.event.repository.fork }}
+
+    steps:
+      - name: Checkout target branch
+        uses: actions/checkout@v3
+
+      - name: Sync Upstream
+        uses: aormsby/Fork-Sync-With-Upstream-action@v3.4
+        with:
+          target_sync_branch: master
+          # REQUIRED 'target_repo_token' exactly like this!
+          target_repo_token: ${{ secrets.GITHUB_TOKEN }}
+          upstream_sync_repo: nguyenston/mokuro-library
+          upstream_sync_branch: master
+
+          # Set to 'false' to actually perform the sync.
+          test_mode: false
+      
+      - name: Timestamp
+        run: date

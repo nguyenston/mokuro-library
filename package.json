@@ -1,9 +1,13 @@
 {
-  "devDependencies": {
-    "czg": "^1.12.0"
-  },
+  "type": "module",
   "scripts": {
+    "docs:dev": "vitepress dev docs-wiki",
+    "docs:build": "vitepress build docs-wiki",
+    "docs:preview": "vitepress preview docs-wiki",
     "commit": "czg"
+  },
+  "devDependencies": {
+    "czg": "^1.12.0",
+    "vitepress": "latest"
   }
-
 }

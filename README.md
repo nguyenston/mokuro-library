@@ -1,250 +1,180 @@
-# Mokuro Library
-A self-hosted, Plex-like server for your a [Mokuro](https://github.com/kha-white/mokuro)-processed manga library.
+<div align="center">
 
-Mokuro Library is a multi-user, server-side application designed to run on a NAS, home server, or local computer. 
-It provides a centralized, persistent library for your Mokuro-processed manga, deployed via a Docker container.
+# 📚 Mokuro Library
 
-## 🌟 Core Features
+**A modern, self-hosted manga server for your [Mokuro](https://github.com/kha-white/mokuro)-processed library**
 
-For more details, read [the specification](docs/architecture/specification.md).
+[![GitHub Stars](https://img.shields.io/github/stars/nguyenston/mokuro-library?style=for-the-badge)](https://github.com/nguyenston/mokuro-library/stargazers)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg?style=for-the-badge)](LICENSE)
+[![Documentation](https://img.shields.io/badge/docs-wiki-brightgreen?style=for-the-badge)](https://nguyenston.github.io/mokuro-library)
 
-### 📚 Library Management
-* **Server-Side Library:** Upload entire Mokuro-processed directories. All files are managed by the server.
-* **Multi-User Authentication:** Support for multiple users with separate databases for progress, settings, and history.
-* **Organization:** Search, sort, and paginate through your collection.
-* **Metadata Management:** User-defined titles and reading progress is exported as a json sidecar.
-* **Export:** Download volumes as **ZIP** archives or **PDFs** (with selectable text) for offline reading.
+</div>
 
-### 📖 Reading Experience
-* **Persistent Tracking:** Reading progress and page completion status are saved automatically to the database.
-* **View Modes:** Supports **Single Page**, **Double Page**, and **Vertical Scroll** layouts.
-* **Performance:** Smart image caching to minimize server requests and ensure smooth page turns.
-* **Customizable:** Per-user reader settings (layout, reading direction, scaling) are persistent across sessions.
+---
 
-### ✏️ Live OCR Editing
-* **Edit & Write-Back:** Correct text and bounding boxes in the browser. Changes are saved directly to the source `.mokuro` file on the server.
-* **Smart Resize:** Automatically calculates the optimal font size to fit text within its box.
-* **Japanese Text Support:** Specialized handlers for vertical text input, including proper line-splitting (Enter) and merging (Backspace), plus ligature cleaning.
+## ✨ What is Mokuro Library?
 
-### ⚙️ Deployment
-* **Docker:** A single container runs the database (SQLite), backend (Node/Fastify), and frontend (SvelteKit).
-* **Windows Binary:** A portable Windows application that runs a local server for your library.
-## 📸 Screenshots
+Mokuro Library transforms your Mokuro-processed manga into a **Plex-like streaming library**. It's a self-hosted, multi-user server application that runs on your NAS, home server, or local computer—giving you complete control over your manga collection with persistent reading progress, OCR editing, and seamless synchronization across all your devices.
+
+<div align="center">
 <table>
-  <tr>
-    <td align="center">
-      <strong>The Library View</strong>
-      <br><br>
-      <img src="docs-wiki/public/library.webp" alt="Mokuro Library main bookshelf view" width="400">
-    </td>
-    <td align="center">
-      <strong>The Series View</strong>
-      <br><br>
-      <img src="docs-wiki/public/series.webp" alt="Mokuro Library series view" width="400">
-    </td>
-  </tr>
+<tr>
+<td align="center" width="50%">
+
+**📖 The Library**
+![Library View](docs-wiki/public/library.webp)
+
+</td>
+<td align="center" width="50%">
+
+**📚 Series Management**
+![Series View](docs-wiki/public/series.webp)
+
+</td>
+</tr>
 </table>
 
-*Live OCR editing in action:*
-![Live OCR editing demonstration](docs-wiki/public/using-smart-edit-mode.webp)
+**✏️ Live OCR Editing**
+![OCR Editor](docs-wiki/public/using-smart-edit-mode.webp)
 
-## 💻 Technology Stack
+</div>
 
-This project is a monorepo containing a decoupled frontend and backend.
+---
 
-* **Backend:** **Node.js** with **Fastify** for high-performance routing.
-* **Frontend:** **SvelteKit** with **TypeScript** and **Tailwind CSS**.
-* **Database:** **SQLite** for simple, file-based data persistence.
-* **ORM:** **Prisma** for type-safe database access and migrations.
-* **Containerization:** **Docker** and **Docker Compose**.
+## 🚀 Key Features
 
-## 🐳 Installation (Docker)
+| Feature | Description |
+|---------|-------------|
+| 📚 **Server-Side Library** | Upload entire Mokuro-processed directories—all files managed by the server |
+| 👥 **Multi-User Support** | Separate accounts with individual progress, bookmarks, and settings |
+| 📖 **Advanced Reader** | Single page, double page, and vertical scroll modes with persistent tracking |
+| ✏️ **Live OCR Editing** | Edit text and bounding boxes in-browser—changes save directly to `.mokuro` files |
+| 🔍 **Smart Organization** | Search, filter, sort, and organize your collection with metadata scraping |
+| 💾 **Export Options** | Download as ZIP archives or PDFs with selectable text |
+| 🌙 **Night Mode** | Color inversion and red shift for comfortable reading |
+| 🐳 **Easy Deployment** | Single Docker container or Windows portable executable |
 
-The recommended way to run Mokuro Library is with Docker Compose, which handles the database, backend, and frontend in one managed container.
+📖 **[View Full Feature List →](https://nguyenston.github.io/mokuro-library/#features)**
 
-### Prerequisites
+---
 
-* [Git](https://git-scm.com/downloads)
-* [Docker](https://www.docker.com/products/docker-desktop/) (which includes `docker compose`)
+## 📦 Quick Start
 
-### Running in Production
+### 🐳 Docker (Recommended)
 
-1.  **Clone the repository:**
-    ```bash
-    git clone https://github.com/nguyenston/mokuro-library.git
-    ```
+```bash
+# Clone and navigate
+git clone https://github.com/nguyenston/mokuro-library.git
+cd mokuro-library
 
-2.  **Navigate to the directory:**
-    ```bash
-    cd mokuro-library
-    ```
+# Build and run
+docker compose build
+docker compose up -d
+```
 
-3.  **Build the Image:**
-    ```bash
-    docker compose build --no-cache
-    ```
+**Access at:** `http://localhost:3001`
 
-4.  **Run the Container:**
-    This starts the container in detached (`-d`) mode. The `docker-compose.yml` file defines the service. On the first run, the entrypoint script will automatically create and migrate your database.
-    ```bash
-    docker compose up -d
-    ```
+Your data will be stored in `./data` and `./data/uploads`
 
-Your library is now accessible at `http://localhost:3001`.
+### 💻 Windows Portable
 
-Based on the `docker-compose.yml` configuration, the following persistent data folders will be created in your project directory:
-* `./data`: Stores your `library.db` database file.
-* `./data/uploads`: Stores all your uploaded manga and series files.
+1. Download `MokuroLibrary-Windows.zip` from **[Releases](https://github.com/nguyenston/mokuro-library/releases)**
+2. Extract and run `mokuro-library.exe`
+3. Access at `http://localhost:3001`
 
-### Updating the Application
+---
 
-When you pull new changes from Git or modify the schema:
+## 📚 Documentation
 
-1.  **Re-build the image:**
-    ```bash
-    docker compose build
-    ```
-2.  **Re-create the container:**
-    The `--force-recreate` flag is necessary to apply the new image. The entrypoint script will automatically run any database migrations to update your schema.
-    ```bash
-    docker compose up -d --force-recreate
-    ```
-    Your data in the `./data` folder will be preserved.
+**Full documentation is available at: [nguyenston.github.io/mokuro-library](https://nguyenston.github.io/mokuro-library)**
 
-## 📥 Download & Run (Windows Portable)
+### Quick Links
 
-For users who want to run the library locally on their PC without Docker:
+- 🏁 [**Installation Guide**](https://nguyenston.github.io/mokuro-library/installation) - Docker, Windows, and deployment options
+- 🔐 [**Authentication**](https://nguyenston.github.io/mokuro-library/authentication) - User management and security
+- 📂 [**Managing Your Library**](https://nguyenston.github.io/mokuro-library/managing-your-library) - Upload, organize, and maintain your collection
+- 📖 [**Using the Reader**](https://nguyenston.github.io/mokuro-library/using-the-reader) - Reading modes and features
+- ✏️ [**OCR Editing**](https://nguyenston.github.io/mokuro-library/ocr-editing) - Edit and improve OCR text
+- ⚙️ [**Settings**](https://nguyenston.github.io/mokuro-library/appearance-settings) - Customize your experience
 
-1.  **Download** the latest `MokuroLibrary-Windows.zip` from the **[Releases Page](../../releases)**.
-2.  **Extract** the ZIP file to a folder.
-3.  If you are updating, copy the `data` and `uploads` folders into the new version.
-4.  **Run** `mokuro-library.exe`.
-    * A command window will open (don't close it, this is the server).
-    * Your library is accessible at `http://localhost:3001`.
+---
 
-> [!WARNING]
-> **Database Compatibility:** The database (`library.db`) generated by this Windows Portable version uses a simplified migration system (`_app_migrations`) for portability. It is **not directly compatible** with the Docker/NAS version.
->
-> If you decide to switch from Windows to Docker in the future, you cannot simply copy the database file. You will need to **export and re-import** your library content or do some manual `prisma migrate resolve`. This does not affect you if you plan to keep using the Windows application.
+## 💡 Comparison with mokuro-reader
 
-## 📖 Usage & Getting Started
+Two approaches to reading Mokuro-processed manga, each with distinct advantages:
 
-After installing and starting the container, here are your first steps:
+| Feature | **Mokuro Library** | **[mokuro-reader](https://github.com/ZXY101/mokuro-reader)** |
+|---------|-------------------|-------------------|
+| **Architecture** | Self-hosted server | Browser-based PWA |
+| **Storage** | Server filesystem + SQL database | Browser IndexedDB |
+| **Multi-User** | ✅ Full support | Single user per browser |
+| **Sync** | Automatic across devices | Cloud storage (GDrive/MEGA) |
+| **Library Size** | Unlimited | ~2000 volumes (browser limits) |
+| **OCR Edits** | Saved to source files | Browser storage only |
+| **Setup** | Requires server/Docker | Zero infrastructure |
+| **Offline** | Server must be accessible | Works fully offline |
 
-1.  Open `http://localhost:3001` in your browser.
-2.  Create your first user account.
-3.  On the main library page, click the "Upload" button.
-4.  Select a directory that has been processed by `mokuro` (one that contains the `.mokuro` file and images).
-5.  Once uploaded, click the new series cover to start reading.
+### **Best Use Cases**
 
-**For a complete guide on all UI features, including OCR editing, please see the [Mokuro Library User Guide Wiki](https://nguyenston.github.io/mokuro-library).**
+**Mokuro Library is ideal for:**
+- 🏠 Self-hosters with a NAS or home server
+- 👨‍👩‍👧‍👦 Families or groups sharing a collection
+- 📚 Large libraries (1000+ volumes)
+- 💾 Permanent OCR corrections across all users
+- 🔄 Seamless sync without cloud dependencies
 
-    
+**mokuro-reader is ideal for:**
+- 🚀 Quick setup with no server required
+- ☁️ Users already using cloud storage
+- 📱 Single-user portable reading
+- ✈️ Fully offline reading anywhere
+- 🎒 Lightweight, zero-maintenance solution
+
+Both tools complement each other and share the same Mokuro format!
+
+---
+
+## 🛠️ Tech Stack
+
+- **Backend:** Node.js + Fastify
+- **Frontend:** SvelteKit + TypeScript + Tailwind CSS
+- **Database:** SQLite + Prisma ORM
+- **Deployment:** Docker
+
+---
 
 ## 🗺️ Roadmap
 
-* [ ] **AnkiConnect Integration:** Support for sentence mining directly to Anki.
-* [ ] **Reading Stats:** UI to visualize reading time and characters read (data is already being tracked).
-* [ ] **CBZ Export:** Support for standard comic book archives.
-* [ ] **Customization:** Custom keymappings and user-defined ligatures.
-* [ ] **Version Control:** History/undo/redo for OCR edits
+- [ ] **AnkiConnect Integration** - Sentence mining directly to Anki
+- [ ] **Reading Stats Dashboard** - Visualize reading time and progress
+- [ ] **CBZ Export** - Standard comic book archive format
+- [ ] **Custom Keybindings** - User-defined keyboard shortcuts
+- [ ] **OCR Version Control** - History/undo/redo for edits
 
-## 📚 FAQ
+---
 
-### 1. Mokuro Library vs. Mokuro Reader
+## 🤝 Contributing
 
-While both projects serve the same `.mokuro` processed content, they are built on fundamentally different architectures.
+Contributions are welcome! Please feel free to submit a Pull Request.
 
-The original **[ZXY101/mokuro-reader](https://github.com/ZXY101/mokuro-reader)** is a **Client-Side Progressive Web App (PWA)**. It runs entirely in your browser, using IndexedDB for storage and connecting to third-party services (Google Drive, MEGA, WebDAV) for synchronization.
+---
 
-**Mokuro Library** (this project) is a **Self-Hosted Server Application**. It runs as a container on your own hardware (NAS, Home Server), serving files directly from your local filesystem and using a centralized SQL database.
+## 📄 License
 
-#### Which One Should You Use?
+Released under the [MIT License](LICENSE).
 
-**Use the original [ZXY101/mokuro-reader](https://github.com/ZXY101/mokuro-reader) if:**
-* **You prefer a Zero-Infrastructure setup:** You do not want to manage Docker containers or host your own server.
-* **You rely on Cloud Storage:** You prefer syncing your library and progress via Google Drive, MEGA, or WebDAV.
-* **You import volumes on demand:** You are comfortable importing specific volumes into the browser as needed.
+---
 
-**Use Mokuro Library (this project) if:**
-* **You Self-Host on a NAS/Server:** You want a centralized location that streams images directly from your hard drive without duplicating data into browser storage.
-* **Or you want a desktop app:** You just want a manager application that stores your files in an open and accessible location.
-* **You require Multi-User separation:** You want to host a private library for multiple users (family/friends) with completely separate accounts, progress tracking, and settings databases.
-* **You have a truly gigantic collection:** You somehow managed to exhaust the 2000+ volume limit of the client-side reader.
+## 🙏 Acknowledgements
 
-### 2. Why did you choose absolute line coordinate rendering?
+Built with inspiration from [ZXY101/mokuro-reader](https://github.com/ZXY101/mokuro-reader) and powered by [Mokuro OCR](https://github.com/kha-white/mokuro).
 
-While treating text as a simple paragraph block much simpler and more robust, this project prioritizes data completeness and visual precision.
+---
 
-1. **Future Database Utility:** I have ideas of building a centralized database for user-submitted OCR edits. To ensure this shared data is useful and compatible across the ecosystem, it is essential to maintain complete and valid data. Preserving the exact file structure is necessary for this future synchronization.
+<div align="center">
 
-2. **Visual Adherence:** Manga text layouts sometimes don't follow standard horizontal flow (e.g., diagonal speech bubbles or scattered text). Absolute rendering guarantees perfect visual adherence to the original image geometry, which is my personal preference.
+**[Documentation](https://nguyenston.github.io/mokuro-library)** • **[GitHub](https://github.com/nguyenston/mokuro-library)** • **[Issues](https://github.com/nguyenston/mokuro-library/issues)**
 
-## 🔧 Troubleshooting
+Made with ❤️ for manga readers
 
-### 1. Docker Issues
-
-If you encounter problems running the application, the issue is often related to your Docker installation or host system configuration.
-
-#### "Docker Desktop - WSL 2 Installation is Incomplete" or "WSL 2 requires an update"
-
-This is a common error on Windows. Docker Desktop uses the Windows Subsystem for Linux (WSL 2) backend by default.
-* **Solution:** Follow the official Microsoft guide to [install WSL](https://learn.microsoft.com/en-us/windows/wsl/install). Usually, running `wsl --install` in an Administrator PowerShell terminal is sufficient.
-
-#### "Virtualization must be enabled" (SVM / VT-x)
-
-Docker requires hardware virtualization to be enabled in your computer's BIOS/UEFI settings. If it's disabled, Docker Desktop will fail to install.
-* **Symptoms:** This is a common root cause for many installation failures. Instead of a clear error, installations or commands may simply **hang indefinitely**.
-    * Docker Desktop installation may hang and never complete.
-    * Running `wsl --install` in an Administrator PowerShell terminal may hang and never complete.
-* **Solution:**
-    1.  Restart your computer and enter the BIOS/UEFI setup (usually by pressing F2, F12, or Del during boot).
-    2.  Look for a setting named **Intel Virtualization Technology (VT-x)**, **AMD Secure Virtual Machine (SVM)**, or simply **Virtualization**.
-    3.  Enable it, save changes, and restart.
-    4.  After restarting, verify in Task Manager (Performance tab > CPU) that "Virtualization" is listed as "Enabled".
-    5.  The `wsl --install` and Docker Desktop installations should now complete successfully.
-
-#### "Ports are not available" or "Bind for 0.0.0.0:3001 failed"
-
-This means another application on your computer is already using port 3001.
-* **Solution:**
-    1.  Open `docker-compose.yml`.
-    2.  Find the `ports:` section.
-    3.  Change the *first* number in `"3001:3001"` to something else, like `"8080:3001"`.
-    4.  Access the library at `http://localhost:8080`.
-
-### 2. Database Reset
-
-If you need to completely wipe your library and start over:
-1.  Stop the container: `docker compose down`
-2.  Delete the `./data` folder in your project directory.
-3.  Start the container: `docker compose up -d`. A fresh database will be created automatically.
-
-## 🛠️ Development (with Hot-Reload)
-
-The recommended workflow is the full-stack, containerized dev environment. For details on this and alternative workflows (like Hybrid Development), 
-see [the development doc](docs/architecture/development.md).
-
-### Recommended Dev Workflow
-
-1.  **First-Time Build (or when `package.json` changes):**
-    You must build the dev images once to install all dependencies.
-    ```bash
-    docker compose -f docker-compose.dev.yml build
-    ```
-   
-
-2.  **Start the Dev Environment:**
-    This command starts both the backend and frontend services with hot-reloading.
-    ```bash
-    docker compose -f docker-compose.dev.yml up
-    ```
-   
-
-3.  **Access the app:**
-    * Open `http://localhost:5173` in your browser.
-    * The SvelteKit app will auto-proxy `/api` requests to the backend container.
-
-## Acknowledgements
-
-The UX/UI flow in this project is heavily inspired by the original **[ZXY101/mokuro-reader](https://github.com/ZXY101/mokuro-reader)**.
+</div>
