@@ -87,6 +87,7 @@ export class ReviewSession {
   async confirmCurrent() {
     const item = this.upcoming.peekFront();
     if (!item) return;
+    if (item.status === 'scraping') return;
 
     // 1. Optimistic Update in Queue
     const popped = this.upcoming.popFront();
@@ -102,11 +103,12 @@ export class ReviewSession {
 
   skipCurrent() {
     const item = this.upcoming.popFront();
-    if (item) {
-      item.status = 'denied';
-      this.history.unshift(item);
-      this.stats.skipped++;
-    }
+    if (!item) return;
+    if (item.status === 'scraping') return;
+
+    item.status = 'denied';
+    this.history.unshift(item);
+    this.stats.skipped++;
   }
 
   // --- Shared Logic ---
