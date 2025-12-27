@@ -452,7 +452,12 @@
 		</div>
 
 		<Footer {meta} />
-		<LibraryActionBar type="series" onRefresh={handleRefresh} onRename={handleOpenEdit} />
+		<LibraryActionBar
+			type="series"
+			onRefresh={handleRefresh}
+			onSelectAll={() => uiState.selectAll(library as GlobalSeries[])}
+			onRename={handleOpenEdit}
+		/>
 
 		<EditSeriesModal
 			series={editModalTarget}
