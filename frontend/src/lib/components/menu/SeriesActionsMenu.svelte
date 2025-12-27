@@ -49,9 +49,15 @@
 				stroke-width="2"
 				stroke-linecap="round"
 				stroke-linejoin="round"
-				class="text-theme-secondary group-hover:text-white"
 			>
-				<circle cx="12" cy="12" r="10" /><path d="m9 12 2 2 4-4" />
+				<ellipse cx="12" cy="5" rx="9" ry="3"></ellipse>
+				<path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path>
+				<path d="M3 12c0 1.66 4 3 9 3s9-1.34 9-3"></path>
+
+				<g>
+					<circle cx="16" cy="16" r="5" fill="white" stroke="currentColor"></circle>
+					<line x1="19.5" y1="19.5" x2="23" y2="23"></line>
+				</g>
 			</svg>
 			Scrape Metadata
 		</button>

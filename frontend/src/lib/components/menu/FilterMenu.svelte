@@ -296,7 +296,7 @@
 						? 'border-blue-500/70 bg-blue-500/20 text-blue-400 shadow-lg shadow-blue-500/30'
 						: 'bg-theme-surface-hover/50 border-theme-border text-theme-primary hover:bg-theme-surface-hover/80 hover:text-white'}"
 				>
-					Inbox
+					Unorganized
 				</button>
 
 				<button
@@ -306,7 +306,7 @@
 						? 'border-purple-500/70 bg-purple-500/20 text-purple-400 shadow-lg shadow-purple-500/30'
 						: 'bg-theme-surface-hover/50 border-theme-border text-theme-primary hover:bg-theme-surface-hover/80 hover:text-white'}"
 				>
-					Archive
+					Organized
 				</button>
 			</div>
 		</MenuGroup>

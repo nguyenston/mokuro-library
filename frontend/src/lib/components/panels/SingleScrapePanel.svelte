@@ -3,6 +3,7 @@
 	import MetadataComparisonCard from './MetadataComparisonCard.svelte';
 	import type { ScrapedPreview } from '$lib/states/ReviewSession.svelte';
 	import { scrapingState } from '$lib/states/ScrapingState.svelte';
+	import { lockScroll } from '$lib/actions/lockScroll';
 
 	let {
 		isOpen,
@@ -46,6 +47,7 @@
 
 {#if isOpen}
 	<div
+		use:lockScroll
 		class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
 		transition:fade={{ duration: 150 }}
 	>
