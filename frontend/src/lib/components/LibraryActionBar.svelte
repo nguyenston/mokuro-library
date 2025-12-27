@@ -13,22 +13,31 @@
 	let {
 		type = 'series',
 		onRename,
-		onRefresh
+		onRefresh,
+		onSelectAll
 	} = $props<{
 		type: 'series' | 'volume';
 		onRename: () => void;
 		onRefresh: () => void;
+		onSelectAll?: () => void;
 	}>();
 
 	let isProcessing = $state(false);
 	let showScrapeModal = $state(false);
 	let selectionCount = $derived(uiState.selection.size);
 
-	// Handle Escape key to exit selection mode
+	// --- Hotkeys ---
 	const handleKeyDown = (e: KeyboardEvent) => {
 		if (e.key === 'Escape') {
-			if (showScrapeModal) return; // Don't exit selection if modal is open
+			if (showScrapeModal) return;
 			if (uiState.isSelectionMode) uiState.exitSelectionMode();
+		}
+		// Ctrl+A support
+		if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
+			if (uiState.isSelectionMode && onSelectAll) {
+				e.preventDefault();
+				onSelectAll();
+			}
 		}
 	};
 
@@ -168,13 +177,33 @@
 	<div
 		class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center p-2 rounded-2xl bg-theme-surface/90 backdrop-blur-xl border border-theme-primary/20 shadow-2xl animate-in slide-in-from-bottom-10"
 	>
-		<div class="px-2 font-bold text-theme-primary flex items-center gap-2">
+		<div class="px-3 font-bold text-theme-primary flex items-center gap-3">
 			<span
-				class="bg-accent text-white text-xs rounded-full w-6 h-6 flex items-center justify-center"
+				class="bg-accent text-white text-xs rounded-full w-6 h-6 flex items-center justify-center shadow-sm"
 			>
 				{selectionCount}
 			</span>
-			<span class="hidden sm:inline">Selected</span>
+			<div class="flex flex-col leading-tight">
+				<span class="text-[10px] text-theme-secondary uppercase tracking-wider">Selected</span>
+				<div class="flex gap-2">
+					{#if onSelectAll}
+						<button
+							onclick={onSelectAll}
+							class="text-[10px] font-bold text-accent hover:text-accent-hover hover:underline"
+							title="Add all visible items to selection"
+						>
+							+ ALL
+						</button>
+					{/if}
+					<button
+						onclick={() => uiState.deselectAll()}
+						class="text-[10px] font-bold text-theme-tertiary hover:text-theme-primary hover:underline"
+						title="Clear selection"
+					>
+						CLEAR
+					</button>
+				</div>
+			</div>
 		</div>
 
 		{#if selectionCount >= 1}
