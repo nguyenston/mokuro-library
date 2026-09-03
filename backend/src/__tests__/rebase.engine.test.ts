@@ -1310,7 +1310,7 @@ describe('RebaseEngine', () => {
     const userBranch = await ensureUserBranch(ctx.app, base.volumeId, userId, adminBranch);
     const userOps: PatchOperation[] = [
       { op: 'reorder', path: '/pages/0/blocks', new_order: [2, 1, 0] },
-      { op: 'replace', path: '/pages/0/blocks/0/lines/0/text', value: 'user-edit', old_value: 'b1' }
+      { op: 'replace', path: '/pages/0/blocks/2/lines/0/text', value: 'user-edit', old_value: 'b0' }
     ];
     const userChain = await createUserPatches(
       ctx,
@@ -1528,7 +1528,7 @@ describe('RebaseEngine', () => {
     });
     const op = JSON.parse(headPatch!.operation) as PatchOperation;
     expect(op.op).toBe('replace');
-    expect(op.path).toBe('/pages/0/blocks/2/lines/0/text');
+    expect(op.path).toBe('/pages/0/blocks/1/lines/0/text');
   });
 
   it('throws when branch head changes during a paused rebase', async () => {

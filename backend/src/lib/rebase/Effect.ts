@@ -5,7 +5,7 @@ import { PathUtils, Permutation } from './rebaseUtils';
 export class EffectUtilities {
   /**
    * Converts an Admin Patch Operation into a mathematical Effect (The Wave).
-   * For permutations, stores A⁻¹ so transformers can accumulate without extra inversion.
+   * The operation is assumed to have passed PatchOperationValidator.
    */
   static fromOperation(op: PatchOperation): Effect {
     const { op: opType, path } = op;
@@ -46,12 +46,12 @@ export class EffectUtilities {
       }
     }
 
-    // 3. Reorder -> Permute (store as A⁻¹)
+    // 3. Reorder -> Permute
     if (opType === 'reorder') {
       return {
         type: 'permute',
         path: path,
-        permutation: Permutation.invert(op.new_order)  // Store A⁻¹
+        permutation: op.new_order
       };
     }
 
@@ -95,7 +95,7 @@ export class EffectUtilities {
       return {
         op: 'reorder',
         path: effect.path,
-        new_order: Permutation.invert(effect.permutation)
+        new_order: effect.permutation
       };
     }
 

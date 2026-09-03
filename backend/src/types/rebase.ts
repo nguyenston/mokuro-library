@@ -39,7 +39,7 @@ export interface ShiftUpEffect extends BaseEffect {
 
 export interface PermuteEffect extends BaseEffect {
   type: 'permute';
-  permutation: number[];  // Stored as A⁻¹
+  permutation: number[];  // Serialized source map: new index -> old index.
 }
 
 export interface ContentEffect extends BaseEffect {
