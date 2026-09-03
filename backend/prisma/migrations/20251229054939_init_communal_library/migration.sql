@@ -63,8 +63,8 @@ SELECT "ownerId", "id", "bookmarked", "status", "organized", "lastReadAt"
 FROM "Series";
 
 -- 3. Cleanup Old OCR System
--- We drop these because the data format (blobs) is incompatible with the new system (rows).
--- The 'LibraryScanner' script will rebuild the history from .mokuro files later.
+-- Remove the unused pre-release HistoryChunk table. It was not part of the
+-- supported product history workflow and requires no user-data migration.
 DROP TABLE IF EXISTS "HistoryChunk";
 
 -- 4. Redefine 'Series' (Drop moved columns)
