@@ -65,7 +65,6 @@ export async function apiFetch<T = unknown>(
   const doFetch = async () => {
     // Set default headers
     const defaultHeaders: Record<string, string> = {
-      'Content-Type': 'application/json',
       Accept: 'application/json'
     };
 
@@ -95,6 +94,10 @@ export async function apiFetch<T = unknown>(
       ...defaultHeaders,
       ...(fetchOptions.headers as Record<string, string>)
     };
+
+    if (body !== undefined && !(fetchOptions.body instanceof FormData)) {
+      finalHeaders['Content-Type'] = 'application/json';
+    }
 
     if (isStateChanging(fetchOptions.method)) {
       const csrfToken = getCsrfToken();
