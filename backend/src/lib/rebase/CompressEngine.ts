@@ -7,6 +7,7 @@ export class CompressEngine {
   /**
    * Compresses a sequence of patches from the same timeline.
    * Structural patches pass through unchanged; replace patches are merged.
+   * Input operations are assumed to have passed PatchOperationValidator.
    */
   static compress(patches: PatchOperation[]): PatchOperation[] {
     const compressedStructural: PatchOperation[] = [];

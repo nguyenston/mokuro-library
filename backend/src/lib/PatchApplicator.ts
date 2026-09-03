@@ -4,7 +4,8 @@ import { MokuroData, Quad, Rect, MokuroBlock } from '../types/mokuro';
 export class PatchApplicator {
   /**
    * Applies a patch operation to the MokuroData object (mutates in place).
-   * Validates indices before applying.
+   * The patch is assumed to have passed PatchOperationValidator; document-specific
+   * index bounds and reorder lengths are still validated here before mutation.
    *
    * @param data - The MokuroData object to modify
    * @param patch - The patch operation to apply

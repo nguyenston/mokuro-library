@@ -3,6 +3,7 @@ import path from 'path';
 import fs from 'fs';
 import { PatchApplicator } from '../lib/PatchApplicator';
 import { PatchInverter } from '../lib/PatchInverter';
+import { parseStoredPatchOperation } from '../lib/PatchOperationValidator';
 import { MokuroData } from '../types/mokuro';
 import { OcrBranch, Patch } from '../generated/prisma/client';
 import { ExtendedPrismaClient } from '../lib/prisma/prisma';
@@ -92,7 +93,8 @@ export async function regenerateFromGenesis(
 ): Promise<{ data: MokuroData, branch: OcrBranch }> {
   fastify.log.warn(`Regenerating snapshot from GENESIS for branch ${branchId}`);
   const history = await fetchAncestryChain(fastify.prisma, targetPatchId, null);
-  const genesisPatch = JSON.parse(history[history.length - 1].operation);
+  const rootPatch = history[history.length - 1];
+  const genesisPatch = parseStoredPatchOperation(rootPatch.operation, `patch ${rootPatch.id}`);
   if (genesisPatch.op !== 'genesis') throw Error(`Invalid tree: root is not genesis.`)
 
   const data = await loadOriginalMokuro(fastify, genesisPatch.path);
@@ -101,7 +103,7 @@ export async function regenerateFromGenesis(
   for (let i = history.length - 2; i >= 0; i--) {
     const patch = history[i];
     try {
-      const op = JSON.parse(patch.operation);
+      const op = parseStoredPatchOperation(patch.operation, `patch ${patch.id}`);
       PatchApplicator.apply(data, op);
     } catch (e) {
       throw Error(`Patch apply failed during regen at ${history[i].id}: ${e}`);
@@ -176,7 +178,7 @@ export async function syncSnapshot(
     for (let i = chain.length - 1; i >= 0; i--) {
       const p = chain[i];
       if (p.operation) {
-        const op = JSON.parse(p.operation);
+        const op = parseStoredPatchOperation(p.operation, `patch ${p.id}`);
         if (op.op === 'genesis') continue;
         PatchApplicator.apply(data, op);
 
@@ -194,7 +196,7 @@ export async function syncSnapshot(
     // Invert in reverse chronological order
     for (const p of chain) {
       if (p.operation) {
-        const op = JSON.parse(p.operation);
+        const op = parseStoredPatchOperation(p.operation, `patch ${p.id}`);
         if (op.op === 'genesis') continue;
         const inv = PatchInverter.invert(op);
         PatchApplicator.apply(data, inv);

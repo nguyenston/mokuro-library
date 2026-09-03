@@ -4,6 +4,7 @@ import { SubmissionExecutionPlan } from "../../utils/submissionHelper";
 import { SeriesFindUniqueArgs, UserSeriesSettingsUpdateArgs, UserSeriesSettingsUpsertArgs } from "../../generated/prisma/models";
 import { z } from 'zod';
 import { Sql, PrismaPromise } from "@prisma/client/runtime/client";
+import { parseStoredPatchOperation } from "../PatchOperationValidator";
 
 // We use z.coerce.number() because SQL aggregations (SUM, COUNT) often
 // return results as BigInts or Strings depending on the database driver.
@@ -209,7 +210,10 @@ export const statsExtension = Prisma.defineExtension((client) => {
             });
 
             if (genesisPatch) {
-              const op = JSON.parse(genesisPatch.operation);
+              const op = parseStoredPatchOperation(
+                genesisPatch.operation,
+                `patch ${genesisPatch.id}`
+              );
               if (op.op === 'genesis') {
                 op.path = move.newMokuroRel;
                 await tx.patch.update({

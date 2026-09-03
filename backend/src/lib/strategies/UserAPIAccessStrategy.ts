@@ -15,6 +15,7 @@ import {
   syncSnapshot
 } from '../../utils/ocrHelpers';
 import { PatchInverter } from '../PatchInverter';
+import { parseStoredPatchOperation } from '../PatchOperationValidator';
 import { MokuroData } from '../../types/mokuro';
 import { OcrBranch } from '../../generated/prisma/client';
 import { validateAndPlanSubmission } from '../../utils/submissionHelper';
@@ -262,7 +263,7 @@ export class UserAPIAccessStrategy implements IAPIAccessStrategy {
 
     // 5. Invert the Operation
     // This allows the frontend to undo the change in its local state immediately.
-    const operation = JSON.parse(currentPatch.operation) as PatchOperation;
+    const operation = parseStoredPatchOperation(currentPatch.operation, `patch ${currentPatch.id}`);
     const inversePatch = PatchInverter.invert(operation);
     const newHeadId = currentPatch.parentId;
 
@@ -356,7 +357,7 @@ export class UserAPIAccessStrategy implements IAPIAccessStrategy {
     }
 
     // 5. Update Branch Pointer
-    const operation = JSON.parse(nextPatch.operation) as PatchOperation;
+    const operation = parseStoredPatchOperation(nextPatch.operation, `patch ${nextPatch.id}`);
 
     const updatedBranch = await this.fastify.prisma.ocrBranch.update({
       where: { id: userBranch.id },

@@ -2,6 +2,7 @@ import { PatchOperation } from '../types/history';
 import { Permutation } from './rebase/rebaseUtils';
 
 export class PatchInverter {
+  /** Invert an operation that has already passed PatchOperationValidator. */
   static invert(patch: PatchOperation): PatchOperation {
     switch (patch.op) {
       case 'genesis':

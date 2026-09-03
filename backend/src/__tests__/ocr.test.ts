@@ -6,7 +6,7 @@ describe('ocr patch validation', () => {
     const result = patchBodySchema.safeParse({
       operation: {
         op: 'replace',
-        path: '/pages/0/blocks/0/text',
+        path: '/pages/0/blocks/0/lines/0/text',
         value: 'new',
         old_value: 'old'
       },

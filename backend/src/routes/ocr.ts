@@ -2,43 +2,10 @@ import { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { ensureAdminBranch, ensureUserBranch } from '../utils/ocrHelpers';
 import { RebaseEngine } from '../lib/rebase/RebaseEngine';
+import { patchOperationSchema } from '../lib/PatchOperationValidator';
 import { HttpError } from '../types/error';
 
 // --- Zod Schemas ---
-
-const patchOperationSchema = z.discriminatedUnion('op', [
-  z.object({
-    op: z.literal('genesis'),
-    path: z.string().regex(/^.+/, "Path must not be empty"),
-  }),
-  z.object({
-    op: z.literal('replace'),
-    path: z.string().regex(/^\/pages\/\d+\/.+/, "Path must start with /pages/{n}/ and have content"),
-    value: z.any(),
-    old_value: z.any()
-  }),
-  z.object({
-    op: z.literal('add'),
-    path: z.string().regex(/^\/pages\/\d+\/.+/, "Path must start with /pages/{n}/ and have content"),
-    value: z.any()
-  }),
-  z.object({
-    op: z.literal('remove'),
-    path: z.string().regex(/^\/pages\/\d+\/.+/, "Path must start with /pages/{n}/ and have content"),
-    old_value: z.any()
-  }),
-  z.object({
-    op: z.literal('reorder'),
-    path: z.string().regex(/^\/pages\/\d+\/.+/, "Path must start with /pages/{n}/ and have content"),
-    new_order: z.array(z.number().int().nonnegative())
-  }).superRefine((data, ctx) => {
-    const sorted = [...data.new_order].sort((a, b) => a - b);
-    const isValidPermutation = sorted.every((v, i) => v === i);
-    if (!isValidPermutation) {
-      ctx.addIssue({ code: 'custom', message: "new_order must be a valid permutation (0 to n-1)", path: ['new_order'] });
-    }
-  })
-]);
 
 export const patchBodySchema = z.object({
   operation: patchOperationSchema,
