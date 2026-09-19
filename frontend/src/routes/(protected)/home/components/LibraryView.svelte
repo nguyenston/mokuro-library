@@ -11,23 +11,19 @@
   import { SelectionState } from '$lib/states/selection/SelectionState.svelte';
   import { metadataOps } from '$lib/states/metadata/metadataOperations.svelte.ts';
   import Footer from '$lib/components/layout/Footer.svelte';
-  import LibraryActionBar from '$lib/components/library/LibraryActionBar.svelte';
-  import LibraryEntry from '$lib/components/library/LibraryEntry.svelte';
-  import EditSeriesModal from '$lib/components/modals/EditSeriesModal.svelte';
-  import LibraryListWrapper from '$lib/components/library/LibraryListWrapper.svelte';
+  import LibraryActionBar from '$lib/components/layout/action-bar/LibraryActionBar.svelte';
+  import LibraryActionBarSeriesActions from '$lib/components/layout/action-bar/LibraryActionBarSeriesActions.svelte';
+  import LibraryEntry from '$lib/components/layout/LibraryEntry.svelte';
+  import LibraryListWrapper from '$lib/components/layout/LibraryListWrapper.svelte';
   import type { FilterStatus, FilterMissing, FilterOwner } from '$lib/states/ui/uiState.svelte.ts';
   import { formatLastReadDate } from '$lib/utils/helpers/date';
   import { SvelteMap } from 'svelte/reactivity';
-  import SubmitSeriesPanel from '$lib/components/modals/submissions/SubmitSeriesPanel.svelte';
-  import { submissionState } from '$lib/states/contributions/SubmissionState.svelte';
 
   let library = $state<Series[]>([]);
   let meta = $state({ total: 0, page: 1, limit: 24, totalPages: 1 });
   let isLoadingLibrary = $state(true);
   let libraryError = $state<string | null>(null);
 
-  let isEditModalOpen = $state(false);
-  let editModalTarget: Series | null = $state(null);
   let pullDistance = $state(0);
   let touchStartY = $state(0);
   let isRefreshing = $state(false);
@@ -225,27 +221,6 @@
     metadataOps.syncBookmark(series.id, series.bookmarked, () => {
       series.bookmarked = oldState;
     });
-  };
-
-  const handleOpenEdit = () => {
-    const series = Array.from(selectionState.selection.values())[0];
-    if (series) {
-      editModalTarget = series;
-      isEditModalOpen = true;
-    }
-  };
-
-  const handleOpenSubmit = () => {
-    // 1. Resolve IDs to actual Series objects
-    const selectedSeries = Array.from(selectionState.selection.values());
-
-    if (selectedSeries.length === 0) return;
-
-    // 2. Start the session
-    submissionState.startSession(selectedSeries);
-
-    // 3. Clear selection after starting
-    selectionState.exitSelectionMode();
   };
 
   const handleCardClick = (e: MouseEvent, series: Series) => {
@@ -478,28 +453,17 @@
 
     <Footer {meta} />
     <LibraryActionBar
-      type="series"
-      onRefresh={handleRefresh}
       onSelectAll={() => selectionState.selectAll(library)}
-      onRename={handleOpenEdit}
-      onSubmit={handleOpenSubmit}
       offset={72}
       {selectionState}
-    />
-
-    <EditSeriesModal
-      series={editModalTarget}
-      isOpen={isEditModalOpen}
-      onClose={() => {
-        isEditModalOpen = false;
-        selectionState.exitSelectionMode();
-      }}
-      onRefresh={handleRefresh}
-    />
-
-    {#if submissionState.session}
-      <SubmitSeriesPanel onClose={() => submissionState.endSession()} />
-    {/if}
+    >
+      {#snippet children(selection)}
+        <LibraryActionBarSeriesActions
+          selectionState={selection}
+          onRefresh={handleRefresh}
+        />
+      {/snippet}
+    </LibraryActionBar>
   {/if}
 </div>
 

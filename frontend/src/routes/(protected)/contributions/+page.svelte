@@ -18,7 +18,7 @@
   // Components
   import ContributionsHeader from '$lib/components/layout/contributions/ContributionsHeader.svelte';
   import ActivityTimeline from './components/ActivityTimeline.svelte';
-  import LibraryEntry from '$lib/components/library/LibraryEntry.svelte';
+  import LibraryEntry from '$lib/components/layout/LibraryEntry.svelte';
   import LoadingState from './components/LoadingState.svelte';
   import UserQueue from '$lib/components/layout/contributions/UserQueue.svelte';
   import AdminQueue from '$lib/components/layout/contributions/AdminQueue.svelte';

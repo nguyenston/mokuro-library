@@ -119,14 +119,6 @@ class UiState {
     this.returnPath = null;
     this.returnLabel = 'Back to Series';
   }
-
-  // Helper: Get strictly typed list (e.g. ensure all are Series)
-  // Useful for type guards in the Action Bar
-  getSelectedSeries(): Series[] {
-    const items = Array.from(this.selection.values());
-    // Simple runtime check or assumption based on context
-    return items as Series[];
-  }
 }
 
 export const uiState = new UiState();

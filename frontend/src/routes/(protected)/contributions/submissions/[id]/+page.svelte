@@ -14,10 +14,10 @@
   import RejectSubmissionModal from '$lib/components/modals/submissions/RejectSubmissionModal.svelte';
   import SubmissionReader from '$lib/components/readers/SubmissionReader.svelte';
   import Button from '$lib/components/controls/Button.svelte';
-  import LibraryListWrapper from '$lib/components/library/LibraryListWrapper.svelte';
-  import LibraryEntry from '$lib/components/library/LibraryEntry.svelte';
+  import LibraryListWrapper from '$lib/components/layout/LibraryListWrapper.svelte';
+  import LibraryEntry from '$lib/components/layout/LibraryEntry.svelte';
   import { uiState } from '$lib/states/ui/uiState.svelte';
-  import SubmissionHero from '$lib/components/library/SubmissionHero.svelte';
+  import SubmissionHero from '$lib/components/layout/SubmissionHero.svelte';
 
   // State
   let submission = $state<SubmissionDetail | null>(null);

@@ -9,12 +9,11 @@
   import { formatLastReadDate } from '$lib/utils/helpers/date';
   import { SvelteMap, SvelteDate } from 'svelte/reactivity';
 
-  import EditSeriesModal from '$lib/components/modals/EditSeriesModal.svelte';
-  import EditVolumeModal from '$lib/components/modals/EditVolumeModal.svelte';
-  import LibraryEntry from '$lib/components/library/LibraryEntry.svelte';
-  import LibraryActionBar from '$lib/components/library/LibraryActionBar.svelte';
-  import LibraryListWrapper from '$lib/components/library/LibraryListWrapper.svelte';
-  import SeriesHero from '$lib/components/library/SeriesHero.svelte';
+  import LibraryEntry from '$lib/components/layout/LibraryEntry.svelte';
+  import LibraryActionBar from '$lib/components/layout/action-bar/LibraryActionBar.svelte';
+  import LibraryActionBarVolumeActions from '$lib/components/layout/action-bar/LibraryActionBarVolumeActions.svelte';
+  import LibraryListWrapper from '$lib/components/layout/LibraryListWrapper.svelte';
+  import SeriesHero from '$lib/components/layout/SeriesHero.svelte';
 
   // --- Type Definitions ---
 
@@ -31,9 +30,6 @@
 
   let coverRefreshTrigger = $state(0);
 
-  let isEditSeriesOpen = $state(false);
-  let isEditVolumeOpen = $state(false);
-  let editVolumeTarget = $state<{ id: string; title: string | null } | null>(null);
   let selectionState = new SelectionState<Volume>();
 
   // --- Helpers ---
@@ -163,14 +159,6 @@
       error = (e as Error).message;
     }
     fileInput.value = '';
-  };
-
-  const handleOpenVolumeEdit = () => {
-    const volume = Array.from(selectionState.selection.values())[0];
-    if (volume) {
-      editVolumeTarget = volume;
-      isEditVolumeOpen = true;
-    }
   };
 
   const handleRefresh = () => {
@@ -406,28 +394,14 @@
     </LibraryListWrapper>
   {/if}
 
-  <LibraryActionBar
-    type="volume"
-    onRefresh={handleRefresh}
-    onSelectAll={() => selectionState.selectAll(processedVolumes)}
-    onRename={handleOpenVolumeEdit}
-    seriesOwnerId={series?.ownerId}
-    {selectionState}
-  />
-  <EditSeriesModal
-    {series}
-    isOpen={isEditSeriesOpen}
-    onClose={() => {
-      isEditSeriesOpen = false;
-      selectionState.exitSelectionMode();
-    }}
-    onRefresh={handleRefresh}
-  />
-
-  <EditVolumeModal
-    volume={editVolumeTarget}
-    isOpen={isEditVolumeOpen}
-    onClose={() => (isEditVolumeOpen = false)}
-    onRefresh={handleRefresh}
-  />
+  <LibraryActionBar onSelectAll={() => selectionState.selectAll(processedVolumes)} {selectionState}>
+    {#snippet children(selection)}
+      <LibraryActionBarVolumeActions
+        selectionState={selection}
+        onRefresh={handleRefresh}
+        seriesOwnerId={series?.ownerId}
+        seriesTitle={series?.sortTitle}
+      />
+    {/snippet}
+  </LibraryActionBar>
 </div>
