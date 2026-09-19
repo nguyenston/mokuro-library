@@ -347,8 +347,12 @@ export class AdminAPIAccessStrategy implements IAPIAccessStrategy {
     );
   }
 
-  async reset(volumeId: string): Promise<void> {
-    throw new HttpError(405, 'Reset is not applicable to the Admin. The Admin is the source of truth.');
+  /** Admin reset is unsupported, including when confirmation is forced. */
+  async reset(volumeId: string, version: number, forced = false): Promise<void> {
+    throw new HttpError(
+      405,
+      'Reset is not applicable to the Admin. The Admin is the source of truth.'
+    );
   }
 
   /**

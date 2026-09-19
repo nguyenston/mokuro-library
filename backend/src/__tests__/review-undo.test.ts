@@ -9,8 +9,9 @@
  * Review lifecycle checks also verify the shared branch-state version contract.
  * Pruning checks distinguish valid tail replacement from impossible server state.
  * Redo checks cover forward movement, invalid boundaries, and both version guards.
+ * Reset checks use real DB transactions but stub post-commit snapshot file copying.
  */
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DatabaseSync } from 'node:sqlite';
 import { mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import os from 'node:os';
@@ -19,6 +20,7 @@ import type { FastifyInstance } from 'fastify';
 import { createPrismaClient, type ExtendedPrismaClient } from '../lib/prisma/prisma';
 import { UserAPIAccessStrategy } from '../lib/strategies/UserAPIAccessStrategy';
 import { AdminAPIAccessStrategy } from '../lib/strategies/AdminAPIAccessStrategy';
+import * as ocrHelpers from '../utils/ocrHelpers';
 
 let directory: string;
 let prisma: ExtendedPrismaClient;
@@ -79,6 +81,7 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
+  vi.restoreAllMocks();
   await prisma?.$disconnect();
   // Remove only the temporary directory created by this fixture.
   if (directory) rmSync(directory, { recursive: true, force: true });
@@ -268,6 +271,82 @@ describe('redo with a frozen review boundary', () => {
       .rejects.toMatchObject({ statusCode: 409, message: 'Branch or review changed. Please refresh.' });
     expect(afterConcurrentChange?.branch.version).toBe(5);
     expect(await state()).toEqual(afterConcurrentChange);
+  });
+});
+
+describe('reset confirmation and atomic review cancellation', () => {
+  beforeEach(() => {
+    // Keep real DB transactions, but isolate post-commit filesystem snapshot copying.
+    vi.spyOn(ocrHelpers, 'inheritAdminSnapshot').mockImplementation(async (_fastify, branch) => branch);
+  });
+
+  it('requires confirmation without changing persisted state', async () => {
+    const before = await state();
+    await expect(strategy().reset('volume', 3)).rejects.toMatchObject({
+      statusCode: 409, code: 'REVIEW_CANCELLATION_CONFIRMATION_REQUIRED'
+    });
+    expect(await state()).toEqual(before);
+    expect(ocrHelpers.inheritAdminSnapshot).not.toHaveBeenCalled();
+  });
+
+  it('forced reset cancels review before deleting private history and preserves the branch', async () => {
+    await strategy().reset('volume', 3, true);
+    const after = await state();
+    expect(after.branch).toMatchObject({ headPatchId: 'p0', rootPatchId: null, version: 4,
+      reviewHeadPatchId: null, reviewRequestedAt: null,
+      rejectionReason: 'Review cancelled because the contributor reset their branch.' });
+    expect(after.patches.map(patch => patch.id)).toEqual(['p0']);
+    expect(ocrHelpers.inheritAdminSnapshot).toHaveBeenCalledOnce();
+  });
+
+  it('resets without confirmation when no review is pending, including an undone private root', async () => {
+    await strategy().setReviewStatus('contributor', { volumeId: 'volume', status: false });
+    await prisma.ocrBranch.update({ where: { id: 'user-branch' }, data: { headPatchId: 'p0' } });
+    await strategy().reset('volume', 4);
+    expect((await state()).branch).toMatchObject({ rootPatchId: null, headPatchId: 'p0', version: 5 });
+    expect((await state()).patches.map(patch => patch.id)).toEqual(['p0']);
+  });
+
+  it('forced does not bypass stale versions or authorization', async () => {
+    const before = await state();
+    await expect(strategy().reset('volume', 2, true)).rejects.toMatchObject({ statusCode: 409 });
+    await prisma.series.update({ where: { id: 'series' }, data: { ownerId: 'contributor' } });
+    const stranger = new UserAPIAccessStrategy({ prisma } as FastifyInstance, 'stranger');
+    await expect(stranger.reset('volume', 3, true)).rejects.toMatchObject({ statusCode: 404 });
+    const admin = new AdminAPIAccessStrategy({ prisma } as FastifyInstance);
+    await expect(admin.reset('volume', 3, true)).rejects.toMatchObject({ statusCode: 405 });
+    expect(await state()).toEqual(before);
+  });
+
+  it('rolls back review cancellation and pointer changes if history deletion fails', async () => {
+    const before = await state();
+    const client = prisma.$extends({ query: { patch: {
+      async delete() { throw new Error('Injected deletion failure'); }
+    } } });
+    await expect(strategy(client as ExtendedPrismaClient).reset('volume', 3, true))
+      .rejects.toThrow('Injected deletion failure');
+    expect(await state()).toEqual(before);
+    expect(ocrHelpers.inheritAdminSnapshot).not.toHaveBeenCalled();
+  });
+
+  it('forced does not bypass a review submitted after the initial branch read', async () => {
+    await strategy().setReviewStatus('contributor', { volumeId: 'volume', status: false });
+    let concurrent: Awaited<ReturnType<typeof state>> | undefined;
+    const client = prisma.$extends({ query: { ocrBranch: {
+      async findUnique({ args, query }) {
+        const result = await query(args);
+        if (args.where.volumeId_userId?.userId === 'contributor') {
+          await strategy().setReviewStatus('contributor', { volumeId: 'volume', status: true });
+          concurrent = await state();
+        }
+        return result;
+      }
+    } } });
+    await expect(strategy(client as ExtendedPrismaClient).reset('volume', 4, true))
+      .rejects.toMatchObject({ statusCode: 409 });
+    expect(concurrent?.branch.version).toBe(5);
+    expect(await state()).toEqual(concurrent);
+    expect(ocrHelpers.inheritAdminSnapshot).not.toHaveBeenCalled();
   });
 });
 

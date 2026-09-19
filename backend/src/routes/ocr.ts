@@ -17,6 +17,12 @@ export const officializeBodySchema = z.object({
   reviewHeadPatchId: z.string().min(1)
 });
 
+/** Reset confirmation never bypasses the caller's optimistic branch version. */
+export const resetBodySchema = z.object({
+  branchVersion: z.number().int().nonnegative(),
+  forced: z.boolean().default(false)
+});
+
 const ocrRoutes: FastifyPluginAsync = async (fastify, opts): Promise<void> => {
   fastify.addHook('preHandler', fastify.authenticate);
 
@@ -96,17 +102,21 @@ const ocrRoutes: FastifyPluginAsync = async (fastify, opts): Promise<void> => {
   /**
    * POST /api/library/volumes/:id/reset
    */
-  fastify.post<{ Params: { id: string } }>(
+  fastify.post<{ Params: { id: string }, Body: z.infer<typeof resetBodySchema> }>(
     '/volume/:id/reset',
     async (request, reply) => {
       const { id } = request.params;
+      const parsed = resetBodySchema.safeParse(request.body);
+      if (!parsed.success) {
+        return reply.code(400).send({ message: 'Invalid reset request', errors: parsed.error });
+      }
 
       try {
-        await request.accessStrategy.reset(id);
+        await request.accessStrategy.reset(id, parsed.data.branchVersion, parsed.data.forced);
         return { success: true };
       } catch (err: any) {
         if (err instanceof HttpError) {
-          return reply.code(err.statusCode).send({ message: err.message });
+          return reply.code(err.statusCode).send({ message: err.message, code: err.code });
         }
         request.log.error(err);
         const message = err instanceof Error ? err.message : 'Internal Server Error';

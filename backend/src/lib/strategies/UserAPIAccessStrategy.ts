@@ -437,9 +437,12 @@ export class UserAPIAccessStrategy implements IAPIAccessStrategy {
 
   /**
    * Discards the user's private history and resets to the Admin Master HEAD.
-   * Ensures the snapshot is never null by copying the Admin's state.
+   * Requires confirmation before cancelling a pending review. Confirmation does
+   * not bypass version checks: the reset must apply to the state the caller saw.
+   * Moves pointers and clears review state before deleting history, in one transaction.
+   * Copies the admin snapshot after commit; filesystem synchronization is separate.
    */
-  async reset(volumeId: string): Promise<void> {
+  async reset(volumeId: string, version: number, forced = false): Promise<void> {
     const volume = await this.fastify.prisma.volume.findFirst({
       where: {
         id: volumeId,
@@ -452,21 +455,43 @@ export class UserAPIAccessStrategy implements IAPIAccessStrategy {
     const adminBranch = await ensureAdminBranch(this.fastify, volumeId, volume.mokuroPath);
     const userBranch = await ensureUserBranch(this.fastify, volumeId, this.userId, adminBranch);
 
-    if (userBranch.headPatch.id === adminBranch.headPatch.id) return;
+    if (userBranch.version !== version) throw new HttpError(409, 'Version mismatch. Please refresh.');
+    if (userBranch.reviewHeadPatchId !== null && !forced) {
+      throw new HttpError(409,
+        'Reset will discard your private edits and cancel the pending review. After user confirmation, resend the request with forced = true and the same branchVersion.',
+        'REVIEW_CANCELLATION_CONFIRMATION_REQUIRED');
+    }
 
     // 1. Database State Transition
     const newUserBranch = await this.fastify.prisma.$transaction(async (tx) => {
-      // Cascade delete the private patch tree
-      if (userBranch.rootPatchId !== null) await tx.patch.delete({ where: { id: userBranch.rootPatchId } });
-
-      return await tx.ocrBranch.update({
-        where: { id: userBranch.id },
+      // Reject a changed reset target as well as a changed contributor branch.
+      const currentAdmin = await tx.ocrBranch.findUnique({ where: { id: adminBranch.id } });
+      if (!currentAdmin || currentAdmin.version !== adminBranch.version) {
+        throw new HttpError(409, 'Admin branch changed. Please refresh.');
+      }
+      // Move HEAD off the private tree before cascade deletion, which otherwise
+      // can delete the branch itself through the BranchHead foreign key.
+      // The unique id limits this to one branch; updateMany returns count = 0
+      // when the version no longer matches, allowing an explicit 409 below.
+      const updated = await tx.ocrBranch.updateMany({
+        where: { id: userBranch.id, version },
         data: {
           headPatchId: adminBranch.headPatchId,
           rootPatchId: null,
           snapshotPatchId: null,
+          reviewHeadPatchId: null,
+          reviewRequestedAt: null,
+          ...(userBranch.reviewHeadPatchId !== null
+            ? { rejectionReason: 'Review cancelled because the contributor reset their branch.' }
+            : {}),
           version: { increment: 1 }
-        },
+        }
+      });
+      if (updated.count !== 1) throw new HttpError(409, 'Branch or review changed. Please refresh.');
+      if (userBranch.rootPatchId !== null) await tx.patch.delete({ where: { id: userBranch.rootPatchId } });
+
+      return await tx.ocrBranch.findUniqueOrThrow({
+        where: { id: userBranch.id },
         include: {
           headPatch: { select: { id: true, createdAt: true, sequence: true } },
           rootPatch: { select: { id: true, createdAt: true, sequence: true } },

@@ -29,9 +29,10 @@ export interface IAPIAccessStrategy {
   redo(volumeId: string, version: number): Promise<RedoResponse>;
 
   /**
-   * Admin: Throws 403 Forbidden (Reset disabled for Admin).
+   * Admin: Throws 405 Method Not Allowed (Reset disabled for Admin).
+   * Requires the observed branch version; forced confirms pending-review cancellation only.
    */
-  reset(volumeId: string): Promise<void>;
+  reset(volumeId: string, version: number, forced?: boolean): Promise<void>;
 
   /**
    * Manual trigger to regenerate the .mokuro cache file.
