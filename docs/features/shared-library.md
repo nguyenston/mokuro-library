@@ -297,4 +297,8 @@ Admin rejects a submission with optional reason.
 ## 7. Related Specifications
 
 * **OCR Version Control:** For branching, patching, rebase, and officialize of OCR edits
-* **OCR Officialize:** Admin fast-forwards OCR edits via `/api/library/volume/:id/officialize`
+* **OCR Officialize:** Admin accepts a frozen OCR review prefix through
+  `/api/library/volume/:id/officialize`, using fast-forward or implicit rebase.
+  Continued user edits remain outside that review. See §4.6 of
+  [OCR Version Control](ocr-version-control.md) for boundaries, cancellation,
+  and branch-state rules. This is separate from volume submission/ownership transfer.

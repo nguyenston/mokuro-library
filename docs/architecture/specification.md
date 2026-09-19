@@ -173,7 +173,7 @@ The system will be a decoupled client-server application.
 * **POST /api/library/volume/:id/rebase/abort**
     * Abort a rebase session.
 * **POST /api/library/volume/:id/officialize**
-    * Admin: merge/officialize edits into the shared library.
+    * Admin: accept the frozen OCR prefix identified by `reviewHeadPatchId`, via fast-forward or implicit rebase. Uses server-captured admin optimistic version; no live user version input. Semantic rebase conflicts cancel the review with a retained explanation; stale admin state is retryable.
 * **DELETE /api/library/volume/:id**
     * Deletes a volume. If it is the last volume, the series is also deleted.
 * **DELETE /api/library/series/:id**
@@ -256,11 +256,11 @@ The system will be a decoupled client-server application.
 * **GET /api/contributions/rebase**
     * Lists volumes needing rebase (admin vs user branches).
 * **GET /api/contributions/reviews**
-    * Lists review queue entries.
+    * Lists pending OCR reviews (`reviewHeadPatchId != null`), including their frozen head and request timestamp. Later user edits are excluded from the reviewed range.
 * **GET /api/contributions/reviews/candidates**
-    * Lists eligible review candidates.
+    * Lists eligible private OCR ranges without a pending review; contributor-facing state also exposes retained rejection/cancellation explanations.
 * **POST /api/contributions/reviews/set**
-    * Sets review assignments.
+    * Creates a frozen OCR review at the current user head, or cancels/rejects a request. Reset and explicit rebase cancel pending review after UI confirmation. See `docs/features/ocr-version-control.md` §4.6 for the lifecycle.
 
 ### Submissions API
 
