@@ -116,7 +116,7 @@
                   {/if}
 
                   <span class="text-[10px] text-theme-tertiary">
-                    Submitted {formatDate(review.submittedAt)}
+                    Submitted {formatDate(review.reviewRequestedAt)}
                   </span>
                 </div>
 

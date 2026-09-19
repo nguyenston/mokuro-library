@@ -96,7 +96,7 @@
                 >{review.userDisplayName || 'Unknown User'}</span
               >
               <span class="text-xs text-theme-tertiary"
-                >• {new SvelteDate(review.submittedAt).toLocaleDateString()}</span
+                >• {new SvelteDate(review.reviewRequestedAt).toLocaleDateString()}</span
               >
             </div>
             <div class="text-xs text-theme-secondary font-medium mt-0.5">

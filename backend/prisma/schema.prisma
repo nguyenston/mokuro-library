@@ -151,6 +151,7 @@ model Patch {
   asHeadOf    OcrBranch[]   @relation("BranchHead")
   asRootOf    OcrBranch[]   @relation("BranchRoot")
   asSnShOf    OcrBranch[]   @relation("BranchSnapshot")
+  asReviewHeadOf OcrBranch[] @relation("BranchReviewHead")
 
   // Pointers from rebase session
   rebaseSessionsAsTarget   RebaseSession[] @relation("RebaseTarget")
@@ -186,13 +187,16 @@ model OcrBranch {
   snapshotPatch   Patch?    @relation("BranchSnapshot", fields: [snapshotPatchId], references: [id], onDelete: SetNull)
 
   // --- Concurrency ---
-  version     Int      @default(0)     // Optimistic Locking Counter
+  version     Int      @default(0)     // Optimistic counter for edits and review-state changes
 
   // --- Rebase ---
   rebaseSession RebaseSession?
 
   // --- Review Request Lifecycle ---
-  isPendingReview Boolean @default(false)
+  // A non-null boundary is the pending review; later edits do not move it.
+  reviewHeadPatchId String?
+  reviewHeadPatch Patch? @relation("BranchReviewHead", fields: [reviewHeadPatchId], references: [id], onDelete: SetNull)
+  reviewRequestedAt DateTime?
   submissionNote  String? // User's comment: "Fixed ch 5 typos"
   rejectionReason String? // Admin's feedback: "Please fix capitalization"
 

@@ -86,6 +86,8 @@ export interface VolumeResponse {
     branchVersion: number;
     hasAhead: number;
     hasBehind: number;
-    isPendingReview: boolean;
+    reviewHeadPatchId: string | null;
+    reviewRequestedAt: Date | null;
+    rejectionReason: string | null;
   };
 }

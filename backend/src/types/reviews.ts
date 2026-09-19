@@ -1,3 +1,4 @@
+/** A pending review identifies a frozen prefix, independently of the live branch. */
 export interface ReviewRequestEntry {
   id: string; // Branch ID
   volumeId: string;
@@ -9,12 +10,12 @@ export interface ReviewRequestEntry {
   // Review Metadata
   userId: string;
   userDisplayName?: string; // Helpful for Admin view
-  submittedAt: Date;        // Actually updatedAt when isPendingReview became true
+  reviewRequestedAt: Date;
   submissionNote: string | null;
   rejectionReason: string | null;
 
   // Version Info
-  headPatchId: string;
+  reviewHeadPatchId: string;
   isBehind: boolean;
 }
 
@@ -25,7 +26,9 @@ export interface ReviewStatusParams {
   targetUserId?: string; // Required for Admin to target a specific user's branch
 }
 
+/** Review-state result with the affected contributor branch's optimistic version. */
 export interface ReviewStatusResult {
+  newVersion: number;
   volumeId: string;
   status: boolean;
   action: 'submitted' | 'cancelled' | 'rejected' | 'accepted';

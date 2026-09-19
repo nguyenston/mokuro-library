@@ -57,7 +57,7 @@
     type === 'volume' &&
       versionInfo &&
       versionInfo.hasAhead > 0 &&
-      !versionInfo.isPendingReview &&
+      versionInfo.reviewHeadPatchId === null &&
       seriesOwnerId === 'admin'
   );
 
@@ -344,7 +344,7 @@
                 </span>
               {/if}
             </button>
-          {:else if versionInfo?.hasBehind && versionInfo.hasBehind > 0 && !versionInfo.isPendingReview}
+          {:else if versionInfo?.hasBehind && versionInfo.hasBehind > 0 && versionInfo.reviewHeadPatchId === null}
             <div
               class="p-2.5 text-status-warning opacity-50 cursor-help"
               title={`Behind by ${versionInfo.hasBehind} commits`}

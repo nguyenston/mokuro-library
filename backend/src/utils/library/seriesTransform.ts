@@ -65,7 +65,9 @@ export function transformVolumeWithBranches(
     branchVersion: 0,
     hasAhead: 0,
     hasBehind: 0,
-    isPendingReview: false
+    reviewHeadPatchId: null as string | null,
+    reviewRequestedAt: null as Date | null,
+    rejectionReason: null as string | null
   };
 
   // 3. Calculate Divergence if User has a branch
@@ -88,7 +90,9 @@ export function transformVolumeWithBranches(
       branchVersion: userBranch.version,
       hasAhead: aheadCount,
       hasBehind: behindCount,
-      isPendingReview: userBranch.isPendingReview
+      reviewHeadPatchId: userBranch.reviewHeadPatchId,
+      reviewRequestedAt: userBranch.reviewRequestedAt,
+      rejectionReason: userBranch.rejectionReason
     };
   }
 

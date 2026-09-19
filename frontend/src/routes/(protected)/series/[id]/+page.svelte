@@ -315,7 +315,7 @@
                 text: isPrivateSeries
                   ? `${vol.versionInfo.hasAhead}`
                   : `▲ ${vol.versionInfo.hasAhead}  ▼ ${vol.versionInfo.hasBehind}`,
-                status: vol.versionInfo.isPendingReview ? 'warning' : 'none'
+                status: vol.versionInfo.reviewHeadPatchId !== null ? 'warning' : 'none'
               }}
               onSelect={(e) => handleVolumeClick(e, vol)}
             >

@@ -23,7 +23,7 @@ const createVolume = (id: string, hasAhead = 0, hasBehind = 0): Volume => ({
     branchVersion: 0,
     hasAhead,
     hasBehind,
-    isPendingReview: false
+    reviewHeadPatchId: null
   }
 });
 

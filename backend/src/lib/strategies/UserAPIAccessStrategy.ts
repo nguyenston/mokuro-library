@@ -103,15 +103,20 @@ export class UserAPIAccessStrategy implements IAPIAccessStrategy {
         branchVersion: userBranch.version,
         hasAhead,
         hasBehind,
-        isPendingReview: userBranch.isPendingReview
+        reviewHeadPatchId: userBranch.reviewHeadPatchId,
+        reviewRequestedAt: userBranch.reviewRequestedAt,
+        rejectionReason: userBranch.rejectionReason
       }
     };
   }
 
   /**
-     * Processes a new atomic edit operation for a user.
-     * Implements the "Fork-on-Write" strategy.
-     */
+   * Appends an edit to the user's private history, creating a private root when needed.
+   * Editing after undo deletes the abandoned redo history before appending the patch.
+   * During a pending review, HEAD must remain at or after the submitted head, so
+   * this deletion can only remove unsubmitted patches. An invalid stored review
+   * range is reported as a server-state error before any history is deleted.
+   */
   async applyPatch(
     volumeId: string,
     op: PatchOperation,
@@ -165,6 +170,25 @@ export class UserAPIAccessStrategy implements IAPIAccessStrategy {
 
     // 4. Transactional Write
     const result = await this.fastify.prisma.$transaction(async (tx) => {
+      // userBranch was loaded before this transaction, possibly before snapshot sync.
+      // Another request may have changed edits or review state since then. Recheck
+      // its version here before deleting history based on the captured HEAD/root.
+      const currentBranch = await tx.ocrBranch.findUnique({
+        where: { id: userBranch.id },
+        select: { version: true, reviewHeadPatch: { select: { sequence: true, volumeId: true } } }
+      });
+      if (!currentBranch || currentBranch.version !== version) {
+        throw new HttpError(409, 'Branch or review changed. Please refresh.');
+      }
+      // Undo prevents HEAD moving behind a pending review. A stored review must
+      // therefore lie between the private root and HEAD in this volume; violating
+      // that invariant is a server bug (500), not a retryable version conflict (409).
+      const reviewHead = currentBranch.reviewHeadPatch;
+      if (reviewHead && (!rootPatch || reviewHead.volumeId !== volumeId ||
+        rootPatch.sequence > reviewHead.sequence || headPatch.sequence < reviewHead.sequence)) {
+        throw new HttpError(500, 'Invalid server branch state: pending review is outside the active private range.');
+      }
+
       // CASE 1: Root is NULL (Clean state -> Fork)
       // No deletion needed
 
@@ -227,6 +251,10 @@ export class UserAPIAccessStrategy implements IAPIAccessStrategy {
   /**
    * Reverts the most recent patch in the user's branch history.
    * Follows the head-crawl logic where the pointer moves to the parent.
+   * Only unsubmitted tail patches can be undone while a review is pending:
+   * moving HEAD to reviewHeadPatchId is allowed; undoing that patch is not.
+   * The final write checks the branch version atomically. Review-state changes
+   * increment it too, so a concurrent submission invalidates this undo.
    */
   async undo(volumeId: string, version: number): Promise<UndoResponse> {
     const userId = this.userId;
@@ -250,6 +278,9 @@ export class UserAPIAccessStrategy implements IAPIAccessStrategy {
     }
 
     // 3. Retrieve Current Patch for Inversion
+    if (userBranch.headPatchId === userBranch.reviewHeadPatchId) {
+      throw new HttpError(409, 'Cannot undo patches that are currently submitted for review.');
+    }
     const currentHeadId = userBranch.headPatchId;
     const currentPatch = await this.fastify.prisma.patch.findUnique({
       where: { id: currentHeadId }
@@ -267,26 +298,35 @@ export class UserAPIAccessStrategy implements IAPIAccessStrategy {
     const inversePatch = PatchInverter.invert(operation);
     const newHeadId = currentPatch.parentId;
 
-    // 6. Update Branch Pointer
-    const updatedBranch = await this.fastify.prisma.ocrBranch.update({
-      where: { id: userBranch.id },
+    // 6. Move HEAD only if neither edits nor review state changed since the read.
+    const updatedBranch = await this.fastify.prisma.ocrBranch.updateMany({
+      where: {
+        id: userBranch.id,
+        version
+      },
       data: {
         headPatchId: newHeadId,
         version: { increment: 1 }
       }
     });
 
+    if (updatedBranch.count !== 1) {
+      throw new HttpError(409, 'Branch or review changed. Please refresh.');
+    }
+
     return {
       success: true,
       newHeadId: newHeadId,
-      newVersion: updatedBranch.version,
+      newVersion: version + 1,
       patch: inversePatch
     };
   }
 
   /**
    * Re-applies a previously undone patch in the user's branch history.
-   * Implements the selection logic to find the next patch in the timeline.
+   * Selects the next patch and moves HEAD only if the branch version still matches.
+   * Redo into the unsubmitted tail is allowed during review. A stored review
+   * outside the active private range is a server-state error, not a redo restriction.
    */
   async redo(volumeId: string, version: number): Promise<RedoResponse> {
     const userId = this.userId;
@@ -313,7 +353,7 @@ export class UserAPIAccessStrategy implements IAPIAccessStrategy {
     const rootPatchId = userBranch.rootPatchId;
 
     // 3. Find Candidate "Next" Patches
-    const [rootPatch, currentPatch, children] = await Promise.all([
+    const [rootPatch, currentPatch, children, reviewHead] = await Promise.all([
       // Check if the user is at the fork point and about to redo into their own branch root
       rootPatchId
         ? this.fastify.prisma.patch.findUnique({
@@ -330,9 +370,23 @@ export class UserAPIAccessStrategy implements IAPIAccessStrategy {
       this.fastify.prisma.patch.findMany({
         where: { parentId: currentHeadId },
         select: { id: true, operation: true }
-      })
+      }),
+      userBranch.reviewHeadPatchId
+        ? this.fastify.prisma.patch.findUnique({
+          where: { id: userBranch.reviewHeadPatchId },
+          select: { sequence: true, volumeId: true }
+        })
+        : null
     ]);
     if (!currentPatch) throw new HttpError(500, 'HEAD patch not found.');
+
+    // Undo cannot move HEAD behind a pending review. Detect an invalid stored
+    // boundary rather than silently using redo to repair impossible branch state.
+    if (userBranch.reviewHeadPatchId && (!reviewHead || !rootPatch ||
+      reviewHead.volumeId !== volumeId || rootPatch.sequence > reviewHead.sequence ||
+      currentPatch.sequence < reviewHead.sequence)) {
+      throw new HttpError(500, 'Invalid server branch state: pending review is outside the active private range.');
+    }
 
     // 4. Selection Logic (Prioritized)
     let nextPatch: { id: string, operation: string } | null = null;
@@ -359,18 +413,24 @@ export class UserAPIAccessStrategy implements IAPIAccessStrategy {
     // 5. Update Branch Pointer
     const operation = parseStoredPatchOperation(nextPatch.operation, `patch ${nextPatch.id}`);
 
-    const updatedBranch = await this.fastify.prisma.ocrBranch.update({
-      where: { id: userBranch.id },
+    // The early check rejects already-stale requests; this atomic check also
+    // catches edits or review-state changes made while selecting the next patch.
+    const updatedBranch = await this.fastify.prisma.ocrBranch.updateMany({
+      where: { id: userBranch.id, version },
       data: {
         headPatchId: nextPatch.id,
         version: { increment: 1 }
       }
     });
 
+    if (updatedBranch.count !== 1) {
+      throw new HttpError(409, 'Branch or review changed. Please refresh.');
+    }
+
     return {
       success: true,
       newHeadId: nextPatch.id,
-      newVersion: updatedBranch.version,
+      newVersion: version + 1,
       patch: operation
     };
   }
@@ -508,7 +568,12 @@ export class UserAPIAccessStrategy implements IAPIAccessStrategy {
     });
   }
 
-  async officialize(volumeId: string, sourceUserId: string): Promise<void> {
+  /** Users cannot accept reviews, regardless of the supplied frozen boundary. */
+  async officialize(
+    volumeId: string,
+    sourceUserId: string,
+    reviewHeadPatchId: string
+  ): Promise<void> {
     throw new HttpError(403, 'Forbidden: Only admins can merge branches.');
   }
 
@@ -516,6 +581,7 @@ export class UserAPIAccessStrategy implements IAPIAccessStrategy {
     throw new HttpError(403, 'Forbidden: Only admins can revert changes.');
   }
 
+  /** Return this contributor's frozen pending reviews, ordered by request time. */
   async getReviews(actorId: string): Promise<ReviewRequestEntry[]> {
     const prisma = this.fastify.prisma;
 
@@ -523,7 +589,7 @@ export class UserAPIAccessStrategy implements IAPIAccessStrategy {
     const branches = await prisma.ocrBranch.findMany({
       where: {
         userId: actorId,
-        isPendingReview: true
+        reviewHeadPatchId: { not: null }
       },
       include: {
         volume: {
@@ -532,7 +598,7 @@ export class UserAPIAccessStrategy implements IAPIAccessStrategy {
         rootPatch: true,
         headPatch: true
       },
-      orderBy: { updatedAt: 'desc' }
+      orderBy: { reviewRequestedAt: 'desc' }
     });
 
     if (branches.length === 0) return [];
@@ -577,22 +643,42 @@ export class UserAPIAccessStrategy implements IAPIAccessStrategy {
         coverImageName: b.volume.coverImageName,
 
         userId: b.userId,
-        submittedAt: b.updatedAt,
+        reviewRequestedAt: b.reviewRequestedAt!,
         submissionNote: b.submissionNote,
         rejectionReason: b.rejectionReason,
 
-        headPatchId: b.headPatchId,
+        reviewHeadPatchId: b.reviewHeadPatchId!,
         isBehind: isBehind
       };
     });
   }
 
+  /**
+   * Creates or cancels an OCR review request for the acting contributor's volume branch.
+   *
+   * With status=true, captures the current HEAD as reviewHeadPatchId, the inclusive
+   * end of the submitted private range. Later appended patches are outside this
+   * review. An existing request must be cancelled before its boundary can change.
+   * Submission requires a private root and rejects a branch detected as behind
+   * the admin timeline. The conditional write rejects changes to the captured
+   * user branch or a competing review request before recording the boundary.
+   *
+   * With status=false, clears the pending boundary and request timestamp without
+   * changing patch history, HEAD, or root. Existing notes and rejection reasons
+   * remain; a successful new submission replaces the note and clears rejection.
+   *
+   * @param actorId Contributor whose branch is targeted.
+   * @param params Volume and requested pending state; reason is the submission note.
+   * Review-state changes increment the branch version without changing OCR
+   * content, invalidating in-flight edits based on the previous branch state.
+   * @returns The resulting pending state, action, and branch version.
+   */
   async setReviewStatus(actorId: string, params: ReviewStatusParams): Promise<ReviewStatusResult> {
     const { volumeId, status, reason } = params;
     const prisma = this.fastify.prisma;
 
     if (status === true) {
-      // --- SUBMIT FLOW ---
+      // Load the branch whose current private prefix will be submitted.
 
       const branch = await prisma.ocrBranch.findUnique({
         where: {
@@ -605,8 +691,11 @@ export class UserAPIAccessStrategy implements IAPIAccessStrategy {
       });
 
       if (!branch) throw new HttpError(404, 'Branch not found');
+      if (branch.reviewHeadPatchId) throw new HttpError(409, 'A review is already pending.');
       if (!branch.rootPatch) throw new HttpError(400, 'Nothing to submit (No edits made).');
 
+      // The private root follows the fork point. Compare that point with the
+      // observed admin HEAD to require rebase before requesting review.
       const adminBranch = await prisma.ocrBranch.findUnique({
         where: {
           volumeId_userId: {
@@ -624,37 +713,51 @@ export class UserAPIAccessStrategy implements IAPIAccessStrategy {
         throw new HttpError(409, 'Cannot submit: Your branch is behind. Please Rebase first.');
       }
 
-      await prisma.ocrBranch.update({
+      // The version covers both edits and competing review-state changes.
+      // The admin read above is an eligibility check, not an admin branch lock.
+      const submitted = await prisma.ocrBranch.updateMany({
         where: {
-          volumeId_userId: {
-            volumeId: volumeId,
-            userId: actorId
-          }
+          id: branch.id,
+          version: branch.version
         },
         data: {
-          isPendingReview: true,
+          reviewHeadPatchId: branch.headPatchId,
+          reviewRequestedAt: new Date(),
           submissionNote: reason || null,
-          rejectionReason: null
+          rejectionReason: null,
+          version: { increment: 1 }
         }
       });
 
-      return { volumeId, status: true, action: 'submitted' };
+      if (submitted.count !== 1) throw new HttpError(409, 'Branch or review changed. Please refresh.');
+      return { volumeId, status: true, action: 'submitted', newVersion: branch.version + 1 };
 
     } else {
-      // --- CANCEL FLOW ---
-      await prisma.ocrBranch.update({
+      // Capture the current request; a concurrent state change must not let this
+      // cancellation clear a replacement review. Already-cancelled is a no-op.
+      const branch = await prisma.ocrBranch.findUnique({
         where: {
           volumeId_userId: {
             volumeId: volumeId,
             userId: actorId
           }
-        },
+        }
+      });
+      if (!branch) throw new HttpError(404, 'Branch not found');
+      if (branch.reviewHeadPatchId === null) {
+        return { volumeId, status: false, action: 'cancelled', newVersion: branch.version };
+      }
+      const cancelled = await prisma.ocrBranch.updateMany({
+        where: { id: branch.id, version: branch.version },
         data: {
-          isPendingReview: false
+          reviewHeadPatchId: null,
+          reviewRequestedAt: null,
+          version: { increment: 1 }
         }
       });
 
-      return { volumeId, status: false, action: 'cancelled' };
+      if (cancelled.count !== 1) throw new HttpError(409, 'Branch or review changed. Please refresh.');
+      return { volumeId, status: false, action: 'cancelled', newVersion: branch.version + 1 };
     }
   }
 }

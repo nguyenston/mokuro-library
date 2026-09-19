@@ -1,7 +1,5 @@
 import { FastifyInstance } from 'fastify';
-import {
-  VolumeResponse,
-} from '../../types/library';
+import { VolumeResponse } from '../../types/library';
 import {
   ApplyPatchResponse,
   UndoResponse,
@@ -19,8 +17,11 @@ import {
   syncSnapshot
 } from '../../utils/ocrHelpers';
 import { PatchInverter } from '../PatchInverter';
+import { parseStoredPatchOperation } from '../PatchOperationValidator';
+import { RebaseEngine } from '../rebase/RebaseEngine';
 import fs from 'fs';
 import path from 'path';
+import { ulid } from 'ulid';
 import { MokuroData } from '../../types/mokuro';
 import { OcrBranch } from '../../generated/prisma/client';
 import {
@@ -37,7 +38,7 @@ import { ExtendedPrismaClient } from '../prisma/prisma';
  * the 'official' timeline without private forking.
  */
 export class AdminAPIAccessStrategy implements IAPIAccessStrategy {
-  constructor(private fastify: FastifyInstance) { }
+  constructor(private fastify: FastifyInstance) {}
 
   /**
    * Retrieves a volume for the Admin.
@@ -46,12 +47,11 @@ export class AdminAPIAccessStrategy implements IAPIAccessStrategy {
    * 2. hasAhead/hasBehind are always false (Admin is the definition of current).
    */
   async getVolume(volumeId: string): Promise<VolumeResponse> {
-
     const cacheKey = `volume:${volumeId}`;
     const volume = await this.fastify.prisma.findCached(
       'admin',
       cacheKey,
-      ["volume:.:shared", "userprogress:progress:private"],
+      ['volume:.:shared', 'userprogress:progress:private'],
       async () => {
         return await this.fastify.prisma.volume.findUnique({
           where: { id: volumeId },
@@ -102,18 +102,20 @@ export class AdminAPIAccessStrategy implements IAPIAccessStrategy {
         // Admin is never ahead/behind themselves
         hasAhead: 0,
         hasBehind: 0,
-        isPendingReview: false,
+        reviewHeadPatchId: null,
+        reviewRequestedAt: null,
+        rejectionReason: null
       }
     };
   }
 
   /**
-     * Applies a patch directly to the Master Branch.
-     * Divergence:
-     * 1. No "Forking" check - Admin is always the root authority.
-     * 2. "Wipe Future": If Admin edits from the past (after undo), the old future is deleted.
-     * This maintains a strict single authoritative timeline.
-     */
+   * Applies a patch directly to the Master Branch.
+   * Divergence:
+   * 1. No "Forking" check - Admin is always the root authority.
+   * 2. "Wipe Future": If Admin edits from the past (after undo), the old future is deleted.
+   * This maintains a strict single authoritative timeline.
+   */
   async applyPatch(
     volumeId: string,
     op: PatchOperation,
@@ -121,7 +123,7 @@ export class AdminAPIAccessStrategy implements IAPIAccessStrategy {
   ): Promise<ApplyPatchResponse> {
     // 1. Authorization & Setup
     const volume = await this.fastify.prisma.volume.findUnique({
-      where: { id: volumeId, series: { ownerId: 'admin' } },
+      where: { id: volumeId, series: { ownerId: 'admin' } }
     });
     if (!volume) throw new HttpError(404, 'Volume not found');
 
@@ -153,7 +155,6 @@ export class AdminAPIAccessStrategy implements IAPIAccessStrategy {
 
     // 4. Transactional Write
     const result = await this.fastify.prisma.$transaction(async (tx) => {
-
       // Cascade delete will remove all subsequent history
       // We delete nextPatch, not children
       if (patch.nextPatchId) await tx.patch.delete({ where: { id: patch.nextPatchId } });
@@ -206,7 +207,7 @@ export class AdminAPIAccessStrategy implements IAPIAccessStrategy {
   async undo(volumeId: string, version: number): Promise<UndoResponse> {
     // 1. Authorization & Setup
     const volume = await this.fastify.prisma.volume.findUnique({
-      where: { id: volumeId, series: { ownerId: 'admin' } },
+      where: { id: volumeId, series: { ownerId: 'admin' } }
     });
     if (!volume) throw new HttpError(404, 'Volume not found');
 
@@ -234,18 +235,22 @@ export class AdminAPIAccessStrategy implements IAPIAccessStrategy {
     if (!currentPatch.parentId) throw new HttpError(400, 'Cannot undo: Reached start of history.');
 
     const newHeadId = currentPatch.parentId;
-    const inversePatch = PatchInverter.invert(JSON.parse(currentPatch.operation) as PatchOperation);
+    const operation = parseStoredPatchOperation(currentPatch.operation, `patch ${currentPatch.id}`);
+    const inversePatch = PatchInverter.invert(operation);
 
     // 3. Dependency Check ("In the Way")
     // Check for direct Head dependents or Root dependents (forks)
     const rootDependents = currentPatch.children
-      .map((p) => p.asRootOf[0] ? { ...p.asRootOf[0], rootId: p.id } : undefined)
+      .map((p) => (p.asRootOf[0] ? { ...p.asRootOf[0], rootId: p.id } : undefined))
       .filter((p) => p !== undefined);
     const headDependents = await this.fastify.prisma.ocrBranch.findMany({
-      where: { headPatchId: currentHeadId, rootPatchId: null, userId: { not: 'admin' } },
+      where: {
+        headPatchId: currentHeadId,
+        rootPatchId: null,
+        userId: { not: 'admin' }
+      },
       select: { id: true }
     });
-
 
     let dependentBranchId: string | undefined;
     let dependentPatchId: string | undefined;
@@ -309,7 +314,7 @@ export class AdminAPIAccessStrategy implements IAPIAccessStrategy {
             data: {
               parentId: patchClone.id
             }
-          })
+          });
         }
       }
 
@@ -323,7 +328,7 @@ export class AdminAPIAccessStrategy implements IAPIAccessStrategy {
         data.patch_id = patchClone.id;
         await saveSnapshot(this.fastify, newUserBranch.id, data, patchClone.id);
       } catch (e) {
-        this.fastify.log.warn(`Snapshot adjustment failed, future sync might take longer. ${e}`)
+        this.fastify.log.warn(`Snapshot adjustment failed, future sync might take longer. ${e}`);
       }
     }
 
@@ -336,7 +341,10 @@ export class AdminAPIAccessStrategy implements IAPIAccessStrategy {
   }
 
   async redo(volumeId: string, version: number): Promise<RedoResponse> {
-    throw new HttpError(405, 'Redo is not available for the Admin timeline. Admin edits are destructive.');
+    throw new HttpError(
+      405,
+      'Redo is not available for the Admin timeline. Admin edits are destructive.'
+    );
   }
 
   async reset(volumeId: string): Promise<void> {
@@ -346,7 +354,7 @@ export class AdminAPIAccessStrategy implements IAPIAccessStrategy {
   /**
    * Force regenerate snapshot for the admin branch.
    */
-  async createSnapshot(volumeId: string): Promise<{ data: MokuroData, branch: OcrBranch }> {
+  async createSnapshot(volumeId: string): Promise<{ data: MokuroData; branch: OcrBranch }> {
     const volume = await this.fastify.prisma.volume.findFirst({
       where: {
         id: volumeId,
@@ -401,10 +409,19 @@ export class AdminAPIAccessStrategy implements IAPIAccessStrategy {
       // A. Copy Series Cover (if new)
       if (plan.newSeriesData && plan.newSeriesData.coverPath) {
         const oldCoverAbs = path.join(projectRoot, plan.newSeriesData.coverPath);
-        const newCoverRel = path.join('uploads', 'admin', plan.targetSeriesFolder, path.basename(plan.newSeriesData.coverPath)).replace(/\\/g, '/');
+        const newCoverRel = path
+          .join(
+            'uploads',
+            'admin',
+            plan.targetSeriesFolder,
+            path.basename(plan.newSeriesData.coverPath)
+          )
+          .replace(/\\/g, '/');
         newCoverPathAbs = path.join(projectRoot, newCoverRel);
 
-        await fs.promises.mkdir(path.dirname(newCoverPathAbs), { recursive: true });
+        await fs.promises.mkdir(path.dirname(newCoverPathAbs), {
+          recursive: true
+        });
         await fs.promises.copyFile(oldCoverAbs, newCoverPathAbs);
         coverCopied = true;
 
@@ -415,13 +432,16 @@ export class AdminAPIAccessStrategy implements IAPIAccessStrategy {
       // B. Move Volumes (Rename)
       // This helper handles its own internal partial rollback if it fails
       await executeMovePlan(this.fastify, plan.volumeMoves);
-
     } catch (ioError) {
       this.fastify.log.error(`IO Failure during submission accept. Rolling back... ${ioError}`);
 
       // Rollback Cover
       if (coverCopied && newCoverPathAbs) {
-        try { await fs.promises.unlink(newCoverPathAbs); } catch (e) { /* ignore */ }
+        try {
+          await fs.promises.unlink(newCoverPathAbs);
+        } catch (e) {
+          /* ignore */
+        }
       }
 
       // Volumes are auto-rolled back by executeMovePlan if it throws,
@@ -443,13 +463,14 @@ export class AdminAPIAccessStrategy implements IAPIAccessStrategy {
           targetSeriesId: finalTargetSeriesId
         }
       });
-
     } catch (dbError) {
       this.fastify.log.error(`DB Transaction failed. Reverting file system... Error: ${dbError}`);
       await revertMoves(this.fastify, plan.volumeMoves);
 
       if (coverCopied && newCoverPathAbs) {
-        try { await fs.promises.unlink(newCoverPathAbs); } catch (e) { }
+        try {
+          await fs.promises.unlink(newCoverPathAbs);
+        } catch (e) {}
       }
 
       throw dbError;
@@ -467,7 +488,15 @@ export class AdminAPIAccessStrategy implements IAPIAccessStrategy {
     });
   }
 
-  async officialize(volumeId: string, sourceUserId: string): Promise<void> {
+  /**
+   * Incorporates a matching frozen review into authoritative history.
+   * Bounded acceptance of a prefix with a live tail is added in plan steps 4–5.
+   */
+  async officialize(
+    volumeId: string,
+    sourceUserId: string,
+    reviewHeadPatchId: string
+  ): Promise<void> {
     const volume = await this.fastify.prisma.volume.findUnique({
       where: { id: volumeId, series: { ownerId: 'admin' } }, // Ensure admin owns it
       select: { mokuroPath: true }
@@ -476,6 +505,15 @@ export class AdminAPIAccessStrategy implements IAPIAccessStrategy {
 
     const adminBranch = await ensureAdminBranch(this.fastify, volumeId, volume.mokuroPath);
     const userBranch = await ensureUserBranch(this.fastify, volumeId, sourceUserId, adminBranch);
+
+    if (userBranch.reviewHeadPatchId !== reviewHeadPatchId) {
+      throw new HttpError(409, 'Review changed after it was loaded. Please refresh.');
+    }
+
+    // Temporary safety gate until bounded acceptance is implemented (plan steps 4–5).
+    if (userBranch.headPatchId !== reviewHeadPatchId) {
+      throw new HttpError(409, 'Frozen-prefix acceptance with a newer live head is not implemented yet.');
+    }
 
     if (!userBranch.rootPatchId) {
       throw new HttpError(400, 'User branch is clean, nothing to officialize.');
@@ -493,82 +531,218 @@ export class AdminAPIAccessStrategy implements IAPIAccessStrategy {
     ]);
     if (!userRootPatch) throw new HttpError(500, 'User root patch not found.');
     if (!userHeadPatch) throw new HttpError(500, 'User head patch not found.');
-    if (userRootPatch.sequence > userHeadPatch.sequence) throw new HttpError(400, 'Cannot fast-forward: User head is not ahead of admin');
-    if (userHeadPatch.children.length > 1) throw new HttpError(500, 'Database corrupted: user head patch cannot have more than one children.');
-    if (userRootPatch.parentId !== adminBranch.headPatchId) {
-      throw new HttpError(409, 'Cannot fast-forward: User branch is not based on current Admin HEAD. User must Rebase first.');
+    if (userRootPatch.sequence > userHeadPatch.sequence)
+      throw new HttpError(400, 'Cannot fast-forward: User head is not ahead of admin');
+    if (userHeadPatch.children.length > 1)
+      throw new HttpError(
+        500,
+        'Database corrupted: user head patch cannot have more than one children.'
+      );
+    if (userRootPatch.parentId === adminBranch.headPatchId) {
+      // Execute Fast-Forward (Admin adopts user chain directly)
+      const newUserRootId =
+        userHeadPatch.children.length === 1 ? userHeadPatch.children[0].id : null;
+      await this.fastify.prisma.$transaction(async (tx) => {
+        // 1. Link the chain (Doubly Linked List)
+        // fetchAncestryChain walks UP from Head to (but excluding) the Admin Head (rootPatch.parentId)
+        // Result: [Head, ..., Root]
+        // We cast tx to any because it shares the QueryDelegate interface required by the helper
+        const ancestry = await fetchAncestryChain(
+          tx as ExtendedPrismaClient,
+          userBranch.headPatchId,
+          userRootPatch.parentId
+        );
+
+        // Reverse to get [Root, ..., Head] for forward linking
+        const patchesToLink = ancestry.map((p) => p.id).reverse();
+
+        // Validate chain integrity
+        if (patchesToLink.length === 0 || patchesToLink[0] !== userBranch.rootPatchId) {
+          throw new HttpError(500, 'Chain traversal failed to match root patch.');
+        }
+
+        // Update nextPatchIds
+        for (let i = 0; i < patchesToLink.length; i++) {
+          const current = patchesToLink[i];
+          const next = patchesToLink[i + 1]; // undefined for head
+          if (next) {
+            await tx.patch.update({
+              where: { id: current },
+              data: { nextPatchId: next }
+            });
+          }
+        }
+
+        // Link Admin Head to Root
+        await tx.patch.update({
+          where: { id: adminBranch.headPatchId },
+          data: { nextPatchId: userBranch.rootPatchId }
+        });
+
+        // 2. Move Admin Head
+        const adminUpdate = await tx.ocrBranch.updateMany({
+          where: {
+            id: adminBranch.id,
+            headPatchId: adminBranch.headPatchId,
+            version: adminBranch.version
+          },
+          data: {
+            headPatchId: userBranch.headPatchId,
+            version: { increment: 1 }
+          }
+        });
+        if (adminUpdate.count !== 1) {
+          throw new HttpError(409, 'Official branch changed during acceptance. Please retry.');
+        }
+
+        // 3. Reset User Branch (Clean state)
+        // It stays at the same head, but root becomes pushed up the the immediate child of head.
+        const userUpdate = await tx.ocrBranch.updateMany({
+          where: {
+            id: userBranch.id,
+            headPatchId: userBranch.headPatchId,
+            rootPatchId: userBranch.rootPatchId,
+            reviewHeadPatchId,
+            version: userBranch.version
+          },
+          data: {
+            rootPatchId: newUserRootId,
+            reviewHeadPatchId: null,
+            reviewRequestedAt: null,
+            rejectionReason: null,
+            // headPatchId remains userBranch.headPatchId (which is now same as Admin Head)
+            version: { increment: 1 }
+          }
+        });
+        if (userUpdate.count !== 1) {
+          throw new HttpError(409, 'Submission changed during acceptance. Please refresh.');
+        }
+      });
+      return;
     }
 
+    // Admin ahead: rebase user patches onto current admin head without mutating user branch.
+    const engine = new RebaseEngine(this.fastify);
+    let rebasedOps: PatchOperation[];
+    try {
+      rebasedOps = await engine.simulate(volumeId, sourceUserId);
+    } catch (e: any) {
+      throw new HttpError(409, e?.message || 'Rebase requires manual conflict resolution');
+    }
 
-    // Execute Fast-Forward
-    const newUserRootId = userHeadPatch.children.length === 1 ? userHeadPatch.children[0].id : null;
+    if (rebasedOps.length === 0) {
+      await this.fastify.prisma.$transaction(async (tx) => {
+        const adminGuard = await tx.ocrBranch.updateMany({
+          where: {
+            id: adminBranch.id,
+            headPatchId: adminBranch.headPatchId,
+            version: adminBranch.version
+          },
+          data: { headPatchId: adminBranch.headPatchId }
+        });
+        if (adminGuard.count !== 1) {
+          throw new HttpError(409, 'Official branch changed during acceptance. Please retry.');
+        }
+
+        const userUpdate = await tx.ocrBranch.updateMany({
+          where: {
+            id: userBranch.id,
+            headPatchId: userBranch.headPatchId,
+            rootPatchId: userBranch.rootPatchId,
+            reviewHeadPatchId,
+            version: userBranch.version
+          },
+          data: {
+            reviewHeadPatchId: null,
+            reviewRequestedAt: null,
+            rejectionReason: null,
+            version: { increment: 1 }
+          }
+        });
+        if (userUpdate.count !== 1) {
+          throw new HttpError(409, 'Submission changed during acceptance. Please refresh.');
+        }
+      });
+      return;
+    }
+
     await this.fastify.prisma.$transaction(async (tx) => {
-      // 1. Link the chain (Doubly Linked List)
-      // fetchAncestryChain walks UP from Head to (but excluding) the Admin Head (rootPatch.parentId)
-      // Result: [Head, ..., Root]
-      // We cast tx to any because it shares the QueryDelegate interface required by the helper
-      const ancestry = await fetchAncestryChain(tx as ExtendedPrismaClient, userBranch.headPatchId, userRootPatch.parentId);
-
-      // Reverse to get [Root, ..., Head] for forward linking
-      const patchesToLink = ancestry.map(p => p.id).reverse();
-
-      // Validate chain integrity
-      if (patchesToLink.length === 0 || patchesToLink[0] !== userBranch.rootPatchId) {
-        throw new HttpError(500, "Chain traversal failed to match root patch.");
-      }
-
-      // Update nextPatchIds
-      for (let i = 0; i < patchesToLink.length; i++) {
-        const current = patchesToLink[i];
-        const next = patchesToLink[i + 1]; // undefined for head
-        if (next) {
-          await tx.patch.update({
-            where: { id: current },
-            data: { nextPatchId: next }
-          });
-        }
-      }
-
-      // Link Admin Head to Root
-      await tx.patch.update({
-        where: { id: adminBranch.headPatchId },
-        data: { nextPatchId: userBranch.rootPatchId }
+      const adminHead = await tx.patch.findUnique({
+        where: { id: adminBranch.headPatchId }
       });
+      if (!adminHead) throw new HttpError(500, 'Admin head patch not found.');
 
-      // 2. Move Admin Head
-      await tx.ocrBranch.update({
-        where: { id: adminBranch.id },
+      let prevId = adminBranch.headPatchId;
+      let currentSequence = adminHead.sequence;
+      for (const op of rebasedOps) {
+        currentSequence += 1;
+        const id = ulid();
+        await tx.patch.create({
+          data: {
+            id,
+            parentId: prevId,
+            volumeId,
+            userId: 'admin',
+            operation: JSON.stringify(op),
+            createdAt: new Date(),
+            sequence: currentSequence
+          }
+        });
+        await tx.patch.update({
+          where: { id: prevId },
+          data: { nextPatchId: id }
+        });
+        prevId = id;
+      }
+
+      const adminUpdate = await tx.ocrBranch.updateMany({
+        where: {
+          id: adminBranch.id,
+          headPatchId: adminBranch.headPatchId,
+          version: adminBranch.version
+        },
         data: {
+          headPatchId: prevId,
+          version: { increment: 1 }
+        }
+      });
+      if (adminUpdate.count !== 1) {
+        throw new HttpError(409, 'Official branch changed during acceptance. Please retry.');
+      }
+
+      const userUpdate = await tx.ocrBranch.updateMany({
+        where: {
+          id: userBranch.id,
           headPatchId: userBranch.headPatchId,
-          version: { increment: 1 }
-        }
-      });
-
-      // 3. Reset User Branch (Clean state)
-      // It stays at the same head, but root becomes pushed up the the immediate child of head.
-      await tx.ocrBranch.update({
-        where: { id: userBranch.id },
+          rootPatchId: userBranch.rootPatchId,
+          reviewHeadPatchId,
+          version: userBranch.version
+        },
         data: {
-          rootPatchId: newUserRootId,
-          // headPatchId remains userBranch.headPatchId (which is now same as Admin Head)
+          reviewHeadPatchId: null,
+          reviewRequestedAt: null,
+          rejectionReason: null,
           version: { increment: 1 }
         }
       });
+      if (userUpdate.count !== 1) {
+        throw new HttpError(409, 'Submission changed during acceptance. Please refresh.');
+      }
     });
   }
-
 
   async revert(volumeId: string, patchId: string): Promise<void> {
     throw new Error('Pending Implementation: Revert');
   }
 
+  /** Return frozen pending reviews with stable request timestamps for the admin queue. */
   async getReviews(actorId: string): Promise<ReviewRequestEntry[]> {
     const prisma = this.fastify.prisma;
 
     // 1. Fetch ALL pending reviews
     const branches = await prisma.ocrBranch.findMany({
       where: {
-        isPendingReview: true
+        reviewHeadPatchId: { not: null }
       },
       include: {
         volume: {
@@ -579,12 +753,12 @@ export class AdminAPIAccessStrategy implements IAPIAccessStrategy {
         rootPatch: true,
         headPatch: true
       },
-      orderBy: { updatedAt: 'desc' }
+      orderBy: { reviewRequestedAt: 'desc' }
     });
 
     // 2. Efficiently check "Behind" status for all results
     // We need the CURRENT Admin Head for these volumes to compare.
-    const volumeIds = branches.map(b => b.volumeId);
+    const volumeIds = branches.map((b) => b.volumeId);
 
     // Fetch Admin Branches for these volumes
     const adminBranches = await prisma.ocrBranch.findMany({
@@ -597,15 +771,15 @@ export class AdminAPIAccessStrategy implements IAPIAccessStrategy {
 
     // Create a Map for O(1) lookup: VolumeID -> AdminHeadSequence
     const adminHeadMap = new Map<string, number>();
-    adminBranches.forEach(ab => {
+    adminBranches.forEach((ab) => {
       if (ab.headPatch) adminHeadMap.set(ab.volumeId, ab.headPatch.sequence);
     });
 
     // 3. Map to DTO
-    return branches.map(b => {
+    return branches.map((b) => {
       const adminHeadSeq = adminHeadMap.get(b.volumeId) || 0;
       // If rootPatch is missing, they technically have 0 edits, but we handle it gracefully.
-      const forkPointSeq = b.rootPatch ? (b.rootPatch.sequence - 1) : b.headPatch.sequence;
+      const forkPointSeq = b.rootPatch ? b.rootPatch.sequence - 1 : b.headPatch.sequence;
 
       // IS BEHIND Condition: Admin has moved past the fork point
       const isBehind = adminHeadSeq > forkPointSeq;
@@ -620,16 +794,17 @@ export class AdminAPIAccessStrategy implements IAPIAccessStrategy {
 
         userId: b.userId,
         userDisplayName: b.user?.username || 'Unknown',
-        submittedAt: b.updatedAt,
+        reviewRequestedAt: b.reviewRequestedAt!,
         submissionNote: b.submissionNote,
         rejectionReason: b.rejectionReason,
 
-        headPatchId: b.headPatchId,
+        reviewHeadPatchId: b.reviewHeadPatchId!,
         isBehind: isBehind
       };
     });
   }
 
+  /** Reject a contributor's review, retain an explanation, and version the branch state. */
   async setReviewStatus(actorId: string, params: ReviewStatusParams): Promise<ReviewStatusResult> {
     const { volumeId, status, reason, targetUserId } = params;
     const prisma = this.fastify.prisma;
@@ -639,11 +814,14 @@ export class AdminAPIAccessStrategy implements IAPIAccessStrategy {
     }
 
     if (status === true) {
-      throw new HttpError(403, 'Admins cannot submit reviews on behalf of users via this route. Use Merge.');
+      throw new HttpError(
+        403,
+        'Admins cannot submit reviews on behalf of users via this route. Use Merge.'
+      );
     }
 
-    // REJECT FLOW
-    await prisma.ocrBranch.update({
+    // Rejection is an atomic state change; invalidate previously read edit versions.
+    const branch = await prisma.ocrBranch.update({
       where: {
         volumeId_userId: {
           volumeId: volumeId,
@@ -651,11 +829,13 @@ export class AdminAPIAccessStrategy implements IAPIAccessStrategy {
         }
       },
       data: {
-        isPendingReview: false,
-        rejectionReason: reason || "Rejected by Admin"
+        reviewHeadPatchId: null,
+        reviewRequestedAt: null,
+        rejectionReason: reason || 'Rejected by Admin',
+        version: { increment: 1 }
       }
     });
 
-    return { volumeId, status: false, action: 'rejected' };
+    return { volumeId, status: false, action: 'rejected', newVersion: branch.version };
   }
 }

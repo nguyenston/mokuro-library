@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { patchBodySchema } from '../routes/ocr';
+import { officializeBodySchema, patchBodySchema } from '../routes/ocr';
 
 describe('ocr patch validation', () => {
   it('accepts a valid replace operation', () => {
@@ -41,5 +41,26 @@ describe('ocr patch validation', () => {
     });
 
     expect(result.success).toBe(false);
+  });
+});
+
+describe('OCR officialize validation', () => {
+  it('accepts the frozen review head', () => {
+    const result = officializeBodySchema.safeParse({
+      sourceBranchUserId: 'contributor',
+      reviewHeadPatchId: 'review-head'
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it.each([
+    { sourceBranchUserId: 'contributor' },
+    { sourceBranchUserId: 'contributor', sourceBranchVersion: 4 },
+    { sourceBranchUserId: 'contributor', reviewHeadPatchId: null },
+    { sourceBranchUserId: 'contributor', reviewHeadPatchId: '' },
+    { sourceBranchUserId: 'contributor', reviewHeadPatchId: 4 }
+  ])('rejects a missing or invalid frozen review head: %o', (body) => {
+    expect(officializeBodySchema.safeParse(body).success).toBe(false);
   });
 });

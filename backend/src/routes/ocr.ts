@@ -12,6 +12,11 @@ export const patchBodySchema = z.object({
   branchVersion: z.number().int().nonnegative(),
 });
 
+export const officializeBodySchema = z.object({
+  sourceBranchUserId: z.string().min(1),
+  reviewHeadPatchId: z.string().min(1)
+});
+
 const ocrRoutes: FastifyPluginAsync = async (fastify, opts): Promise<void> => {
   fastify.addHook('preHandler', fastify.authenticate);
 
@@ -149,16 +154,20 @@ const ocrRoutes: FastifyPluginAsync = async (fastify, opts): Promise<void> => {
 
   /**
      * POST /api/library/volume/:id/officialize
-     * Fast-forward merges a user's branch into the official admin branch.
+     * Merges the reviewed version of a user's branch into the official admin branch.
      */
-  fastify.post<{ Params: { id: string }, Body: { sourceBranchUserId: string } }>(
+  fastify.post<{ Params: { id: string }, Body: z.infer<typeof officializeBodySchema> }>(
     '/volume/:id/officialize',
     async (request, reply) => {
       const { id } = request.params;
-      const { sourceBranchUserId } = request.body;
+      const parseResult = officializeBodySchema.safeParse(request.body);
+      if (!parseResult.success) {
+        return reply.status(400).send({ message: 'Invalid officialize request', errors: parseResult.error });
+      }
+      const { sourceBranchUserId, reviewHeadPatchId } = parseResult.data;
 
       try {
-        await request.accessStrategy.officialize(id, sourceBranchUserId);
+        await request.accessStrategy.officialize(id, sourceBranchUserId, reviewHeadPatchId);
         return { success: true };
       } catch (err: any) {
         if (err instanceof HttpError) {

@@ -24,16 +24,19 @@
     on_close();
   };
 
+  /** Submit the frozen prefix and retain the returned branch-state version. */
   async function handleSubmit() {
     if (!volume || isSubmitting) return;
 
     try {
       isSubmitting = true;
-      await setReviewStatus({
+      const result = await setReviewStatus({
         volumeId: volume.id,
         status: true,
         reason: note
       });
+      // Review submission changes the optimistic version even without an edit.
+      if (volume.versionInfo) volume.versionInfo.branchVersion = result.newVersion;
 
       toastStore.success('Review requested successfully');
       if (onSuccess) onSuccess();

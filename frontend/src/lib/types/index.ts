@@ -40,7 +40,9 @@ export interface Volume {
     branchVersion: number;
     hasAhead: number;
     hasBehind: number;
-    isPendingReview: boolean;
+    reviewHeadPatchId: string | null;
+    reviewRequestedAt?: string | null;
+    rejectionReason?: string | null;
   };
 }
 
@@ -324,12 +326,15 @@ export interface RebaseQueueEntry {
     branchVersion: number;
     hasAhead: number;
     hasBehind: number;
-    isPendingReview: boolean;
+    reviewHeadPatchId: string | null;
+    reviewRequestedAt?: string | null;
+    rejectionReason?: string | null;
   };
 }
 
 // Review / Contribution Types
 
+/** Pending OCR review of a frozen prefix rather than the mutable live head. */
 export interface ReviewRequestEntry {
   id: string; // The Branch ID
   volumeId: string;
@@ -341,12 +346,12 @@ export interface ReviewRequestEntry {
   // Metadata
   userId: string;
   userDisplayName?: string; // Present if viewed by Admin
-  submittedAt: string;      // ISO Date String
+  reviewRequestedAt: string; // ISO request time, unaffected by continued editing
   submissionNote: string | null;
   rejectionReason: string | null;
 
-  // State
-  headPatchId: string;
+  // Frozen review identity
+  reviewHeadPatchId: string;
   isBehind: boolean; // Vital for UI warnings
 }
 
@@ -357,7 +362,9 @@ export interface ReviewStatusParams {
   targetUserId?: string; // Only required for Admin actions
 }
 
+/** Review-state result; newVersion belongs to the affected contributor branch. */
 export interface ReviewStatusResult {
+  newVersion: number;
   volumeId: string;
   status: boolean;
   action: 'submitted' | 'cancelled' | 'rejected' | 'accepted';

@@ -55,10 +55,10 @@ export interface IAPIAccessStrategy {
 
   // --- Admin Advanced Features ---
   /**
-   * Admin: Fast-forward merge a user's branch into master.
+   * Admin: Merge a reviewed user branch into master if its frozen review head still matches.
    * User: Throws 403.
    */
-  officialize(volumeId: string, sourceUserId: string): Promise<void>;
+  officialize(volumeId: string, sourceUserId: string, reviewHeadPatchId: string): Promise<void>;
 
   /**
    * Admin: Non-destructive undo (inverse patch).

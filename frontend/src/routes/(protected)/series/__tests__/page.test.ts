@@ -85,7 +85,7 @@ describe('series page', () => {
             branchVersion: 0,
             hasAhead: 0,
             hasBehind: 0,
-            isPendingReview: false
+            reviewHeadPatchId: null
           }
         }
       ]

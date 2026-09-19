@@ -27,7 +27,7 @@ const createVolume = (
     branchVersion: 0,
     hasAhead,
     hasBehind,
-    isPendingReview: false
+    reviewHeadPatchId: null
   },
   hasAhead,
   hasBehind,

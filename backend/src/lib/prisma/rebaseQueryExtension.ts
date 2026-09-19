@@ -13,7 +13,9 @@ interface RebaseQueueRawRow {
   branchVersion: number;
   hasAhead: bigint | number;
   hasBehind: bigint | number;
-  isPendingReview?: boolean;
+  reviewHeadPatchId: string | null;
+  reviewRequestedAt: string | number | null;
+  rejectionReason: string | null;
 }
 
 interface ContributionSummaryRawRow {
@@ -48,7 +50,9 @@ export interface RebaseQueueEntry {
     branchVersion: number;
     hasAhead: number;
     hasBehind: number;
-    isPendingReview: boolean;
+    reviewHeadPatchId: string | null;
+    reviewRequestedAt: string | null;
+    rejectionReason: string | null;
   };
 }
 
@@ -66,7 +70,9 @@ export const rebaseQueryExtension = Prisma.defineExtension((client) => {
       ub.id as "branchId",
       ub."headPatchId" as "headPatchId",
       ub."version" as "branchVersion",
-      ub."isPendingReview" as "isPendingReview",
+      ub."reviewHeadPatchId" as "reviewHeadPatchId",
+      ub."reviewRequestedAt" as "reviewRequestedAt",
+      ub."rejectionReason" as "rejectionReason",
 
       -- Math (Same as Rebase Queue)
       (uh.sequence - (ur.sequence - 1)) as "hasAhead",
@@ -129,7 +135,9 @@ export const rebaseQueryExtension = Prisma.defineExtension((client) => {
         branchVersion: r.branchVersion,
         hasAhead: Number(r.hasAhead || 0),
         hasBehind: Number(r.hasBehind || 0),
-        isPendingReview: Boolean(r.isPendingReview)
+        reviewHeadPatchId: r.reviewHeadPatchId,
+        reviewRequestedAt: r.reviewRequestedAt == null ? null : new Date(r.reviewRequestedAt).toISOString(),
+        rejectionReason: r.rejectionReason
       }
     }));
   };
@@ -177,7 +185,7 @@ export const rebaseQueryExtension = Prisma.defineExtension((client) => {
 
             WHERE
               ub."userId" = ${userId}
-              AND ub."isPendingReview" = false
+              AND ub."reviewHeadPatchId" IS NULL
               AND uh.sequence > (ur.sequence - 1)
 
             ORDER BY RANDOM()
@@ -251,7 +259,7 @@ export const rebaseQueryExtension = Prisma.defineExtension((client) => {
               JOIN "Volume" v ON ub."volumeId" = v.id
               JOIN "Series" s ON v."seriesId" = s.id
               WHERE ub."userId" = ${userId}
-                AND ub."isPendingReview" = true
+                AND ub."reviewHeadPatchId" IS NOT NULL
                 AND s."ownerId" = 'admin'
             ),
             ahead_count AS (
