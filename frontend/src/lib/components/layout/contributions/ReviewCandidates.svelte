@@ -61,7 +61,8 @@
       </div>
     {/if}
 
-    {#if draft}
+    <!-- Retain the outgoing draft while its transition and image cleanup finish. -->
+    {#each draft ? [draft] : [] as candidate (candidate.id)}
       <div class="w-full flex items-center gap-6" transition:scale={{ start: 0.95, duration: 200 }}>
         <div
           class="shrink-0 relative group cursor-pointer"
@@ -70,40 +71,40 @@
           tabindex="0"
           onkeydown={(e) => e.key === 'Enter' && (showModal = true)}
         >
-          {#if draft.coverImageName}
+          {#if candidate.coverImageName}
             <AuthenticatedImage
-              src="/api/files/volume/{draft.id}/image/{draft.coverImageName}?w=120&q=80"
-              alt={draft.title}
+              src="/api/files/volume/{candidate.id}/image/{candidate.coverImageName}?w=120&q=80"
+              alt={candidate.title}
               class="w-24 h-36 object-cover rounded-lg shadow-lg rotate-[-2deg] group-hover:rotate-0 transition-transform duration-300"
             />
           {:else}
             <div
               class="w-24 h-36 bg-theme-surface border-2 border-theme-border rounded-lg flex items-center justify-center text-theme-tertiary text-2xl font-bold shadow-lg rotate-[-2deg] group-hover:rotate-0 transition-transform duration-300"
             >
-              {draft.title[0]}
+              {candidate.title[0]}
             </div>
           {/if}
         </div>
 
         <div class="flex-1 min-w-0 text-left">
           <div class="text-xs font-bold text-theme-tertiary mb-1 uppercase tracking-wide">
-            {draft.seriesTitle}
+            {candidate.seriesTitle}
           </div>
-          <h4 class="text-xl font-bold text-theme-primary truncate mb-2">{draft.title}</h4>
+          <h4 class="text-xl font-bold text-theme-primary truncate mb-2">{candidate.title}</h4>
 
           <div class="flex flex-wrap gap-2 mb-4">
             <span
               class="px-2 py-1 rounded-md bg-accent/10 text-accent text-xs font-bold border border-accent/20 flex items-center gap-1.5"
             >
               <GitPullRequest class="w-3 h-3" />
-              +{draft.versionInfo.hasAhead} Edits
+              +{candidate.versionInfo.hasAhead} Edits
             </span>
-            {#if draft.versionInfo.hasBehind > 0}
+            {#if candidate.versionInfo.hasBehind > 0}
               <span
                 class="px-2 py-1 rounded-md bg-status-warning/10 text-status-warning text-xs font-bold border border-status-warning/20 flex items-center gap-1.5"
               >
                 <GitMerge class="w-3 h-3" />
-                {draft.versionInfo.hasBehind} Behind
+                {candidate.versionInfo.hasBehind} Behind
               </span>
             {/if}
           </div>
@@ -125,7 +126,7 @@
           </div>
         </div>
       </div>
-    {/if}
+    {/each}
   </div>
 </div>
 
