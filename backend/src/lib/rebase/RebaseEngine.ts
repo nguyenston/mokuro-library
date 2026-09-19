@@ -11,6 +11,7 @@ import {
 import { PatchOperation } from '../../types/history';
 import { PatchTransformer } from './PatchTransformer';
 import { EffectUtilities } from './Effect';
+import { parseStoredPatchOperation } from '../PatchOperationValidator';
 import { fetchAncestryChain, inheritAdminSnapshot, OcrBranchWithTimestamps } from '../../utils/ocrHelpers';
 import { Prisma } from '../../generated/prisma/client';
 
@@ -43,10 +44,11 @@ export class RebaseEngine {
     return this.fastify.prisma;
   }
 
-  /**
-   * Starts a new rebase session.
-   */
-  async start(volumeId: string, userId: string): Promise<RebaseResult> {
+  private async loadBranches(volumeId: string, userId: string): Promise<{
+    branch: OcrBranchWithTimestamps;
+    adminBranch: OcrBranchWithTimestamps;
+  }> {
+    // 1) Load user/admin branches with patch metadata.
     const branch = await this.prisma.ocrBranch.findUnique({
       where: { volumeId_userId: { volumeId, userId } },
       include: {
@@ -67,6 +69,114 @@ export class RebaseEngine {
     });
     if (!adminBranch) throw new Error('Admin branch not found');
 
+    // 2) Return both branches for downstream logic.
+    return { branch, adminBranch };
+  }
+
+  private async buildChains(
+    adminHeadId: string,
+    userHeadId: string,
+    stopId: string
+  ): Promise<{ adminChain: ExtendedPatch[]; userChain: ExtendedPatch[] }> {
+    // 1) Fetch ancestry from heads back to the fork point (exclusive).
+    const adminChainRaw = await fetchAncestryChain(this.prisma, adminHeadId, stopId);
+    const userChainRaw = await fetchAncestryChain(this.prisma, userHeadId, stopId);
+
+    // 2) Validate the persisted operations at the rebase boundary, then map them
+    // to chronological order. Downstream transformation code assumes this grammar.
+    const adminChain: ExtendedPatch[] = adminChainRaw.reverse().map(p => ({
+      id: p.id,
+      operation: parseStoredPatchOperation(p.operation, `admin patch ${p.id}`)
+    }));
+
+    const userChain: ExtendedPatch[] = userChainRaw.reverse().map(p => ({
+      id: p.id,
+      operation: parseStoredPatchOperation(p.operation, `user patch ${p.id}`)
+    }));
+
+    return { adminChain, userChain };
+  }
+
+  private buildContext(params: {
+    sessionId: string;
+    branchId: string;
+    userId: string;
+    adminChain: ExtendedPatch[];
+    userChain: ExtendedPatch[];
+    targetHeadId: string;
+    originalBranchHeadId: string;
+  }): RebaseContext {
+    // 1) Initialize hot state for the simulation loop.
+    return {
+      sessionId: params.sessionId,
+      branchId: params.branchId,
+      userId: params.userId,
+      adminChain: params.adminChain,
+      originalUserChain: params.userChain,
+      currentPatches: params.userChain,
+      pendingPatches: [],
+      currentAdminIndex: 0,
+      currentUserIndex: 0,
+      currentEffect: { type: 'identity', path: '/' },
+      resolutions: new Map(),
+      targetHeadId: params.targetHeadId,
+      originalBranchHeadId: params.originalBranchHeadId
+    };
+  }
+
+  /**
+   * Simulate a rebase without committing changes or mutating branches.
+   * Throws if a conflict is encountered.
+   */
+  async simulate(volumeId: string, userId: string): Promise<PatchOperation[]> {
+    // 1) Load branches and short-circuit simple cases.
+    const { branch, adminBranch } = await this.loadBranches(volumeId, userId);
+
+    if (!branch.rootPatchId) {
+      return [];
+    }
+
+    if (branch.headPatchId === adminBranch.headPatchId) {
+      return [];
+    }
+
+    const rootPatch = await this.prisma.patch.findUnique({ where: { id: branch.rootPatchId } });
+    if (!rootPatch || !rootPatch.parentId) {
+      throw new Error('Invalid branch state for rebase simulation');
+    }
+
+    // 2) Build chains from fork point and simulate rebase.
+    const { adminChain, userChain } = await this.buildChains(
+      adminBranch.headPatchId,
+      branch.headPatchId,
+      rootPatch.parentId
+    );
+
+    const context = this.buildContext({
+      sessionId: `simulate-${volumeId}-${userId}`,
+      branchId: branch.id,
+      userId,
+      adminChain,
+      userChain,
+      targetHeadId: adminBranch.headPatchId,
+      originalBranchHeadId: branch.headPatchId
+    });
+
+    const result = await this.runSimulation(context);
+    if (result.status === 'paused') {
+      throw new Error('Rebase requires manual conflict resolution');
+    }
+    // 3) Return final transformed operations for downstream callers.
+    return result.finalPatches ?? [];
+  }
+
+  /**
+   * Starts a new rebase session.
+   */
+  async start(volumeId: string, userId: string): Promise<RebaseResult> {
+    // 1) Load branches and short-circuit clean/up-to-date states.
+    const { branch, adminBranch } = await this.loadBranches(volumeId, userId);
+
     // --- Check 1: Clean State ---
     if (!branch.rootPatchId) {
       await this.fastForward(branch, adminBranch);
@@ -86,20 +196,12 @@ export class RebaseEngine {
       return { status: 'complete' };
     }
 
-    // --- 4. Initialize Session ---
-    const adminChainRaw = await fetchAncestryChain(this.prisma, adminBranch.headPatchId, rootPatch.parentId);
-    const userChainRaw = await fetchAncestryChain(this.prisma, branch.headPatchId, rootPatch.parentId);
-
-    // Parse operations and reverse to chronological order
-    const adminChain: ExtendedPatch[] = adminChainRaw.reverse().map(p => ({
-      id: p.id,
-      operation: JSON.parse(p.operation) as PatchOperation
-    }));
-
-    const userChain: ExtendedPatch[] = userChainRaw.reverse().map(p => ({
-      id: p.id,
-      operation: JSON.parse(p.operation) as PatchOperation
-    }));
+    // 2) Initialize session + context from fork point chains.
+    const { adminChain, userChain } = await this.buildChains(
+      adminBranch.headPatchId,
+      branch.headPatchId,
+      rootPatch.parentId
+    );
 
     const session = await this.prisma.rebaseSession.create({
       data: {
@@ -111,30 +213,41 @@ export class RebaseEngine {
       }
     });
 
-    const context: RebaseContext = {
+    const context = this.buildContext({
       sessionId: session.id,
       branchId: branch.id,
       userId,
       adminChain,
-      originalUserChain: userChain,
-      currentPatches: userChain,
-      pendingPatches: [],
-      currentAdminIndex: 0,
-      currentUserIndex: 0,
-      currentEffect: { type: 'identity', path: '/' },
-      resolutions: new Map(),
+      userChain,
       targetHeadId: adminBranch.headPatchId,
       originalBranchHeadId: branch.headPatchId
-    };
+    });
     sessionCache.set(session.id, context);
 
-    return this.runSimulation(context);
+    // 3) Run simulation, persist conflict or commit on completion.
+    const result = await this.runSimulation(context);
+
+    // Persists session to database
+    if (result.status === 'paused') {
+      await this.prisma.rebaseSession.update({
+        where: { id: session.id },
+        data: {
+          currentConflict: JSON.stringify(result.conflict)
+        }
+      });
+      return result;
+    }
+
+    // Commit on finish
+    await this.commit(context);
+    return result;
   }
 
   /**
    * Continues an existing rebase with a new resolution.
    */
   async continue(rebaseId: string, resolution: ResolutionType): Promise<RebaseResult> {
+    // 1) Restore or reuse hot state from memory.
     let context = sessionCache.get(rebaseId);
     if (!context) {
       context = await this.restoreSession(rebaseId);
@@ -157,13 +270,27 @@ export class RebaseEngine {
       data: { resolutions: JSON.stringify([...context.resolutions.entries()]) }
     });
 
-    return this.runSimulation(context);
+    // 2) Continue simulation, persist conflict or commit on completion.
+    const result = await this.runSimulation(context);
+    if (result.status === 'paused') {
+      await this.prisma.rebaseSession.update({
+        where: { id: rebaseId },
+        data: {
+          currentConflict: JSON.stringify(result.conflict)
+        }
+      });
+      return result;
+    }
+
+    await this.commit(context);
+    return result;
   }
 
   /**
    * Deletes hot and db sessions
    */
   async abort(rebaseId: string): Promise<void> {
+    // 1) Drop in-memory cache, then remove DB session.
     const deleted = sessionCache.delete(rebaseId);
 
     try {
@@ -180,7 +307,8 @@ export class RebaseEngine {
 
   // --- Internal Logic ---
 
-  private async runSimulation(ctx: RebaseContext, commit = true): Promise<RebaseResult> {
+  private async runSimulation(ctx: RebaseContext): Promise<RebaseResult> {
+    // 1) Iterate admin chain, transforming user patches per admin effect.
     let currentPatches = ctx.currentPatches;
 
     for (let i = ctx.currentAdminIndex; i < ctx.adminChain.length; i++) {
@@ -234,13 +362,6 @@ export class RebaseEngine {
 
           // Persist conflict to DB so frontend can resume
           // We can run this in background, but awaiting ensures consistency
-          await this.prisma.rebaseSession.update({
-            where: { id: ctx.sessionId },
-            data: {
-              currentConflict: JSON.stringify(result.conflict)
-            }
-          });
-
           return {
             status: 'paused',
             rebaseId: ctx.sessionId,
@@ -266,19 +387,17 @@ export class RebaseEngine {
       ctx.currentEffect = { type: 'identity', path: '/' };
     }
 
-    // Update hot state before commit
+    // 2) Finalize hot state for commit/return.
     ctx.currentPatches = currentPatches;
     ctx.pendingPatches = [];
     ctx.currentAdminIndex = ctx.adminChain.length;
     ctx.currentUserIndex = 0;
 
-    if (commit) {
-      await this.commit(ctx);
-    }
     return { status: 'complete', finalPatches: currentPatches.map(p => p.operation) };
   }
 
   private async commit(ctx: RebaseContext) {
+    // 1) Rebuild new patch chain off admin head.
     const finalOps = ctx.currentPatches.map(p => p.operation)
     const newPatchesData: Prisma.PatchCreateManyInput[] = [];
     let prevId = ctx.targetHeadId;
@@ -316,6 +435,7 @@ export class RebaseEngine {
       prevId = newId;
     }
 
+    // 2) Persist patches + branch updates in a transaction.
     const newUserBranch = await this.prisma.$transaction(async (tx: any) => {
       if (newPatchesData.length > 0) {
         await tx.patch.createMany({ data: newPatchesData });
@@ -355,12 +475,13 @@ export class RebaseEngine {
       return updatedBranch;
     });
 
-    // Copy admin snapshot to user
+    // 3) Inherit snapshot and clear session cache.
     await inheritAdminSnapshot(this.fastify, newUserBranch, adminBranch);
     sessionCache.delete(ctx.sessionId);
   }
 
   private async fastForward(userBranch: OcrBranchWithTimestamps, adminBranch: OcrBranchWithTimestamps) {
+    // 1) Align user branch head to admin head.
     const newUserBranch = await this.prisma.ocrBranch.update({
       where: { id: userBranch.id },
       data: {
@@ -376,11 +497,12 @@ export class RebaseEngine {
       }
     });
 
-    // Copy admin snapshot to user
+    // 2) Copy admin snapshot to user.
     await inheritAdminSnapshot(this.fastify, newUserBranch, adminBranch);
   }
 
   private async restoreSession(sessionId: string): Promise<RebaseContext> {
+    // 1) Load session + branch state from DB.
     const session = await this.prisma.rebaseSession.findUnique({
       where: { id: sessionId },
       include: { branch: true }
@@ -392,39 +514,30 @@ export class RebaseEngine {
 
     if (!rootPatch || !rootPatch.parentId) throw new Error('Invalid branch state for restore');
 
-    const adminChainRaw = await fetchAncestryChain(this.prisma, session.targetHeadPatchId, rootPatch.parentId);
-    const userChainRaw = await fetchAncestryChain(this.prisma, session.headPatchIdSnapshot, rootPatch.parentId);
-
-    // Parse operations and reverse to chronological order
-    const adminChain: ExtendedPatch[] = adminChainRaw.reverse().map(p => ({
-      id: p.id,
-      operation: JSON.parse(p.operation) as PatchOperation
-    }));
-
-    const userChain: ExtendedPatch[] = userChainRaw.reverse().map(p => ({
-      id: p.id,
-      operation: JSON.parse(p.operation) as PatchOperation
-    }));
+    // 2) Rebuild chains and hot state from persisted session data.
+    const { adminChain, userChain } = await this.buildChains(
+      session.targetHeadPatchId,
+      session.headPatchIdSnapshot,
+      rootPatch.parentId
+    );
 
     const context: RebaseContext = {
-      sessionId: session.id,
-      branchId: session.branchId,
-      userId: branch.userId,
-      adminChain,
-      originalUserChain: userChain,
-      currentPatches: userChain,
-      pendingPatches: [],
-      currentAdminIndex: 0,
-      currentUserIndex: 0,
-      currentEffect: { type: 'identity', path: '/' },
-      resolutions: new Map(JSON.parse(session.resolutions)),
-      targetHeadId: session.targetHeadPatchId,
-      originalBranchHeadId: session.headPatchIdSnapshot
+      ...this.buildContext({
+        sessionId: session.id,
+        branchId: session.branchId,
+        userId: branch.userId,
+        adminChain,
+        userChain,
+        targetHeadId: session.targetHeadPatchId,
+        originalBranchHeadId: session.headPatchIdSnapshot
+      }),
+      resolutions: new Map(JSON.parse(session.resolutions))
     };
 
-    // Replay from genesis to reconstruct hot state (no commit)
-    await this.runSimulation(context, false);
+    // 3) Replay to reconstruct hot state (no commit).
+    await this.runSimulation(context);
 
+    // 4) Cache hot state for subsequent continue calls.
     sessionCache.set(sessionId, context);
     return context;
   }
