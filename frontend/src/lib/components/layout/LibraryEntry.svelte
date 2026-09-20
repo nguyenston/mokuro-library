@@ -359,11 +359,13 @@
       </div>
     </div>
 
-    <div
-      class="flex items-center gap-4 pr-5 pl-5 border-l border-theme-primary/20 h-12 relative z-20 flex-shrink-0"
-    >
-      {@render listActions?.()}
-    </div>
+    {#if listActions}
+      <div
+        class="flex items-center gap-4 pr-5 pl-5 border-l border-theme-primary/20 h-12 relative z-20 flex-shrink-0"
+      >
+        {@render listActions()}
+      </div>
+    {/if}
 
     {#if !progress.hideBar}
       <div class="absolute bottom-0 left-[81.5px] right-0 -ml-[4px] h-1 bg-theme-surface/50 z-20">

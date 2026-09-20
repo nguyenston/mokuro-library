@@ -184,8 +184,8 @@ const contributionsRoutes: FastifyPluginAsync = async (fastify): Promise<void> =
       const submissions = await fastify.prisma.submission.findMany({
         where: whereClause,
         include: {
-          sourceSeries: { select: { sortTitle: true } },
-          targetSeries: { select: { sortTitle: true } },
+          sourceSeries: { select: { id: true, sortTitle: true, coverPath: true } },
+          targetSeries: { select: { id: true, sortTitle: true, coverPath: true } },
           user: { select: { username: true } },
           _count: { select: { volumes: true } }
         },

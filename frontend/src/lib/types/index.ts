@@ -233,11 +233,13 @@ export interface SubmissionDetail {
   sourceSeries: {
     id: string;
     sortTitle: string;
+    coverPath?: string | null;
   };
 
   targetSeries: {
     id: string;
     sortTitle: string;
+    coverPath?: string | null;
   } | null;
 
   volumes: SubmissionVolumeDetail[];
@@ -255,11 +257,15 @@ export interface SubmissionEntry {
   };
 
   sourceSeries: {
+    id: string;
     sortTitle: string;
+    coverPath: string | null;
   };
 
   targetSeries: {
+    id: string;
     sortTitle: string;
+    coverPath: string | null;
   } | null;
 
   submittedAt: string;

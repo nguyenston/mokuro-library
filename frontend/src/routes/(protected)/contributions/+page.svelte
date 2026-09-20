@@ -19,10 +19,10 @@
   import ContributionsHeader from '$lib/components/layout/contributions/ContributionsHeader.svelte';
   import ActivityTimeline from './components/ActivityTimeline.svelte';
   import LibraryEntry from '$lib/components/layout/LibraryEntry.svelte';
+  import LibraryActionBar from '$lib/components/layout/action-bar/LibraryActionBar.svelte';
   import LoadingState from './components/LoadingState.svelte';
   import UserQueue from '$lib/components/layout/contributions/UserQueue.svelte';
   import AdminQueue from '$lib/components/layout/contributions/AdminQueue.svelte';
-  import BulkRejectModal from './components/modals/BulkRejectModal.svelte';
   import UserReviewRequestList from '$lib/components/layout/contributions/UserReviewRequestList.svelte';
   import AdminReviewRequestList from '$lib/components/layout/contributions/AdminReviewRequestList.svelte';
   import SubmissionReader from '$lib/components/readers/SubmissionReader.svelte';
@@ -37,13 +37,11 @@
   let rebaseQueue = $state<RebaseQueueEntry[]>([]);
   let showActivityTimeline = $state(false);
   let activeTab = $state<'rebase' | 'submissions' | 'reviews'>('rebase');
-  let showRejectModal = $state(false);
-  let rejectIds = $state<string[]>([]);
-  let adminQueue: { reload: () => void } | null = $state(null);
   let showReader = $state(false);
   let previewVolumeId = $state<string | null>(null);
   let wasRebaseOpen = $state(false);
   let rebaseSelection = new SelectionState<RebaseQueueEntry>();
+  let rebaseSelectionCount = $derived(rebaseSelection.selection.size);
 
   // Admin check
   let isAdmin = $derived($authUser?.id === 'admin' || $authUser?.role === 'admin');
@@ -78,7 +76,6 @@
   const handleBatchRebase = () => {
     if (rebaseSelection.selection.size === 0) return;
     // Only batch the currently selected queue entries.
-    console.log(rebaseSelection.selection);
     const targets = Array.from(rebaseSelection.selection.values()).map((task) => ({
       volumeId: task.id,
       volumeTitle: task.title,
@@ -281,16 +278,27 @@
         </div>
       {/if}
     </section>
+    <LibraryActionBar
+      onSelectAll={() => rebaseSelection.selectAll(rebaseQueue)}
+      selectionState={rebaseSelection}
+    >
+      {#snippet children(selection)}
+        <div class="flex items-center gap-1">
+          <button
+            class="p-2.5 rounded-xl hover:bg-accent/10 text-theme-secondary hover:text-accent transition-colors disabled:opacity-50"
+            onclick={handleBatchRebase}
+            disabled={rebaseSelectionCount === 0}
+            title="Rebase selected"
+          >
+            <GitMerge class="w-5 h-5" />
+          </button>
+        </div>
+      {/snippet}
+    </LibraryActionBar>
   {:else if activeTab === 'submissions'}
     <div transition:fade={{ duration: 200 }}>
       {#if isAdmin}
-        <AdminQueue
-          bind:this={adminQueue}
-          onOpenBulkReject={(selectedIds) => {
-            rejectIds = selectedIds;
-            showRejectModal = true;
-          }}
-        />
+        <AdminQueue />
       {:else}
         <UserQueue />
       {/if}
@@ -312,14 +320,6 @@
         <UserReviewRequestList />
       {/if}
     </div>
-  {/if}
-
-  {#if showRejectModal}
-    <BulkRejectModal
-      bind:isOpen={showRejectModal}
-      bind:submissionIds={rejectIds}
-      onComplete={() => adminQueue?.reload()}
-    />
   {/if}
 
   {#if showActivityTimeline}

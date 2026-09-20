@@ -1,116 +1,35 @@
 <script lang="ts">
   import type { SubmissionDetail } from '$lib/types';
   import { apiFetch } from '$lib/services/api';
-  import { resolve } from '$app/paths';
-  import { SvelteDate, SvelteSet } from 'svelte/reactivity';
+  import { SvelteDate } from 'svelte/reactivity';
+  import { SelectionState } from '$lib/states/selection/SelectionState.svelte';
   import { contributionsSummaryState } from '$lib/states/contributions/ContributionsSummaryState.svelte';
   import { toastStore } from '$lib/stores/toastStore.svelte.ts';
   import { onMount } from 'svelte';
-  import { ArrowRight, ClipboardList, FileText, LoaderCircle, TriangleAlert } from 'lucide-svelte';
-
-  let { onOpenBulkReject } = $props<{
-    onOpenBulkReject: (selectedIds: string[]) => void;
-  }>();
+  import { resolve } from '$app/paths';
+  import {
+    Check,
+    ClipboardList,
+    LoaderCircle,
+    TriangleAlert,
+    X
+  } from 'lucide-svelte';
+  import LibraryEntry from '$lib/components/layout/LibraryEntry.svelte';
+  import LibraryActionBar from '$lib/components/layout/action-bar/LibraryActionBar.svelte';
+  import AcceptSubmissionModal from '$lib/components/modals/submissions/AcceptSubmissionModal.svelte';
+  import RejectSubmissionModal from '$lib/components/modals/submissions/RejectSubmissionModal.svelte';
+  import BulkRejectModal from '$lib/components/modals/submissions/BulkRejectModal.svelte';
 
   let submissions = $state<SubmissionDetail[]>([]);
   let loading = $state(false);
   let error = $state<string | null>(null);
-  let selectedIds = $state(new SvelteSet<string>());
-
-  // Load pending submissions (admin view)
-  async function loadSubmissions() {
-    loading = true;
-    error = null;
-    try {
-      const data = (await apiFetch('/api/contributions/submissions?status=pending', {
-        showErrorToast: false
-      })) as SubmissionDetail[];
-      submissions = data || [];
-    } catch (e) {
-      const msg = (e as Error).message || 'Failed to load submissions';
-      error = msg;
-      console.error('Failed to load submissions', e);
-    } finally {
-      loading = false;
-    }
-  }
-
-  // Toggle selection
-  function toggleSelection(submissionId: string) {
-    if (selectedIds.has(submissionId)) {
-      selectedIds.delete(submissionId);
-    } else {
-      selectedIds.add(submissionId);
-    }
-    selectedIds = selectedIds;
-  }
-
-  function selectAll() {
-    selectedIds = new SvelteSet(submissions.map((s) => s.id));
-  }
-
-  function deselectAll() {
-    selectedIds = new SvelteSet();
-  }
-
-  async function handleAccept(submissionId: string) {
-    if (!confirm('Accept this submission? Files will be moved to the admin library.')) return;
-
-    try {
-      await apiFetch(`/api/contributions/submissions/${submissionId}/accept`, {
-        method: 'POST'
-      });
-      await contributionsSummaryState.refresh({ force: true });
-      toastStore.addToast('Submission accepted successfully', 'success');
-      await loadSubmissions();
-      selectedIds.delete(submissionId);
-      selectedIds = selectedIds;
-    } catch (e) {
-      toastStore.addToast((e as Error).message || 'Failed to accept submission', 'error');
-    }
-  }
-
-  function handleReject(submissionId: string) {
-    onOpenBulkReject([submissionId]);
-  }
-
-  async function handleBulkAccept() {
-    if (selectedIds.size === 0) return;
-
-    if (
-      !confirm(
-        `Accept ${selectedIds.size} submission(s)? Files will be moved to the admin library.`
-      )
-    )
-      return;
-
-    try {
-      const result = await apiFetch<{ success: number; failed: number }>(
-        '/api/contributions/submissions/bulk-accept',
-        {
-          method: 'POST',
-          body: { submissionIds: Array.from(selectedIds) }
-        }
-      );
-      await contributionsSummaryState.refresh({ force: true });
-
-      if (result.failed > 0) {
-        toastStore.addToast(`Accepted ${result.success}, failed ${result.failed}`, 'warning');
-      } else {
-        toastStore.addToast(`Successfully accepted ${result.success} submission(s)`, 'success');
-      }
-
-      await loadSubmissions();
-      deselectAll();
-    } catch (e) {
-      toastStore.addToast((e as Error).message || 'Failed to accept submissions', 'error');
-    }
-  }
-
-  function handleBulkReject() {
-    if (selectedIds.size === 0) return;
-    onOpenBulkReject(Array.from(selectedIds));
-  }
+  let selectionState = new SelectionState<SubmissionDetail>();
+  let showAcceptModal = $state(false);
+  let showRejectModal = $state(false);
+  let showBulkRejectModal = $state(false);
+  let activeSubmissionId = $state<string | null>(null);
+  let bulkRejectIds = $state<string[]>([]);
+  let bulkAccepting = $state(false);
 
   function formatDate(dateString: string): string {
     const date = new SvelteDate(dateString);
@@ -123,9 +42,91 @@
     });
   }
 
-  export function reload() {
+  async function loadSubmissions() {
+    loading = true;
+    error = null;
+    try {
+      const data = (await apiFetch('/api/contributions/submissions', {
+        showErrorToast: false
+      })) as SubmissionDetail[];
+      submissions = data || [];
+      selectionState.exitSelectionMode();
+    } catch (e) {
+      const msg = (e as Error).message || 'Failed to load submissions';
+      error = msg;
+      console.error('Failed to load submissions', e);
+    } finally {
+      loading = false;
+    }
+  }
+
+  function openAcceptModal(submissionId: string) {
+    activeSubmissionId = submissionId;
+    showAcceptModal = true;
+  }
+
+  function openRejectModal(submissionId: string) {
+    activeSubmissionId = submissionId;
+    showRejectModal = true;
+  }
+
+  function closeModals() {
+    showAcceptModal = false;
+    showRejectModal = false;
+    activeSubmissionId = null;
+  }
+
+  async function handleAcceptSuccess() {
+    closeModals();
+    await contributionsSummaryState.refresh({ force: true });
+    await loadSubmissions();
+  }
+
+  async function handleRejectSuccess() {
+    closeModals();
+    await contributionsSummaryState.refresh({ force: true });
+    await loadSubmissions();
+  }
+
+  async function handleBulkAccept() {
+    if (selectionState.selection.size === 0 || bulkAccepting) return;
+    if (!confirm(`Accept ${selectionState.selection.size} submission(s)?`)) return;
+
+    bulkAccepting = true;
+    try {
+      const submissionIds = Array.from(selectionState.selection.keys());
+      const result = await apiFetch<{ success: number; failed: number }>(
+        '/api/contributions/submissions/accept',
+        {
+          method: 'POST',
+          body: { submissionIds },
+          showErrorToast: false
+        }
+      );
+      await contributionsSummaryState.refresh({ force: true });
+      if (result.failed > 0) {
+        toastStore.addToast(`Accepted ${result.success}, failed ${result.failed}`, 'warning');
+      } else {
+        toastStore.addToast(`Accepted ${result.success} submission(s)`, 'success');
+      }
+      selectionState.exitSelectionMode();
+      await loadSubmissions();
+    } catch (e) {
+      toastStore.addToast((e as Error).message || 'Failed to accept submissions', 'error');
+    } finally {
+      bulkAccepting = false;
+    }
+  }
+
+  function openBulkRejectModal() {
+    if (selectionState.selection.size === 0) return;
+    bulkRejectIds = Array.from(selectionState.selection.keys());
+    showBulkRejectModal = true;
+  }
+
+  function handleBulkRejectComplete() {
+    selectionState.exitSelectionMode();
     loadSubmissions();
-    deselectAll();
   }
 
   onMount(() => {
@@ -134,37 +135,6 @@
 </script>
 
 <div class="space-y-4">
-  {#if selectedIds.size > 0}
-    <div
-      class="bg-accent/10 border-2 border-accent rounded-lg p-4 flex items-center gap-3 animate-slideIn"
-    >
-      <div class="flex-1">
-        <div class="font-bold text-sm text-accent">{selectedIds.size} Selected</div>
-        <div class="text-xs text-theme-secondary">
-          Bulk operations will process all selected submissions
-        </div>
-      </div>
-      <button
-        onclick={deselectAll}
-        class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-theme-surface text-theme-primary hover:bg-theme-surface-hover border border-theme-border transition-all"
-      >
-        Deselect All
-      </button>
-      <button
-        onclick={handleBulkAccept}
-        class="px-4 py-2 rounded-lg text-sm font-semibold bg-status-success text-white hover:bg-status-success/90 transition-all"
-      >
-        ✅ Accept Selected
-      </button>
-      <button
-        onclick={handleBulkReject}
-        class="px-4 py-2 rounded-lg text-sm font-semibold bg-status-danger text-white hover:bg-status-danger/90 transition-all"
-      >
-        ❌ Reject Selected
-      </button>
-    </div>
-  {/if}
-
   {#if loading}
     <div
       class="bg-theme-surface/30 border border-theme-border rounded-lg p-12 text-center flex flex-col items-center"
@@ -199,80 +169,121 @@
   {:else}
     <div class="flex items-center gap-2 pb-2">
       <button
-        onclick={selectAll}
+        onclick={() => selectionState.selectAll(submissions)}
         class="text-xs text-accent hover:text-accent-hover font-semibold transition-colors"
       >
         Select All ({submissions.length})
       </button>
     </div>
 
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+    <div class="grid grid-cols-1 gap-4">
       {#each submissions as submission (submission.id)}
-        <div
-          class="bg-theme-surface/30 border-2 rounded-lg overflow-hidden transition-all {selectedIds.has(
-            submission.id
-          )
-            ? 'border-accent shadow-lg'
-            : 'border-theme-border hover:border-accent/30'}"
+        {@const seriesRecord = submission.targetSeries ?? submission.sourceSeries}
+        {@const seriesTitle = seriesRecord?.sortTitle ?? 'Unknown Series'}
+        {@const seriesId = seriesRecord?.id}
+        {@const coverUrl = seriesId && seriesRecord?.coverPath
+          ? `/api/files/series/${seriesId}/cover?w=240&q=60&format=avif`
+          : null}
+        <LibraryEntry
+          entry={{
+            id: submission.id,
+            title: seriesTitle,
+            folderName: seriesTitle,
+            coverUrl
+          }}
+          type="series"
+          viewMode="list"
+          href={resolve(`/contributions/submissions/${submission.id}`, {})}
+          progress={{ percent: 0, isRead: false, hideBar: true }}
+          mainStat={`${submission._count?.volumes || 0} volume${
+            submission._count?.volumes === 1 ? '' : 's'
+          }`}
+          subStat={`Submitted ${formatDate(submission.submittedAt)} - ${
+            submission.user?.username || 'Unknown User'
+          }`}
+          badge={{ text: 'Pending', status: 'warning' }}
+          isSelected={selectionState.selection.has(submission.id)}
+          isSelectionMode={selectionState.isSelectionMode}
+          onLongPress={() => selectionState.enterSelectionMode(submission)}
+          onSelect={(e) => {
+            if (!selectionState.isSelectionMode) return;
+            e.preventDefault();
+            e.stopPropagation();
+            selectionState.toggleSelection(submission);
+          }}
         >
-          <div class="p-4">
-            <div class="flex items-start gap-3 mb-3">
+          {#snippet listActions()}
+            <div class="w-10 h-10 rounded-lg overflow-hidden border border-theme-border bg-theme-surface/30 divide-y divide-theme-border/60">
               <button
-                onclick={() => toggleSelection(submission.id)}
-                class="flex-shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center mt-0.5 transition-all {selectedIds.has(
-                  submission.id
-                )
-                  ? 'bg-accent border-accent'
-                  : 'border-theme-border hover:border-accent'}"
+                onclick={() => openAcceptModal(submission.id)}
+                class="w-full h-1/2 flex items-center justify-center text-theme-secondary hover:text-status-success hover:bg-status-success/10 transition-colors"
+                aria-label="Accept submission"
+                title="Accept"
               >
-                {#if selectedIds.has(submission.id)}
-                  <span class="text-white text-xs font-bold">✓</span>
-                {/if}
+                <Check class="w-4 h-4" />
               </button>
-
-              <div class="flex-1 min-w-0">
-                <div class="flex items-center gap-2 mb-2">
-                  <div class="text-xs font-semibold text-theme-primary">
-                    {submission.user?.username || 'Unknown User'}
-                  </div>
-                  <div class="text-[10px] text-theme-tertiary">
-                    {formatDate(submission.submittedAt)}
-                  </div>
-                </div>
-                <div class="flex items-center gap-3 text-xs text-theme-tertiary">
-                  <span class="flex items-center gap-1">
-                    <FileText class="w-3 h-3" />
-                    {submission._count?.volumes || 0} volume{submission._count?.volumes === 1 ? '' : 's'}
-                  </span>
-                  <span>•</span>
-                  <span>Submitted {formatDate(submission.submittedAt)}</span>
-                </div>
-              </div>
+              <button
+                onclick={() => openRejectModal(submission.id)}
+                class="w-full h-1/2 flex items-center justify-center text-theme-secondary hover:text-status-danger hover:bg-status-danger/10 transition-colors"
+                aria-label="Reject submission"
+                title="Reject"
+              >
+                <X class="w-4 h-4" />
+              </button>
             </div>
-
-            <div class="flex items-center gap-2 mt-4">
-              <button
-                onclick={() => handleAccept(submission.id)}
-                class="px-3 py-2 rounded-lg text-xs font-semibold bg-status-success text-white hover:bg-status-success/90 transition-all"
-              >
-                Accept
-              </button>
-              <button
-                onclick={() => handleReject(submission.id)}
-                class="px-3 py-2 rounded-lg text-xs font-semibold bg-status-danger text-white hover:bg-status-danger/90 transition-all"
-              >
-                Reject
-              </button>
-              <a
-                href={resolve(`/contributions/submissions/${submission.id}`, {})}
-                class="ml-auto text-xs text-accent hover:text-accent-hover font-bold transition-colors flex items-center gap-1 group-hover:gap-2 duration-200"
-              >
-                View Details <ArrowRight class="w-3.5 h-3.5" />
-              </a>
-            </div>
-          </div>
-        </div>
+          {/snippet}
+        </LibraryEntry>
       {/each}
     </div>
   {/if}
 </div>
+
+<LibraryActionBar
+  onSelectAll={() => selectionState.selectAll(submissions)}
+  selectionState={selectionState}
+>
+  {#snippet children(selection)}
+    <div class="flex items-center gap-1">
+      <button
+        class="p-2.5 rounded-xl hover:bg-status-success/10 text-theme-secondary hover:text-status-success transition-colors disabled:opacity-50"
+        onclick={handleBulkAccept}
+        disabled={selection.selection.size === 0 || bulkAccepting}
+        title="Accept selected"
+      >
+        <Check class="w-5 h-5" />
+      </button>
+      <button
+        class="p-2.5 rounded-xl hover:bg-status-danger/10 text-theme-secondary hover:text-status-danger transition-colors disabled:opacity-50"
+        onclick={openBulkRejectModal}
+        disabled={selection.selection.size === 0}
+        title="Reject selected"
+      >
+        <X class="w-5 h-5" />
+      </button>
+    </div>
+  {/snippet}
+</LibraryActionBar>
+
+{#if showAcceptModal && activeSubmissionId}
+  <AcceptSubmissionModal
+    submissionId={activeSubmissionId}
+    on_close={closeModals}
+    on_success={handleAcceptSuccess}
+  />
+{/if}
+
+{#if showRejectModal && activeSubmissionId}
+  <RejectSubmissionModal
+    submissionId={activeSubmissionId}
+    on_close={closeModals}
+    on_success={handleRejectSuccess}
+  />
+{/if}
+
+{#if showBulkRejectModal}
+  <BulkRejectModal
+    bind:isOpen={showBulkRejectModal}
+    bind:submissionIds={bulkRejectIds}
+    onComplete={handleBulkRejectComplete}
+  />
+{/if}

@@ -62,7 +62,7 @@
     processing = true;
     try {
       const result = await apiFetch<{ success: number; failed: number }>(
-        '/api/contributions/submissions/bulk-reject',
+        '/api/contributions/submissions/reject',
         {
           method: 'POST',
           body: { submissionIds, reason }
