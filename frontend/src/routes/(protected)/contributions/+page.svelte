@@ -12,7 +12,8 @@
     RefreshCw,
     PartyPopper,
     GitMerge,
-    GitPullRequest
+    GitPullRequest,
+    RotateCcw
   } from 'lucide-svelte';
 
   // Components
@@ -27,6 +28,8 @@
   import AdminReviewRequestList from '$lib/components/layout/contributions/AdminReviewRequestList.svelte';
   import SubmissionReader from '$lib/components/readers/SubmissionReader.svelte';
   import ReviewCandidates from '$lib/components/layout/contributions/ReviewCandidates.svelte';
+  import { confirmResetOcr } from '$lib/services/ocrApi';
+  import { confirmation } from '$lib/stores/confirmationStore';
 
   import type { RebaseQueueEntry } from '$lib/types';
   import { uiState } from '$lib/states/ui/uiState.svelte';
@@ -255,7 +258,8 @@
               >
                 {#snippet listActions()}
                   <button
-                    class="px-4 py-2 bg-status-warning text-white text-sm font-bold rounded-lg shadow-lg shadow-status-warning/20 hover:bg-status-warning-hover transition-transform active:scale-95 flex items-center gap-2"
+                    class="p-2.5 rounded-xl hover:bg-status-warning/20 text-status-warning transition-colors disabled:opacity-50"
+                    title="Rebase edits" aria-label="Rebase edits"
                     onclick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
@@ -268,8 +272,19 @@
                       ]);
                     }}
                   >
-                    <GitMerge class="w-4 h-4" />
-                    Rebase
+                    <GitMerge size={20} aria-hidden="true" />
+                  </button>
+                  <button
+                    onclick={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      confirmResetOcr({ volumeId: task.id, volumeTitle: task.title,
+                        branchVersion: task.versionInfo.branchVersion, onRefresh: loadQueue });
+                    }}
+                    disabled={$confirmation.isOpen}
+                    class="p-2.5 rounded-xl hover:bg-red-500/20 text-status-danger transition-colors disabled:opacity-50"
+                    title="Reset private edits" aria-label="Reset private edits">
+                    <RotateCcw size={20} aria-hidden="true" />
                   </button>
                 {/snippet}
               </LibraryEntry>

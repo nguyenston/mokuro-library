@@ -7,11 +7,13 @@
   import { rebaseState } from '$lib/states/rebase/RebaseState.svelte';
   import type { SelectionState } from '$lib/states/selection/SelectionState.svelte';
   import SubmitReviewModal from '$lib/components/modals/contributions/SubmitReviewModal.svelte';
+  import { confirmResetOcr } from '$lib/services/ocrApi';
+  import { user as authUser } from '$lib/stores/authStore';
   import EditVolumeModal from '$lib/components/modals/EditVolumeModal.svelte';
   import { apiCache } from '$lib/utils/caching/apiCache';
 
   // Review workflow
-  import { GitPullRequest, GitMerge } from 'lucide-svelte';
+  import { GitPullRequest, GitMerge, RotateCcw } from 'lucide-svelte';
 
   let {
     selectionState,
@@ -37,7 +39,7 @@
 
   $effect(() => {
     if (typeof document === 'undefined') return;
-    if (showReviewModal || isEditModalOpen) {
+    if (showReviewModal || $confirmation.isOpen || isEditModalOpen) {
       document.body.dataset.actionBarModalOpen = 'true';
     } else {
       delete document.body.dataset.actionBarModalOpen;
@@ -63,6 +65,35 @@
       versionInfo.reviewHeadPatchId === null &&
       seriesOwnerId === 'admin'
   );
+
+  // Reset is a contributor action, independent of ahead/behind or pending-review status.
+  const canReset = $derived(
+    $authUser &&
+      $authUser.id !== 'admin' &&
+      $authUser.role !== 'admin' &&
+      singleSelection &&
+      versionInfo
+  );
+
+  /** Confirm reset for the selected volume without letting the click clear selection. */
+  function handleReset(event: MouseEvent) {
+    event.preventDefault();
+    event.stopPropagation();
+    if (!canReset) return;
+    // canReset guarantees both values exist; TypeScript cannot infer this through $derived.
+    confirmResetOcr({ volumeId: singleSelection!.id, volumeTitle: singleSelection!.title,
+      branchVersion: versionInfo!.branchVersion, onRefresh: handleResetRefresh });
+  }
+
+  /** Drop cached branch state and stale selection after reset or a version conflict. */
+  async function handleResetRefresh() {
+    apiCache.invalidateVolumeCache({ volumeId: singleSelection?.id, hard: true });
+    apiCache.invalidateSeriesCache({ seriesId: singleSelection?.seriesId, hard: true });
+    apiCache.invalidateLibraryCache(true);
+    apiCache.invalidateContributionsCache(true);
+    selectionState.exitSelectionMode();
+    await onRefresh();
+  }
 
   const submitReviewEntry: RebaseQueueEntry | null = $derived.by(() => {
     if (!singleSelection || !('versionInfo' in singleSelection)) return null;
@@ -277,6 +308,14 @@
         <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
         <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
       </svg>
+    </button>
+  {/if}
+
+  {#if canReset}
+    <button onclick={handleReset} disabled={isProcessing || $confirmation.isOpen}
+      class="p-2.5 rounded-xl hover:bg-red-500/20 text-status-danger transition-colors disabled:opacity-50"
+      title="Reset private edits" aria-label="Reset private edits">
+      <RotateCcw size={20} aria-hidden="true" />
     </button>
   {/if}
 

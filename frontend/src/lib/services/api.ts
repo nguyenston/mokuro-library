@@ -18,12 +18,15 @@ interface ApiFetchOptions<T> extends Omit<RequestInit, 'body' | 'cache'> {
   onStaleRefetch?: (data: T) => void;
 }
 
+/** API failure retaining the server's recovery code as well as its HTTP status. */
 export class HttpError extends Error {
   statusCode: number;
+  code?: string;
 
-  constructor(statusCode: number, message: string) {
+  constructor(statusCode: number, message: string, code?: string) {
     super(message);
     this.statusCode = statusCode;
+    this.code = code;
     this.name = 'HttpError';
 
     // Restoration of prototype chain is required when extending built-ins in TS/JS
@@ -124,14 +127,17 @@ export async function apiFetch<T = unknown>(
 
     // If not OK, try to parse error message from backend
     if (!response.ok) {
+      let message = `HTTP error! Status: ${response.status}`;
+      let code: string | undefined;
       try {
         const errorData = await response.json();
-        const errorMessage = errorData.message || 'An unknown API error occurred.';
-        throw new Error(errorMessage);
-      } catch (e) {
-        const errorMessage = (e as Error).message || `HTTP error! Status: ${response.status}`;
-        throw new HttpError(response.status, errorMessage);
+        if (typeof errorData?.message === 'string') message = errorData.message;
+        if (typeof errorData?.code === 'string') code = errorData.code;
+      } catch {
+        // Preserve the HTTP failure while explaining why no server message is available.
+        message = `HTTP error! Status: ${response.status}. The response could not be parsed as valid JSON.`;
       }
+      throw new HttpError(response.status, message, code);
     }
 
     // Handle successful but empty responses (e.g., 200 OK from /logout)

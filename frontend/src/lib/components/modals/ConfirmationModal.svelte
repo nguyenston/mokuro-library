@@ -4,16 +4,20 @@
 
   let isProcessing = $state(false);
 
+  /** Finish this confirmation without closing a follow-up opened by its callback. */
   async function handleConfirm() {
+    // Ignore additional confirm clicks while processing; leave the modal open.
+    if (isProcessing) return;
+    const onConfirm = $confirmation.onConfirm;
     isProcessing = true;
     try {
       // Execute the callback passed to the store
-      await $confirmation.onConfirm();
+      await onConfirm();
     } catch (error) {
       console.error('Confirmation action failed:', error);
     } finally {
       isProcessing = false;
-      confirmation.close();
+      if ($confirmation.onConfirm === onConfirm) confirmation.close();
     }
   }
 </script>
@@ -23,11 +27,13 @@
     class="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-0"
     role="dialog"
     aria-modal="true"
+    aria-label={$confirmation.title}
   >
     <button
       transition:fade={{ duration: 150 }}
       class="absolute inset-0 bg-black/60 backdrop-blur-sm cursor-default"
       onclick={confirmation.close}
+      disabled={isProcessing}
       aria-label="Close modal"
     ></button>
 
