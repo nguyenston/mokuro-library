@@ -10,6 +10,7 @@ const dbPath = path.join(dataDir, 'library.db');
 // 2. Configure Environment Variables
 process.env.MOKURO_DATA_DIR = executableDir;
 process.env.NODE_ENV = 'production';
+process.env.MOKURO_DISABLE_HTTPS_REDIRECT = 'true';
 process.env.DATABASE_URL = `file:${dbPath.replace(/\\/g, '/')}`;
 
 // Default port
@@ -30,6 +31,7 @@ function runMigrations() {
     fs.mkdirSync(dataDir, { recursive: true });
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const Database = require('better-sqlite3');
   const db = new Database(dbPath);
 
@@ -45,7 +47,7 @@ function runMigrations() {
 
     // B. Check history
     const applied = new Set(
-      db.prepare('SELECT name FROM _app_migrations').all().map((row: any) => row.name)
+      db.prepare('SELECT name FROM _app_migrations').all().map((row: { name: string }) => row.name)
     );
 
     // C. Read folder
@@ -98,6 +100,7 @@ console.log('🚀 Starting Server...');
 console.log('-------------------------------------------');
 
 // 4. Start the Server
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 require('./server');
 
 // 5. Launch Browser (Windows specific)

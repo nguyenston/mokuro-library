@@ -1,23 +1,16 @@
 import { FastifyPluginAsync } from 'fastify';
-import { FastifyInstance } from 'fastify/types/instance';
 import { Prisma } from '../generated/prisma/client'; // Import Prisma for types
-import { updateSeriesStatus } from '../utils/seriesStatus';
+import { scrapeFromProvider } from '../utils/metadata/scrape';
+import {
+  getVolumeProgress,
+  progressBodySchema,
+  resetVolumeProgress,
+  updateVolumeProgress,
+  type ProgressBody
+} from '../utils/metadata/progress';
 import * as path from 'path';
 import * as fs from 'fs';
 
-
-// Define a schema for the request body on PUT
-// This ensures we only accept valid, partial data for an update
-const progressBodySchema = {
-  type: 'object',
-  properties: {
-    page: { type: 'integer', minimum: 1 },
-    timeRead: { type: 'integer', minimum: 0 },
-    charsRead: { type: 'integer', minimum: 0 },
-    completed: { type: 'boolean' },
-  },
-  // No required fields, as this is a partial update
-};
 
 const seriesUpdateSchema = {
   type: 'object',
@@ -46,13 +39,6 @@ interface ProgressParams {
 }
 
 // Define an interface for our type-safe body
-interface ProgressBody {
-  page?: number;
-  timeRead?: number;
-  charsRead?: number;
-  completed?: boolean;
-}
-
 // For Volume or Series id
 interface IdParams {
   id: string;
@@ -70,241 +56,12 @@ interface SeriesUpdateBody {
   tempCoverPath?: string;
 }
 
-// For anime/manga database scrape response
-interface ScrapedManga {
-  englishName?: string;
-  japaneseName?: string;
-  romajiName?: string;
-  synonyms?: string[];
-  description?: string;
-  coverUrl?: string;
-}
-
-interface AniListResponse {
-  data: {
-    Media: {
-      title: {
-        english: string | null;
-        native: string | null;
-        romaji: string | null;
-      };
-      synonyms: string[];
-      description: string | null;
-      coverImage: {
-        extraLarge: string | null;
-        large: string | null;
-        medium: string | null;
-      };
-    } | null;
-  };
-}
-interface KitsuResponse {
-  data: Array<{
-    attributes: {
-      canonicalTitle: string;
-      titles: {
-        en?: string;
-        en_jp?: string;
-        ja_jp?: string;
-      };
-      abbreviatedTitles: string[];
-      synopsis: string | null;
-      posterImage: {
-        large: string | null;
-        medium: string | null;
-        small: string | null;
-      };
-    };
-  }>;
-}
-
-interface MALResponse {
-  data: Array<{
-    title: string; // This is the default (usually romaji)
-    title_english: string | null;
-    title_japanese: string | null;
-    title_synonyms: string[];
-    synopsis: string | null;
-    images: {
-      jpg: {
-        image_url: string;
-        large_image_url: string | null;
-      };
-    };
-  }>;
-}
-
-interface KitsuResponse {
-  data: Array<{
-    attributes: {
-      canonicalTitle: string;
-      titles: {
-        en?: string;
-        en_jp?: string;
-        ja_jp?: string;
-      };
-      abbreviatedTitles: string[];
-      synopsis: string | null;
-      posterImage: {
-        large: string | null;
-        medium: string | null;
-        small: string | null;
-      };
-    };
-  }>;
-}
-
 // Helper utility to remove undefined keys
 const compact = <T extends object>(obj: T): Partial<T> => {
   return Object.fromEntries(
     Object.entries(obj).filter(([_, v]) => v !== undefined)
   ) as Partial<T>;
 };
-
-/**
- * Helper function to fix common Mojibake encoding errors
- * Detects and fixes cases where UTF-8 was decoded as Latin-1
- */
-function fixMojibake(text: string | undefined | null): string | undefined {
-  if (!text) return text ?? undefined;
-
-  // Common Mojibake patterns (UTF-8 bytes misinterpreted as Latin-1)
-  const mojibakePatterns: [RegExp, string][] = [
-    [/Ã©/g, 'é'],  // e with acute
-    [/Ã¨/g, 'è'],  // e with grave
-    [/Ã«/g, 'ë'],  // e with diaeresis
-    [/Ã¢/g, 'â'],  // a with circumflex
-    [/Ã /g, 'à'],  // a with grave
-    [/Ã¤/g, 'ä'],  // a with diaeresis
-    [/Ã§/g, 'ç'],  // c with cedilla
-    [/Ã´/g, 'ô'],  // o with circumflex
-    [/Ã¹/g, 'ù'],  // u with grave
-    [/Ã»/g, 'û'],  // u with circumflex
-    [/Ã¼/g, 'ü'],  // u with diaeresis
-    [/Ã®/g, 'î'],  // i with circumflex
-    [/Ã¯/g, 'ï'],  // i with diaeresis
-    [/Å\u0093/g, 'œ'], // oe ligature
-    [/Ã\u0089/g, 'É'], // E with acute
-  ];
-
-  let fixed = text;
-  for (const [pattern, replacement] of mojibakePatterns) {
-    fixed = fixed.replace(pattern, replacement);
-  }
-
-  return fixed;
-}
-
-/*
- * Helper function to scrape from a specific provider
- */
-async function scrapeFromProvider(
-  fastify: FastifyInstance,
-  provider: 'anilist' | 'mal' | 'kitsu',
-  seriesName: string
-): Promise<ScrapedManga> {
-  // Use a controller to prevent hanging requests
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 5000);
-
-  try {
-    switch (provider) {
-      case 'anilist': {
-        const query = `
-          query ($search: String) {
-            Media (search: $search, type: MANGA) {
-              title { english native romaji }
-              synonyms
-              description
-              coverImage { extraLarge large medium }
-            }
-          }
-        `;
-        const resp = await fetch('https://graphql.anilist.co', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ query, variables: { search: seriesName } }),
-          signal: controller.signal
-        });
-
-        if (!resp.ok) {
-          fastify.log.error(`AniList API returned ${resp.status}: ${resp.statusText}`);
-          return {};
-        }
-
-        const result = await resp.json() as AniListResponse;
-        const media = result.data?.Media;
-        if (!media) return {};
-
-        return {
-          englishName: fixMojibake(media.title?.english),
-          romajiName: fixMojibake(media.title?.romaji),
-          japaneseName: fixMojibake(media.title?.native),
-          synonyms: (media.synonyms || []).map((s: string) => fixMojibake(s) || s).filter(Boolean),
-          description: fixMojibake(media.description),
-          coverUrl: media.coverImage?.extraLarge || media.coverImage?.large || media.coverImage?.medium || undefined
-        };
-      }
-
-      case 'mal': {
-        const resp = await fetch(
-          `https://api.jikan.moe/v4/manga?q=${encodeURIComponent(seriesName)}&limit=1`,
-          { signal: controller.signal }
-        );
-
-        if (!resp.ok) {
-          fastify.log.error(`MAL API returned ${resp.status}: ${resp.statusText}`);
-          return {};
-        }
-
-        const { data } = await resp.json() as MALResponse;
-        const manga = data?.[0];
-        if (!manga) return {};
-
-        return {
-          englishName: fixMojibake(manga.title_english),
-          romajiName: fixMojibake(manga.title),
-          japaneseName: fixMojibake(manga.title_japanese),
-          synonyms: (manga.title_synonyms || []).map((s: string) => fixMojibake(s) || s).filter(Boolean),
-          description: fixMojibake(manga.synopsis),
-          coverUrl: manga.images?.jpg?.large_image_url || manga.images?.jpg?.image_url || undefined
-        };
-      }
-
-      case 'kitsu': {
-        const resp = await fetch(
-          `https://kitsu.io/api/edge/manga?filter[text]=${encodeURIComponent(seriesName)}&page[limit]=1`,
-          { signal: controller.signal }
-        );
-
-        if (!resp.ok) {
-          fastify.log.error(`Kitsu API returned ${resp.status}: ${resp.statusText}`);
-          return {};
-        }
-
-        const { data } = await resp.json() as KitsuResponse;
-        const manga = data?.[0]?.attributes;
-        if (!manga) return {};
-
-        return {
-          englishName: fixMojibake(manga.titles?.en || manga.titles?.en_jp),
-          romajiName: fixMojibake(manga.canonicalTitle),
-          japaneseName: fixMojibake(manga.titles?.ja_jp),
-          synonyms: (manga.abbreviatedTitles || []).map((s: string) => fixMojibake(s) || s).filter(Boolean),
-          description: fixMojibake(manga.synopsis),
-          coverUrl: manga.posterImage?.large || manga.posterImage?.medium || manga.posterImage?.small || undefined
-        };
-      }
-    }
-  } catch (err) {
-    fastify.log.error(`Failed to scrape from ${provider}: ${err}`);
-    return {};
-  } finally {
-    clearTimeout(timeoutId);
-  }
-}
-
-
 const metadataRoutes: FastifyPluginAsync = async (
   fastify,
   opts
@@ -328,33 +85,7 @@ const metadataRoutes: FastifyPluginAsync = async (
       const userId = request.user.id; // we know request has user thanks to the auth hook
 
       try {
-        const progress = await fastify.prisma.userProgress.findUnique({
-          where: {
-            // Use the @@unique([userId, volumeId]) index
-            userId_volumeId: {
-              userId,
-              volumeId,
-            },
-          },
-          // Select ONLY the fields the client needs
-          select: {
-            page: true,
-            timeRead: true,
-            charsRead: true,
-            completed: true,
-          },
-        });
-
-        // If no progress found, return default values
-        if (!progress) {
-          return reply.status(200).send({
-            page: 1,      // From schema default
-            timeRead: 0,  // From schema default
-            charsRead: 0, // From schema default
-            completed: false, // From schema default
-          });
-        }
-
+        const progress = await getVolumeProgress(fastify, volumeId, userId);
         return reply.status(200).send(progress);
       } catch (error) {
         fastify.log.error(error);
@@ -373,88 +104,21 @@ const metadataRoutes: FastifyPluginAsync = async (
    */
   fastify.patch<{ Params: ProgressParams; Body: ProgressBody }>(
     '/volume/:id/progress',
-    { schema: { body: progressBodySchema } }, // Apply schema validation
+    { schema: { body: progressBodySchema } },
     async (request, reply) => {
       const { id: volumeId } = request.params;
       const userId = request.user.id;
-      const data = request.body; // 'data' is now type-safe and validated
+      const data = request.body;
 
       try {
-        const upsertedProgress = await fastify.prisma.userProgress.upsert({
-          where: {
-            // Use the @@unique([userId, volumeId]) index
-            userId_volumeId: {
-              userId,
-              volumeId,
-            },
-          },
-          // Data to use if UPDATING an existing record
-          update: {
-            ...data,
-          },
-          // Data to use if CREATING a new record
-          create: {
-            userId,
-            volumeId,
-            ...data,
-          },
-        });
-
-        // Recalculate Series Status (Read/Unread/InProgress)
-        // We need to find the seriesId first
-        const volume = await fastify.prisma.volume.findUnique({
-          where: { id: volumeId },
-          select: { seriesId: true }
-        });
-        if (volume && data.completed !== undefined) {
-          await updateSeriesStatus(fastify.prisma, volume.seriesId);
-        } else if (volume && data.page !== undefined) {
-          // current page update means series is touched
-          const series = await fastify.prisma.series.findUnique({
-            where: { id: volume.seriesId },
-            select: { ownerId: true, status: true }
-          });
-          if (series?.status === 0)
-            await fastify.prisma.series.update({
-              where: { id: volume.seriesId },
-              data: { status: 1 }
-            });
-        }
-
-        // Update the parent Series 'lastReadAt' timestamp
-        // This ensures the series bubbles to the top of "Recently Read" lists
-        await fastify.prisma.series.updateMany({
-          where: {
-            volumes: {
-              some: { id: volumeId } // Find series containing this volume
-            },
-            ownerId: userId // Ensure we only update series owned by user
-          },
-          data: {
-            lastReadAt: new Date()
-          }
-        });
-
+        const upsertedProgress = await updateVolumeProgress(fastify, volumeId, userId, data);
         return reply.status(200).send(upsertedProgress);
-      } catch (error) {
-        // Handle case where the volumeId is invalid
-        if (
-          error instanceof Prisma.PrismaClientKnownRequestError &&
-          error.code === 'P2003' // Foreign key constraint failed
-        ) {
-          return reply.status(404).send({
-            statusCode: 404,
-            error: 'Not Found',
-            message: 'The specified volume does not exist.',
-          });
+      } catch (error: unknown) {
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2003') {
+          return reply.status(404).send({ message: 'Volume not found.' });
         }
-
         fastify.log.error(error);
-        return reply.status(500).send({
-          statusCode: 500,
-          error: 'Internal Server Error',
-          message: 'Could not save progress.',
-        });
+        return reply.status(500).send({ message: 'Could not save progress.' });
       }
     }
   );
@@ -470,20 +134,9 @@ const metadataRoutes: FastifyPluginAsync = async (
       const userId = request.user.id;
 
       try {
-        await fastify.prisma.userProgress.delete({
-          where: { userId_volumeId: { userId, volumeId } },
-        });
-
-        // Recalculate Series Status (Read/Unread/InProgress)
-        // We need to find the seriesId first
-        const volume = await fastify.prisma.volume.findUnique({
-          where: { id: volumeId },
-          select: { seriesId: true }
-        });
-        if (volume) await updateSeriesStatus(fastify.prisma, volume.seriesId);
-        return reply.send({ message: 'Progress reset successfully.' });
-      } catch (error) {
-        // P2025 = Record not found (already empty)
+        const response = await resetVolumeProgress(fastify, volumeId, userId);
+        return reply.send(response);
+      } catch (error: unknown) {
         if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
           return reply.send({ message: 'Progress was already empty.' });
         }
@@ -492,6 +145,7 @@ const metadataRoutes: FastifyPluginAsync = async (
       }
     }
   );
+
 
   // ===========================================================================
   // METADATA ENDPOINTS (Renaming & Descriptions)
@@ -508,49 +162,90 @@ const metadataRoutes: FastifyPluginAsync = async (
     async (request, reply) => {
       const { id } = request.params;
       const userId = request.user.id;
-      const { tempCoverPath, ...updateData } = request.body;
+      const {
+        bookmarked,
+        organized,
+        tempCoverPath,
+        ...sharedData
+      } = request.body;
 
       try {
+        // 1. Fetch Series to check ownership & existing paths
         const series = await fastify.prisma.series.findFirst({
-          where: { id, ownerId: userId },
-          select: { folderName: true, coverPath: true },
+          where: {
+            id,
+            OR: [{ ownerId: userId }, { ownerId: 'admin' }]
+          },
+          select: { ownerId: true, folderName: true, coverPath: true, title: true },
         });
 
         if (!series) return reply.status(404).send({ message: 'Series not found.' });
 
-        let finalCoverPath = series.coverPath;
+        const isOwner = series.ownerId === userId;
 
-        // Handle file persistence if a temporary cover was provided
-        if (tempCoverPath) {
-          const tempPathAbsolute = path.join(fastify.projectRoot, tempCoverPath);
+        // 2. Handle SHARED Data Update (Only if Owner)
+        // If user is NOT owner but tries to update title/description, we ignore/warn
+        const hasSharedUpdates = Object.keys(compact(sharedData)).length > 0 || tempCoverPath;
 
-          // Verify the temp file actually exists and belongs to the user
-          if (tempCoverPath.includes(`uploads/temp/${userId}/`)) {
-            const ext = path.extname(tempCoverPath);
-            const seriesDirRelative = path.join('uploads', userId, series.folderName);
-            const seriesDirAbsolute = path.join(fastify.projectRoot, seriesDirRelative);
+        if (hasSharedUpdates) {
+          if (!isOwner) {
+            // We don't throw error, just log and ignore shared updates
+            // to allow "mixed" requests (bookmark + title) to partially succeed
+            fastify.log.warn(`User ${userId} attempted to edit shared series ${id}`);
+          } else {
+            let finalCoverPath = series.coverPath;
 
-            await fs.promises.mkdir(seriesDirAbsolute, { recursive: true });
+            // Handle Cover Move
+            if (tempCoverPath && tempCoverPath.includes(`uploads/temp/${userId}/`)) {
+              const tempPathAbsolute = path.join(fastify.projectRoot, tempCoverPath);
+              const ext = path.extname(tempCoverPath);
+              const seriesDirRelative = path.join('uploads', userId, series.folderName);
+              const seriesDirAbsolute = path.join(fastify.projectRoot, seriesDirRelative);
 
-            const fileName = `${series.folderName}${ext}`;
-            const finalPathAbsolute = path.join(seriesDirAbsolute, fileName);
-            finalCoverPath = path.join(seriesDirRelative, fileName).replace(/\\/g, '/');
+              await fs.promises.mkdir(seriesDirAbsolute, { recursive: true });
 
-            // Move file from temp to permanent location
-            await fs.promises.rename(tempPathAbsolute, finalPathAbsolute);
+              const fileName = `${series.folderName}${ext}`;
+              const finalPathAbsolute = path.join(seriesDirAbsolute, fileName);
+              finalCoverPath = path.join(seriesDirRelative, fileName).replace(/\\/g, '/');
+
+              await fs.promises.rename(tempPathAbsolute, finalPathAbsolute);
+            }
+
+            const dataToUpdate: Prisma.SeriesUpdateInput = compact({
+              ...sharedData,
+              sortTitle: sharedData.title !== undefined ? (sharedData.title ?? series.folderName) : undefined,
+              coverPath: finalCoverPath,
+            });
+
+            await fastify.prisma.series.update({
+              where: { id },
+              data: dataToUpdate,
+            });
           }
         }
 
-        const dataToUpdate: Prisma.SeriesUpdateInput = compact({
-          ...updateData,
-          sortTitle: updateData.title !== undefined ? (updateData.title ?? series.folderName) : undefined,
-          coverPath: finalCoverPath,
-        });
+        // 3. Handle PRIVATE Data Update (Settings)
+        if (bookmarked !== undefined || organized !== undefined) {
+          const settingsUpdate: Prisma.UserSeriesSettingsUpdateInput = {};
+          const settingsCreate: Prisma.UserSeriesSettingsUncheckedCreateInput = {
+            userId,
+            seriesId: id
+          };
+          if (bookmarked !== undefined) {
+            settingsUpdate.bookmarked = bookmarked;
+            settingsCreate.bookmarked = bookmarked;
+          }
+          if (organized !== undefined) {
+            settingsUpdate.organized = organized;
+            settingsCreate.organized = organized;
+          }
 
-        await fastify.prisma.series.update({
-          where: { id, ownerId: userId },
-          data: dataToUpdate,
-        });
+          await fastify.prisma.userSeriesSettings.upsert({
+            where: { userId_seriesId: { userId, seriesId: id } },
+            create: settingsCreate,
+            update: settingsUpdate
+          });
+        }
 
         return reply.send({ message: 'Series updated successfully.' });
       } catch (error) {
@@ -570,22 +265,23 @@ const metadataRoutes: FastifyPluginAsync = async (
     async (request, reply) => {
       const { id } = request.params;
       const { title } = request.body;
+      const userId = request.user.id;
 
       try {
-        // Verify ownership via series relation
+        // Only owner can rename volume titles
         const vol = await fastify.prisma.volume.findFirst({
-          where: { id, series: { ownerId: request.user.id } },
-          select: { folderName: true },
+          where: { id, series: { ownerId: userId } },
+          select: { folderName: true, series: { select: { id: true } } },
         });
 
-        if (!vol) return reply.status(404).send({ message: 'Volume not found.' });
+        if (!vol) return reply.status(403).send({ message: 'Access denied or volume not found.' });
 
         await fastify.prisma.volume.update({
           where: { id },
           data: { title, sortTitle: title ?? vol.folderName },
         });
 
-        return reply.send({ message: 'Volume title updated.' });
+        return reply.send({ message: 'Volume title updated.', seriesId: vol.series.id });
       } catch (error) {
         fastify.log.error(error);
         return reply.status(500).send({ message: 'Update failed.' });
@@ -603,25 +299,21 @@ const metadataRoutes: FastifyPluginAsync = async (
       const { ids, value } = request.body;
       const userId = request.user.id;
 
-      if (!ids || !Array.isArray(ids) || ids.length === 0) {
-        return reply.status(400).send({ message: 'No IDs provided' });
-      }
+      if (!ids || !Array.isArray(ids)) return reply.status(400).send({ message: 'No IDs provided' });
 
       try {
-        const result = await fastify.prisma.series.updateMany({
-          where: {
-            id: { in: ids },
-            ownerId: userId // Security: Only touch user's own series
-          },
-          data: {
-            organized: value
-          }
-        });
+        // Iterate and upsert for each series ID to ensure settings exist
+        await fastify.prisma.$transaction(
+          ids.map(id =>
+            fastify.prisma.userSeriesSettings.upsert({
+              where: { userId_seriesId: { userId, seriesId: id } },
+              create: { userId, seriesId: id, organized: value },
+              update: { organized: value }
+            })
+          )
+        );
 
-        return reply.send({
-          message: 'Batch update successful.',
-          count: result.count
-        });
+        return reply.send({ message: 'Batch update successful.', count: ids.length });
       } catch (error) {
         fastify.log.error(error);
         return reply.status(500).send({ message: 'Batch update failed.' });
@@ -652,7 +344,7 @@ const metadataRoutes: FastifyPluginAsync = async (
         }
 
         // 2. Scrape metadata from primary provider
-        let scrapedData = await scrapeFromProvider(fastify, provider, seriesName);
+        const scrapedData = await scrapeFromProvider(fastify, provider, seriesName);
 
         // 3. Multi-provider fallback: silently fill missing fields from other providers
         const needsFallback = !scrapedData.japaneseName || !scrapedData.romajiName || !scrapedData.description;
@@ -766,3 +458,6 @@ const metadataRoutes: FastifyPluginAsync = async (
 };
 
 export default metadataRoutes;
+
+
+

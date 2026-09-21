@@ -71,7 +71,7 @@ READ Mode ←→ BOX Mode ←→ TEXT Mode
 A toggleable helper mode (`isSmartResizeMode` in `ReaderState`) that can work alongside any editing mode:
 
 * **Purpose:** Automatically calculate optimal font size for text within bounding boxes
-* **Implementation:** Calls `smartResizeFont()` utility function from `src/lib/utils/ocrMath.ts`
+* **Implementation:** Calls `smartResizeFont()` utility function from `src/lib/utils/ocr/math.ts`
 * **Activation:** Independent toolbar button toggle
 * **Behavior:** When active, text resizing triggers automatic font size recalculation
 * **Scope:** Font size applies to entire block (per .mokuro format specification, `block.font_size`)
@@ -165,27 +165,10 @@ A toggleable helper mode (`isSmartResizeMode` in `ReaderState`) that can work al
 
 ## 5. Data Persistence
 
-**Save Strategy:**
-- All edits mutate local Svelte reactive state (`reader.mokuroData.pages`)
-- "Unsaved changes" indicator tracks dirty state (via `hasUnsavedChanges` flag)
-- Manual save button commits changes to server (`handleSaveOcr`)
-- Navigation guard (`beforeNavigate`) prevents accidental data loss
-
-**API Endpoint:**
-- `PUT /api/library/volume/:id/ocr`
-- Payload: Array of `MokuroPage[]` objects (not the full `.mokuro` structure)
-- Backend merges pages into existing file and writes back to disk
-
-**File Format:**
-- Maintains 100% compatibility with `.mokuro` file schema
-- Only the `pages` array is modified
-- Original file structure preserved (title, metadata, etc.)
-- Server-side write combines new pages with existing file structure
-
-**Conflict Prevention:**
-- Single-user editing model (no concurrent editing support)
-- Clear unsaved changes indicator in UI
-- Explicit save action required (no auto-save)
+**Persistence & Version Control:**
+- Edits flow through the OCR version-control system (per-user branches with server-side patches).
+- Changes are persisted automatically without a manual save button; the server manages snapshots and rebases.
+- For conflict handling and data flow, see [OCR Version Control](./ocr-version-control.md).
 
 ## 6. Context Menus
 

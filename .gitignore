@@ -7,14 +7,20 @@ yarn-error.log*
 
 # Docker container volume
 data/
+backups/
 
 # Env
+.env
 .env.local
 .env.*.local
+.env.secrets
+backend/.env
 
 # Database
 backend/prisma/library.db
 backend/prisma/library.db-journal
+backend/library.db
+backend/test.db
 
 # SvelteKit
 frontend/.svelte-kit/
@@ -25,3 +31,8 @@ frontend/build/
 .idea/
 .claude/
 frontend/src/routes/background.png
+
+# OS
+.DS_Store
+Thumbs.db
+*.swp

@@ -1,9 +1,40 @@
 {
-  "devDependencies": {
-    "czg": "^1.12.0"
-  },
+  "name": "mokuro-library",
+  "version": "1.0.0",
+  "private": true,
   "scripts": {
-    "commit": "czg"
+    "commit": "czg",
+    "prepare": "husky || true",
+    "typecheck": "npm run typecheck:backend && npm run typecheck:frontend",
+    "typecheck:backend": "cd backend && npx tsc --noEmit",
+    "typecheck:frontend": "cd frontend && npx svelte-check --threshold error",
+    "test": "npm run test:backend && npm run test:frontend",
+    "test:backend": "cd backend && npm test",
+    "test:frontend": "cd frontend && npm test",
+    "lint": "npm run lint:backend && npm run lint:frontend",
+    "lint:backend": "cd backend && npx eslint src --ext .ts",
+    "lint:frontend": "cd frontend && npx eslint src --ext .ts,.svelte",
+    "dev:docker": "node scripts/dev-docker.mjs",
+    "prod:docker": "node scripts/prod-docker.mjs"
+  },
+  "lint-staged": {
+    "backend/**/*.ts": [
+      "npx eslint --fix",
+      "npx prettier --write"
+    ],
+    "frontend/**/*.{ts,svelte}": [
+      "npx eslint --config frontend/eslint.config.js --fix",
+      "npx prettier --write"
+    ],
+    "**/*.{json,md,yml,yaml}": [
+      "npx prettier --write"
+    ]
+  },
+  "devDependencies": {
+    "czg": "^1.12.0",
+    "eslint-config-prettier": "^10.1.8",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.2.7",
+    "prettier-plugin-svelte": "^3.4.1"
   }
-
 }

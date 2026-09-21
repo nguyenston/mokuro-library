@@ -11,8 +11,42 @@ generator client {
 
 datasource db {
   provider = "sqlite"
-  url      = env("DATABASE_URL")
+  // URL is now in prisma.config.ts (required for Prisma 7)
 }
+
+// Stores user accounts and their settings
+model User {
+  id        String   @id @default(cuid())
+  username  String   @unique
+  password  String   // Will store a hash
+
+  settings  Json     // All reader settings
+
+  uploads          Series[]
+  progress         UserProgress[]
+  ocrBranches      OcrBranch[]
+  authoredPatches  Patch[]
+  seriesSettings   UserSeriesSettings[]
+  submissions      Submission[]
+  submissionComments SubmissionComment[]
+  refreshTokens    RefreshToken[]
+}
+
+// Stores refresh tokens for device binding
+model RefreshToken {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token         String   @unique
+  deviceHash    String   // Hash of device fingerprint
+  expiresAt     DateTime
+  createdAt     DateTime @default(now())
+  lastUsedAt    DateTime @default(now())
+
+  @@index([userId])
+  @@index([token])
+}
+
 
 // Stores metadata about a manga series
 model Series {
@@ -26,28 +60,25 @@ model Series {
   folderName    String    // always exists
   coverPath     String?   // Path to the cover image
 
-  // False = "Inbox" (Needs review/scraping)
-  // True = "Archive" (User has verified this entry)
-  organized     Boolean   @default(false)
-
-  bookmarked    Boolean   @default(false)
-
-  // 0 = Unread, 1 = In Progress, 2 = Read
-  status        Int       @default(0)
-
   // Always contains either 'title' or 'folderName'
   sortTitle     String
 
   createdAt     DateTime  @default(now()) // "Date Added"
   updatedAt     DateTime  @updatedAt @default(now())     // "Recently Updated" (Refreshed on new volume)
 
-  // Updated manually when a child volume's progress is updated.
-  // Default is Epoch (1970) so unread items appear at the bottom of "Recently Read".
-  lastReadAt    DateTime  @default(dbgenerated("'1970-01-01T00:00:00.000Z'"))
-
   volumes       Volume[]
   owner         User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   ownerId       String    // Which user uploaded this
+
+  totalPageCount   Int       @default(0)
+  totalVolumeCount Int       @default(0)
+
+  // Relation to User Settings
+  userSettings  UserSeriesSettings[]
+
+  // Relations to Submissions
+  submissionsAsTarget  Submission[]  @relation("SubmissionTarget")
+  submissionsAsSource  Submission[]  @relation("SubmissionSource")
 
   @@unique([folderName, ownerId]) // A user can't have two series with the same title
 }
@@ -76,58 +107,132 @@ model Volume {
 
   progress    UserProgress[]
 
-  // Points to the UUID of the latest patch currently applied in the "Live Draft".
-  // If null, it means Head == Disk Version (Clean state).
-  headPatchId String?
+  // Relations to Version Control
+  branches    OcrBranch[]
+  patches     Patch[]
 
-  // Relation to the history log
-  history   HistoryChunk[]
+  // Relation to Submission (tracks last/current submission attempt)
+  submission   Submission? @relation(fields: [submissionId], references: [id], onDelete: SetNull)
+  submissionId String?
 
   @@unique([seriesId, folderName]) // Prevent duplicate volumes within a series
 }
 
-model HistoryChunk {
-  // Unique ID of this Chunk (not the patch ID)
-  id              String   @id @default(uuid())
+model Patch {
+  id          String     @id @default(ulid())
 
-  // Relation to Volume
-  volumeId        String
-  volume          Volume   @relation(fields: [volumeId], references: [id], onDelete: Cascade)
+  // --- The Tree Structure ---
+  parentId    String?
+  // CASCADE: Deleting a parent automatically deletes all children (simplifies cleanup)
+  parent      Patch?   @relation("HistoryTree", fields: [parentId], references: [id], onDelete: Cascade)
+  children    Patch[]  @relation("HistoryTree")
 
-  // Linked List of CHUNKS (Coarse Grain)
-  // Used to traverse history backwards if we need to load older chunks.
-  previousChunkId String?
+  // Forward pointer for admin branch only (NULL for user patches)
+  // Enables O(1) forward traversal and "Redo" functionality
+  nextPatchId String?  @unique
+  nextPatch   Patch?   @relation("AdminChain", fields: [nextPatchId], references: [id], onDelete: SetNull)
+  prevPatch   Patch?   @relation("AdminChain")
 
-  // --- Metadata for Efficient Seeking ---
-  // The UUID of the FIRST patch inside this compressed blob
-  startPatchId    String
-  // The UUID of the LAST patch inside this compressed blob
-  endPatchId      String
+  // --- Metadata ---
+  volumeId    String
+  userId      String?  // Attribution (User or Admin)
+  createdAt   DateTime @default(now())
+  sequence    Int        // Distance from genesis (genesis = 0)
 
-  // --- The Payload ---
-  // GZIP Compressed JSON Array of PatchOperation[] objects.
-  // We use Bytes (Blob) to store binary data efficiently in SQLite.
-  payload         Bytes
+  // --- Payload ---
+  // JSON String adhering to PatchOperation interface
+  operation   String
 
-  createdAt       DateTime @default(now())
+  // --- Relations ---
+  volume      Volume        @relation(fields: [volumeId], references: [id], onDelete: Cascade)
+  user        User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
 
-  // --- Indexes ---
-  // 1. [volumeId, endPatchId]: 
-  // Critical for the "Time Machine" lookup: "Find the chunk that contains Patch X".
-  // logic: findFirst where volumeId=V and endPatchId >= TargetPatchId order by createdAt asc
-  @@index([volumeId, endPatchId])
+  // Pointers from Branch
+  asHeadOf    OcrBranch[]   @relation("BranchHead")
+  asRootOf    OcrBranch[]   @relation("BranchRoot")
+  asSnShOf    OcrBranch[]   @relation("BranchSnapshot")
+  asReviewHeadOf OcrBranch[] @relation("BranchReviewHead")
+
+  // Pointers from rebase session
+  rebaseSessionsAsTarget   RebaseSession[] @relation("RebaseTarget")
+  rebaseSessionsAsSnapshot RebaseSession[] @relation("RebaseSnapshot")
+
+  @@index([volumeId])
+  @@index([parentId])
+  @@index([volumeId, userId, createdAt])
 }
 
-// Stores user accounts and their settings
-model User {
-  id        String   @id @default(cuid())
-  username  String   @unique
-  password  String   // Will store a hash
+model OcrBranch {
+  id          String     @id @default(cuid())
 
-  settings  Json     // All reader settings
+  volumeId    String
+  userId      String   // Owner of this branch
 
-  uploads   Series[]
-  progress  UserProgress[]
+  // --- Pointers ---
+  // The current state of this branch (Latest Edit)
+  headPatchId String
+  headPatch   Patch    @relation("BranchHead", fields: [headPatchId], references: [id], onDelete: Cascade)
+
+  // The start of the private timeline.
+  // IF NULL: Branch is synonymous with its parent (Clean/Synced).
+  // IF SET: Branch has private edits starting at this patch (Dirty).
+  rootPatchId String?
+  rootPatch   Patch?   @relation("BranchRoot", fields: [rootPatchId], references: [id], onDelete: SetNull)
+
+  // --- Snapshot Cache ---
+  // The patch ID that the cached snapshot represents.
+  // IF SET: Snapshot file exists at cache/snapshots/{branchId}.json
+  // Stale check: snapshotPatchId !== headPatchId means snapshot is outdated.
+  snapshotPatchId String?
+  snapshotPatch   Patch?    @relation("BranchSnapshot", fields: [snapshotPatchId], references: [id], onDelete: SetNull)
+
+  // --- Concurrency ---
+  version     Int      @default(0)     // Optimistic counter for edits and review-state changes
+
+  // --- Rebase ---
+  rebaseSession RebaseSession?
+
+  // --- Review Request Lifecycle ---
+  // A non-null boundary is the pending review; later edits do not move it.
+  reviewHeadPatchId String?
+  reviewHeadPatch Patch? @relation("BranchReviewHead", fields: [reviewHeadPatchId], references: [id], onDelete: SetNull)
+  reviewRequestedAt DateTime?
+  submissionNote  String? // User's comment: "Fixed ch 5 typos"
+  rejectionReason String? // Admin's feedback: "Please fix capitalization"
+
+  // --- Metadata ---
+  updatedAt   DateTime @updatedAt
+
+  volume      Volume   @relation(fields: [volumeId], references: [id], onDelete: Cascade)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([volumeId, userId]) // Enforces 1 active branch per user
+  @@index([headPatchId])
+}
+
+model UserSeriesSettings {
+  userId    String
+  seriesId  String
+
+  // Private State
+  bookmarked Boolean  @default(false)
+  status     Int      @default(0) // 0=Unread, 1=Reading, 2=Completed
+
+  // False = Needs review/scraping
+  // True = User has verified this entry
+  organized     Boolean   @default(false)
+
+  // Sorting: "Recently Read"
+  lastReadAt DateTime @default(dbgenerated("'1970-01-01T00:00:00.000Z'"))
+
+  readPageCount        Int       @default(0)
+  completedVolumeCount Int       @default(0)
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  series    Series   @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+
+  @@id([userId, seriesId])
+  @@index([userId, status])      // Efficient "My Reading List" queries
 }
 
 // Tracks the progress for a specific user and a specific volume
@@ -149,4 +254,86 @@ model UserProgress {
   volumeId   String
 
   @@unique([userId, volumeId]) // A user can only have one progress entry per volume
+  @@index([userId, lastReadAt])
+  @@index([volumeId])
+}
+
+// Tracks volume submissions from users to the shared library
+model Submission {
+  id              String   @id @default(cuid())
+
+  userId          String
+  status          String   @default("pending")  // 'pending' | 'accepted' | 'rejected'
+
+  // --- Target ---
+  // IF NULL: Create a new shared series (metadata cloned from sourceSeriesId)
+  // IF SET: Add volumes to this existing admin-owned series
+  targetSeriesId  String?
+
+  // --- Source ---
+  // The user's private series to clone metadata from (only used when targetSeriesId is NULL)
+  sourceSeriesId  String
+
+  // --- Timestamps ---
+  submittedAt     DateTime @default(now())
+  reviewedAt      DateTime?
+
+  // --- Review ---
+  reviewNote      String?
+
+  // --- Relations ---
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  targetSeries    Series?  @relation("SubmissionTarget", fields: [targetSeriesId], references: [id], onDelete: SetNull)
+  sourceSeries    Series   @relation("SubmissionSource", fields: [sourceSeriesId], references: [id], onDelete: Cascade)
+
+  // Volumes in this submission (1-to-many: each volume tracks its last submission)
+  volumes         Volume[]
+
+  // Comments on this submission
+  comments        SubmissionComment[]
+
+  @@index([userId])
+  @@index([status])
+}
+
+model SubmissionComment {
+  id           String     @id @default(cuid())
+  content      String
+  createdAt    DateTime   @default(now())
+
+  submission   Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  submissionId String
+
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId       String
+
+  @@index([submissionId])
+  @@index([userId])
+}
+
+model RebaseSession {
+  id              String     @id @default(cuid())
+
+  // The branch being rebased
+  branchId        String     @unique
+  branch          OcrBranch  @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  // The target we are moving ONTO (Admin's Head at start of rebase)
+  targetHeadPatchId String
+  targetHeadPatch   Patch    @relation("RebaseTarget", fields: [targetHeadPatchId], references: [id], onDelete: Cascade)
+
+  // The state of the user's branch at start (Safety check & Reference)
+  headPatchIdSnapshot String
+  headPatchSnapshot   Patch  @relation("RebaseSnapshot", fields: [headPatchIdSnapshot], references: [id], onDelete: Cascade)
+
+  // Store the user's decisions as a JSON array
+  // Type: Array<{ patchId: string, resolution: 'keep_admin' | 'keep_mine' | 'resurrect' }>
+  resolutions     String     @default("[]")
+
+  // Stores the active conflict if the session is paused.
+  // This allows the frontend to "resume" without re-triggering simulation immediately.
+  currentConflict String?    // JSON String of RebaseConflict
+
+  updatedAt       DateTime   @updatedAt
+  expiresAt       DateTime
 }

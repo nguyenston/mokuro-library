@@ -53,7 +53,7 @@ export function panzoom(panzoomElement: HTMLElement, params: PanzoomActionParams
       if (pz) {
         pz.setOptions(options);
       }
-      // Note: We don't dynamically add/remove listeners here because layout mode 
+      // Note: We don't dynamically add/remove listeners here because layout mode
       // switches destroy/recreate the component (and this action), which is safer.
     },
     destroy() {

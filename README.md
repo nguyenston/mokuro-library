@@ -48,6 +48,9 @@ For more details, read [the specification](docs/architecture/specification.md).
 *Live OCR editing in action:*
 ![Live OCR editing demonstration](docs-wiki/public/using-smart-edit-mode.webp)
 
+## Demo
+Record a short demo video and link it here for quick onboarding.
+
 ## 💻 Technology Stack
 
 This project is a monorepo containing a decoupled frontend and backend.
@@ -88,9 +91,21 @@ The recommended way to run Mokuro Library is with Docker Compose, which handles 
     This starts the container in detached (`-d`) mode. The `docker-compose.yml` file defines the service. On the first run, the entrypoint script will automatically create and migrate your database.
     ```bash
     docker compose up -d
+    # Or use the wrapper:
+    npm run prod:docker
     ```
 
 Your library is now accessible at `http://localhost:3001`.
+
+### HTTP Without Reverse Proxy
+
+HTTPS redirects are disabled by default for LAN/NAS usage. If you are deploying publicly behind HTTPS, remove this env var to re-enable the HTTPS guard:
+
+```
+MOKURO_DISABLE_HTTPS_REDIRECT=true
+```
+
+`docker-compose.yml` includes this by default. Remove/comment it out when HTTPS is terminated upstream.
 
 Based on the `docker-compose.yml` configuration, the following persistent data folders will be created in your project directory:
 * `./data`: Stores your `library.db` database file.
@@ -248,3 +263,4 @@ see [the development doc](docs/architecture/development.md).
 ## Acknowledgements
 
 The UX/UI flow in this project is heavily inspired by the original **[ZXY101/mokuro-reader](https://github.com/ZXY101/mokuro-reader)**.
+

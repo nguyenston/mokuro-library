@@ -10,11 +10,11 @@ declare global {
   }
 
   namespace svelteHTML {
-    interface HTMLAttributes<T> {
+    interface HTMLAttributes {
       onlongpress?: (event: CustomEvent) => void;
     }
   }
   const __COMMIT_HASH__: string;
 }
 
-export { };
+export {};

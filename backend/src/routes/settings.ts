@@ -36,17 +36,17 @@ const settingsRoutes: FastifyPluginAsync = async (fastify, opts): Promise<void> 
   fastify.put('/', async (request, reply) => {
     try {
       // 1. Get the current settings from the authenticated user
-      // We cast to Record<string, any> and default to {}
-      const currentSettings = (request.user.settings || {}) as Record<string, any>;
+      // We cast to JsonObject and default to {}
+      const currentSettings = (request.user.settings || {}) as Prisma.JsonObject;
 
       // 2. Get the new settings patch from the request
-      const settingsPatch = (request.body || {}) as Record<string, any>;
+      const settingsPatch = (request.body || {}) as Prisma.JsonObject;
 
       // 3. Perform the server-side merge
       const newSettings = {
         ...currentSettings,
         ...settingsPatch,
-      };
+      } as Prisma.InputJsonValue;
 
       // 4. Update the database with the new, merged settings
       const updatedUser = await fastify.prisma.user.update({

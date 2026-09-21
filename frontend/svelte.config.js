@@ -11,6 +11,13 @@ const config = {
     adapter: adapter({
       fallback: 'index.html' // CRITICAL for SPA mode
     })
+  },
+  compilerOptions: {
+    warningFilter: (warning) => {
+      // Disable the specific state_referenced_locally warning
+      if (warning.code === 'state_referenced_locally') return false;
+      return true;
+    }
   }
 };
 

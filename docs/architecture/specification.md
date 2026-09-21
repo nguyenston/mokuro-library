@@ -71,7 +71,7 @@ The system will be a decoupled client-server application.
   * [x] A single, long-scrolling vertical layout (webtoon mode).
   * [x] Caching images to avoid unnecessary server calls.
   * [ ] Customization
-    * [ ] Custom keymapping
+    * [x] Custom keymapping
     * [ ] Custom ligatures
 * [ ] History/undo/redo for OCR edits
 * [ ] The ability to export the library in different format (e.g. pdf, cbz, ...)
@@ -86,6 +86,7 @@ The system will be a decoupled client-server application.
   * [ ] Implement the UI to display reading stats (time, characters read), which will be tracked in the database.
   * [ ] Import and manage content without OCR
   * [ ] Bundle mokuro into backend for OCR generation
+  * [x] Contribution summary dashboard (ahead/merged/pending counts; rebase queue)
 * [ ] AnkiConnect Integration: Focuses on sentence mining, as dictionary extensions like Yomi-tan already have word mining down.
 
 ## Technology Stack
@@ -103,8 +104,34 @@ The system will be a decoupled client-server application.
     * Creates a session cookie.
 * **POST /api/auth/logout**
     * Clears the session cookie.
+* **POST /api/auth/logout/all**
+    * Clears all sessions for the current user.
 * **GET /api/auth/me**
     * Gets the currently logged-in user's data (username, settings).
+* **POST /api/auth/refresh**
+    * Refreshes an access token (uses device fingerprint header + refresh cookie).
+
+### Health & Readiness
+
+* **GET /api/health**
+    * Returns server health checks.
+* **GET /api/ready**
+    * Returns readiness status.
+
+### Stats API (User-Scoped)
+
+* **GET /api/stats/summary**
+    * Returns aggregate reading stats.
+* **GET /api/stats/series**
+    * Returns per-series stats.
+* **GET /api/stats/series/:id**
+    * Returns stats for one series.
+* **GET /api/stats/history**
+    * Returns reading history data.
+* **GET /api/stats/completedVolumes**
+    * Returns completed volume stats.
+* **GET /api/stats/export**
+    * Exports stats data.
 
 ### Library API (User-Scoped)
 
@@ -129,13 +156,34 @@ The system will be a decoupled client-server application.
 * **GET /api/library/volume/:id**
     * Gets full data for one volume, including the parsed .mokuro JSON.
     * Fails (404/403) if the volume does not belong to the current user.
-* **PUT /api/library/volume/:id/ocr**
-    * Saves modified OCR data.
-    * Fails if the volume does not belong to the current user.
+* **POST /api/library/volume/:id/ocr**
+    * Syncs OCR snapshot with server state and returns updated data/version.
+* **POST /api/library/volume/:id/patch**
+    * Appends an OCR patch to the user's branch.
+* **POST /api/library/volume/:id/undo**
+    * Undo last OCR patch.
+* **POST /api/library/volume/:id/redo**
+    * Redo OCR patch.
+* **POST /api/library/volume/:id/reset**
+    * Reset OCR branch to the admin head.
+* **POST /api/library/volume/:id/rebase/start**
+    * Start a rebase session.
+* **POST /api/library/volume/:id/rebase/continue**
+    * Continue a rebase session with conflict resolutions.
+* **POST /api/library/volume/:id/rebase/abort**
+    * Abort a rebase session.
+* **POST /api/library/volume/:id/officialize**
+    * Admin: accept the frozen OCR prefix identified by `reviewHeadPatchId`, via fast-forward or implicit rebase. Uses server-captured admin optimistic version; no live user version input. Semantic rebase conflicts cancel the review with a retained explanation; stale admin state is retryable.
 * **DELETE /api/library/volume/:id**
     * Deletes a volume. If it is the last volume, the series is also deleted.
 * **DELETE /api/library/series/:id**
     * Deletes an entire series and all its volumes.
+* **POST /api/library/batch/delete**
+    * Batch delete volumes.
+* **GET /api/library/upload/status/:jobId**
+    * Returns upload processing status for a job.
+* **GET /api/library/rebase/sessions**
+    * Lists active rebase sessions.
 
 ### User Data API (User-Scoped)
 
@@ -160,6 +208,14 @@ The system will be a decoupled client-server application.
     * Renames the **Display Title** of a volume.
     * Accepts `{ title: "New Name" }` or `{ title: null }`.
     * Does **not** affect the filesystem directory name.
+* **GET /api/metadata/series/:id/settings**
+    * Returns per-user series settings (bookmarked/status/etc).
+* **PATCH /api/metadata/series/:id/settings**
+    * Updates per-user series settings.
+* **POST /api/metadata/series/scrape**
+    * Triggers metadata scraping for series.
+* **POST /api/metadata/batch/organize**
+    * Batch update organize/verify flags.
 
 ### File API (User-Scoped)
 
@@ -169,6 +225,8 @@ The system will be a decoupled client-server application.
 * **GET /api/files/series/:id/cover**
     * Securely serves the cover image for a series.
     * Fails if the series does not belong to the current user.
+* **GET /api/files/preview**
+    * Returns a preview asset (used for upload previews).
 
 ### Export API (User-Scoped)
 
@@ -184,106 +242,46 @@ The system will be a decoupled client-server application.
     * Downloads an entire series as a ZIP of pdfs.
 * **GET /api/export/pdf**
     * Downloads the entire user library as a ZIP of pdfs.
+* **GET /api/export/batch**
+    * Lists export batch jobs.
+* **POST /api/export/batch**
+    * Starts a batch export job.
+* **POST /api/export/batch/ticket**
+    * Creates or refreshes an export ticket.
 
-## Draft Database Schema (Prisma)
+### Contributions & Rebase API
 
-This schema will be located at backend/prisma/schema.prisma.
+* **GET /api/contributions/summary**
+    * Returns contribution metrics against admin-owned content (ahead counts, merged edits, pending review counts, last edit timestamp, pending submissions count).
+* **GET /api/contributions/rebase**
+    * Lists volumes needing rebase (admin vs user branches).
+* **GET /api/contributions/reviews**
+    * Lists pending OCR reviews (`reviewHeadPatchId != null`), including their frozen head and request timestamp. Later user edits are excluded from the reviewed range.
+* **GET /api/contributions/reviews/candidates**
+    * Lists eligible private OCR ranges without a pending review; contributor-facing state also exposes retained rejection/cancellation explanations.
+* **POST /api/contributions/reviews/set**
+    * Creates a frozen OCR review at the current user head, or cancels/rejects a request. Reset and explicit rebase cancel pending review after UI confirmation. See `docs/features/ocr-version-control.md` §4.6 for the lifecycle.
 
-```prisma
-generator client {
-  provider = "prisma-client"
+### Submissions API
 
-  // for docker: 'linux-musl-openssl-3.0.x' is required for Alpine Linux
-  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
-  output   = "../src/generated/prisma"
-}
+* **GET /api/contributions/submissions**
+    * Lists submissions (admin sees all, users see their own).
+* **POST /api/contributions/submissions**
+    * Creates a submission from user-owned series/volumes.
+* **GET /api/contributions/submissions/:id**
+    * Gets a submission with details.
+* **DELETE /api/contributions/submissions/:id**
+    * Deletes a submission.
+* **POST /api/contributions/submissions/:id/comments**
+    * Adds a comment to a submission thread.
+* **POST /api/contributions/submissions/:id/accept**
+    * Admin: accepts a submission.
+* **POST /api/contributions/submissions/:id/reject**
+    * Admin: rejects a submission (with reason).
+* **POST /api/contributions/submissions/accept**
+    * Admin: bulk accept submissions.
+* **POST /api/contributions/submissions/reject**
+    * Admin: bulk reject submissions.
+## Database Schema (Prisma)
 
-datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
-}
-
-// Stores metadata about a manga series
-model Series {
-  id          String    @id @default(cuid())
-  title       String?   // defaults to folderName
-  folderName  String
-  coverPath   String?   // Path to the cover image
-
-  // Always contains either 'title' or 'folderName'
-  sortTitle   String
-
-  createdAt   DateTime  @default(now()) // "Date Added"
-  updatedAt   DateTime  @updatedAt @default(now())     // "Recently Updated" (Refreshed on new volume)
-
-  // Updated manually when a child volume's progress is updated.
-  // Default is Epoch (1970) so unread items appear at the bottom of "Recently Read".
-  lastReadAt  DateTime  @default(dbgenerated("'1970-01-01T00:00:00.000Z'"))
-
-  volumes     Volume[]
-  owner       User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  ownerId     String    // Which user uploaded this
-
-  @@unique([folderName, ownerId]) // A user can't have two series with the same title
-}
-
-// Stores metadata about a single volume
-model Volume {
-  id          String   @id @default(cuid())
-  title       String?  // defaults to folderName
-  folderName  String
-  pageCount   Int
-
-  // Always contains either 'title' or 'folderName'
-  sortTitle   String
-
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt @default(now())
-
-  // File paths on the NAS
-  filePath    String   @unique // Path to the folder containing the images
-  mokuroPath  String   @unique // Path to the .mokuro file
-
-  coverImageName String?
-
-  series      Series   @relation(fields: [seriesId], references: [id], onDelete: Cascade)
-  seriesId    String
-
-  progress    UserProgress[]
-
-  @@unique([seriesId, folderName]) // Prevent duplicate volumes within a series
-}
-
-// Stores user accounts and their settings
-model User {
-  id        String   @id @default(cuid())
-  username  String   @unique
-  password  String   // Will store a hash
-
-  settings  Json     // All reader settings
-
-  uploads   Series[]
-  progress  UserProgress[]
-}
-
-// Tracks the progress for a specific user and a specific volume
-model UserProgress {
-  id         String    @id @default(cuid())
-  page       Int       @default(1)
-  timeRead   Int       @default(0) // in minutes
-  charsRead  Int       @default(0)
-  completed  Boolean   @default(false)
-
-  // --- RECENTLY READ ---
-  // 1. @updatedAt: Automatically updates to NOW() whenever you save progress.
-  // 2. @default("1970..."): Forces existing database rows to have an "ancient" date 
-  lastReadAt DateTime @updatedAt @default(dbgenerated("'1970-01-01T00:00:00.000Z'"))
-
-  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId     String
-  volume     Volume    @relation(fields: [volumeId], references: [id], onDelete: Cascade)
-  volumeId   String
-
-  @@unique([userId, volumeId]) // A user can only have one progress entry per volume
-}
-```
+See the source of truth at `backend/prisma/schema.prisma` (includes auth refresh tokens, submissions/reviews, OCR patch/rebase models, series settings, and progress).

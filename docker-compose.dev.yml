@@ -1,4 +1,3 @@
-version: '3.8'
 services:
   backend:
     container_name: mokuro-library-backend-dev
@@ -8,14 +7,15 @@ services:
     # devDependencies (like ts-node-dev).
     build:
       context: .
-      target: backend-builder
+      target: backend-dev
 
     # Set the working directory to where 'npm run dev' should execute
     working_dir: /app/backend
 
     # Override the Dockerfile's CMD to run the 'dev' script
     command: npm run dev
-
+    ports:
+      - "5555:5555"
     volumes:
       # Mount 'backend' folder to '/app/backend'
       # This lets ts-node-dev see code changes in real-time.
@@ -34,31 +34,37 @@ services:
 
     environment:
       - NODE_ENV=development
+      # Default to HTTP for LAN/NAS; remove this line if you terminate HTTPS upstream.
+      - MOKURO_DISABLE_HTTPS_REDIRECT=true
       # This ensures the DATABASE_URL points to your persistent volume.
       - DATABASE_URL=file:/app/data/library.db
       # This polling setting is often required for file watching
       # to work correctly inside a Docker container.
       - CHOKIDAR_USEPOLLING=true
+      # Security secrets - Load from .env.secrets file or generate automatically
+      - JWT_SECRET=${JWT_SECRET:-}
+      - COOKIE_SECRET=${COOKIE_SECRET:-}
 
   frontend:
-      container_name: mokuro-library-frontend-dev
-      # Targets Stage 1 from Dockerfile
-      build:
-        context: .
-        target: frontend-builder
-        args:
-          - COMMIT_HASH=${COMMIT_HASH:-dev}
-      working_dir: /app/frontend
-      # Runs 'vite dev --host'
-      # The '--host' flag is required to access the dev server from your browser
-      command: npm run dev -- --host
-      volumes:
-        - ./frontend:/app/frontend # Mounts your live frontend code
-        - /app/frontend/node_modules # Uses the container's node_modules
-      ports:
-        - "5173:5173" # Exposes the Vite dev server port
-      environment:
-        - CHOKIDAR_USEPOLLING=true # Fixes file watching in Docker
-        - VITE_PROXY_TARGET=http://backend:3001
-      depends_on:
-        - backend # Tells Docker to start the backend first
+    container_name: mokuro-library-frontend-dev
+    # Targets the dev stage from Dockerfile
+    build:
+      context: .
+      target: frontend-dev
+    working_dir: /app/frontend
+    # Runs 'vite dev --host'
+    # The '--host' flag is required to access the dev server from your browser
+    command: npm run dev -- --host
+    volumes:
+      - ./frontend:/app/frontend # Mounts your live frontend code
+      - /app/frontend/node_modules # Uses the container's node_modules
+      - /app/frontend/.vite # Persist Vite cache to avoid re-optimization
+    ports:
+      - "5173:5173" # Exposes the Vite dev server port
+    environment:
+      - CHOKIDAR_USEPOLLING=true # Fixes file watching in Docker
+      - VITE_CACHE_DIR=/app/frontend/.vite
+      - VITE_PROXY_TARGET=http://backend:3001
+      - VITE_COMMIT_HASH=${VITE_COMMIT_HASH:-}
+    depends_on:
+      - backend # Tells Docker to start the backend first

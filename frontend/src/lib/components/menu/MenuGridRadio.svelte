@@ -1,81 +1,83 @@
 <script lang="ts" generics="T">
-	import { type Snippet } from 'svelte';
-	import SettingTooltip from './SettingTooltip.svelte';
-	import MenuGrid from './MenuGrid.svelte';
+  import { type Snippet } from 'svelte';
+  import SettingTooltip from './SettingTooltip.svelte';
+  import MenuGrid from './MenuGrid.svelte';
 
-	type Option<T> = {
-		value: T;
-		label: string;
-		icon?: Snippet;
-		[key: string]: any;
-	};
+  type Option<T> = {
+    value: T;
+    label: string;
+    icon?: Snippet;
+    shortcut?: string;
+    [key: string]: unknown;
+  };
 
-	let {
-		title,
-		tooltip,
-		value = $bindable(),
-		options,
-		layout,
-		itemClass = 'flex flex-col items-center justify-center gap-3 p-3.5',
-		children
-	} = $props<{
-		title?: string;
-		tooltip?: string;
-		value: T;
-		options: Option<T>[];
-		layout?: number[];
-		itemClass?: string;
-		children?: Snippet<[Option<T>, boolean]>;
-	}>();
+  let {
+    title,
+    tooltip,
+    value = $bindable(),
+    options,
+    layout,
+    itemClass = 'flex flex-col items-center justify-center gap-3 p-3.5',
+    children
+  } = $props<{
+    title?: string;
+    tooltip?: string;
+    value: T;
+    options: Option<T>[];
+    layout?: number[];
+    itemClass?: string;
+    children?: Snippet<[Option<T>, boolean]>;
+  }>();
 
-	const selectedLabel = $derived(options.find((o: Option<T>) => o.value === value)?.label ?? '');
+  const selectedLabel = $derived(options.find((o: Option<T>) => o.value === value)?.label ?? '');
 </script>
 
 <div
-	class="rounded-2xl backdrop-blur-2xl p-6 border border-theme-primary/10 shadow-theme-secondary/20 shadow-lg space-y-3"
+  class="rounded-2xl backdrop-blur-2xl p-6 border border-theme-primary/10 shadow-theme-secondary/20 shadow-lg space-y-3"
 >
-	{#if title}
-		<div class="mb-1 flex items-center justify-between">
-			<div class="flex items-center">
-				<p class="text-[10px] font-bold text-theme-secondary uppercase tracking-[0.2em]">
-					{title}
-				</p>
-				{#if tooltip}
-					<SettingTooltip content={tooltip} />
-				{/if}
-			</div>
-			<span class="text-xs font-bold text-accent uppercase tracking-wider">
-				{selectedLabel}
-			</span>
-		</div>
-	{/if}
+  {#if title}
+    <div class="mb-1 flex items-center justify-between">
+      <div class="flex items-center">
+        <p class="text-[10px] font-bold text-theme-secondary uppercase tracking-[0.2em]">
+          {title}
+        </p>
+        {#if tooltip}
+          <SettingTooltip content={tooltip} />
+        {/if}
+      </div>
+      <span class="text-xs font-bold text-accent uppercase tracking-wider">
+        {selectedLabel}
+      </span>
+    </div>
+  {/if}
 
-	<MenuGrid items={options} {layout} innerClass="gap-3" gap="gap-3">
-		{#snippet children(option: Option<T>)}
-			{@render renderItem(option)}
-		{/snippet}
-	</MenuGrid>
+  <MenuGrid items={options} {layout} innerClass="gap-3" gap="gap-3">
+    {#snippet children(option: Option<T>)}
+      {@render renderItem(option)}
+    {/snippet}
+  </MenuGrid>
 </div>
 
 {#snippet renderItem(option: Option<T>)}
-	{@const isSelected = value === option.value}
-	<button
-		onclick={() => (value = option.value)}
-		class="{itemClass} rounded-xl border-2 transition-all duration-200 {isSelected
-			? 'bg-accent-surface border-accent text-accent shadow-lg shadow-accent/50'
-			: 'bg-black/20 border-theme-primary/20 text-gray-500 hover:border-accent/40 hover:bg-black/30 hover:text-theme-tertiary'}"
-	>
-		{#if children}
-			{@render children(option, isSelected)}
-		{:else}
-			{#if option.icon}
-				{@render option.icon()}
-			{/if}
-			<span
-				class="{option.icon ? 'text-xs' : 'text-sm'} font-bold uppercase tracking-wider text-center"
-			>
-				{option.label}
-			</span>
-		{/if}
-	</button>
+  {@const isSelected = value === option.value}
+  <button
+    onclick={() => (value = option.value)}
+    title={option.shortcut ? `${option.label} (${option.shortcut})` : undefined}
+    class="{itemClass} rounded-xl border-2 transition-all duration-200 {isSelected
+      ? 'bg-accent-surface border-accent text-accent shadow-lg shadow-accent/50'
+      : 'bg-black/20 border-theme-primary/20 text-gray-500 hover:border-accent/40 hover:bg-black/30 hover:text-theme-tertiary'}"
+  >
+    {#if children}
+      {@render children(option, isSelected)}
+    {:else}
+      {#if option.icon}
+        {@render option.icon()}
+      {/if}
+      <span
+        class="{option.icon ? 'text-xs' : 'text-sm'} font-bold uppercase tracking-wider text-center"
+      >
+        {option.label}
+      </span>
+    {/if}
+  </button>
 {/snippet}

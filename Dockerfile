@@ -1,35 +1,40 @@
-# --- Stage 1: Build Frontend ---
-FROM node:22-alpine AS frontend-builder
-ARG COMMIT_HASH
-ENV VITE_COMMIT_HASH=$COMMIT_HASH
+# --- Stage 1: Frontend deps ---
+FROM node:22-alpine AS frontend-deps
 WORKDIR /app/frontend
-# Copy only package files first for better caching
 COPY frontend/package*.json ./
 RUN npm ci
-# Copy the rest of the frontend source
+
+# --- Stage 2: Build Frontend ---
+FROM frontend-deps AS frontend-builder
+ARG VITE_COMMIT_HASH
+ENV VITE_COMMIT_HASH=$VITE_COMMIT_HASH
 COPY frontend/ .
-# Build into /app/frontend/build
 RUN npm run build
 
-# --- Stage 2: Build Backend ---
-FROM node:22-alpine AS backend-builder
+# --- Stage 3: Frontend dev (deps only) ---
+FROM frontend-deps AS frontend-dev
+
+# --- Stage 4: Backend deps ---
+FROM node:22-alpine AS backend-deps
 WORKDIR /app/backend
 COPY backend/package*.json ./
 RUN npm ci
+
+# --- Stage 5: Build Backend ---
+FROM backend-deps AS backend-builder
 COPY backend/ .
-
-# Set the database URL just for this build stage
-# This tells Prisma to create the file at /app/backend/prisma/library.db
 ENV DATABASE_URL="file:/app/backend/prisma/library.db"
-
-# Creates a new, fresh library.db file
 RUN npx prisma db push
-# Generate Prisma client
 RUN npx prisma generate
-# Build backend TypeScript into /app/backend/dist
 RUN npm run build
 
-# --- Stage 3: Final Runtime Image ---
+# --- Stage 6: Backend dev ---
+FROM backend-deps AS backend-dev
+COPY backend/ .
+ENV DATABASE_URL="file:/app/backend/prisma/library.db"
+RUN npx prisma generate
+
+# --- Stage 7: Final Runtime Image ---
 FROM node:22-alpine
 WORKDIR /app
 

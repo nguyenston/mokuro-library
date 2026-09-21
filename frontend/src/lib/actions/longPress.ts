@@ -1,4 +1,7 @@
-export function longpress(node: HTMLElement, options: { touchOnly?: boolean, duration?: number } = {}) {
+export function longpress(
+  node: HTMLElement,
+  options: { touchOnly?: boolean; duration?: number } = {}
+) {
   let timer: ReturnType<typeof setTimeout>;
 
   const handleDown = (e: PointerEvent) => {

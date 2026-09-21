@@ -82,33 +82,33 @@ class ThemeStore {
       id: 'catppuccin',
       name: 'Catppuccin',
       previewColors: {
-        dark: ['#1e1e2e', '#181825', '#313244', '#587dbd', '#242f4a'],
+        dark: ['#1e1e2e', '#181825', '#313244', '#89b4fa', '#242f4a'], // Updated preview dot
         light: ['#eff1f5', '#e6e9ef', '#ccd0da', '#1e66f5', '#bcc0cc']
       },
       colors: {
         dark: {
-          'main-background': '#1e1e2e',    // Mocha Base
-          'card-background': '#181825',    // Mocha Mantle
-          'card-highlight': '#313244',     // Mocha Surface0
-          'border-color': '#313244',       // Mocha Surface0
-          'primary-color': '#587dbd',      // Accessible Blue (4.58:1 Contrast)
-          'primary-hover': '#4c6fb8',      // Darkened Blue for interaction
-          'primary-surface': '#242f4a',    // Deep Blue Surface (Mocha Overlay0/1 mix)
-          'main-text': '#cdd6f4',          // Mocha Text
-          'muted-text': '#bac2de',         // Mocha Subtext1
-          'reading-color': '#587dbd'       // Accessible Blue
+          'main-background': '#1e1e2e', // Mocha Base
+          'card-background': '#181825', // Mocha Mantle
+          'card-highlight': '#313244', // Mocha Surface0
+          'border-color': '#313244', // Mocha Surface0
+          'primary-color': '#89b4fa', // Mocha Blue (Vibrant & Classic)
+          'primary-hover': '#b4befe', // Mocha Lavender (Lighter/Glowing hover)
+          'primary-surface': '#242f4a', // Deep Blue Surface
+          'main-text': '#cdd6f4', // Mocha Text
+          'muted-text': '#bac2de', // Mocha Subtext1
+          'reading-color': '#89b4fa' // Mocha Blue
         },
         light: {
-          'main-background': '#eff1f5',    // Latte Base
-          'card-background': '#ffffff',    // White
-          'card-highlight': '#ccd0da',     // Latte Surface0
-          'border-color': '#bcc0cc',       // Latte Surface1
-          'primary-color': '#1e66f5',      // Latte Blue
-          'primary-hover': '#179299',      // Latte Teal
-          'primary-surface': '#dce0e8',    // Latte Crust
-          'main-text': '#181825',          // Mantle (for high contrast text)
-          'muted-text': '#4c4f69',         // Latte Text (muted)
-          'reading-color': '#1e66f5'       // Latte Blue
+          'main-background': '#eff1f5', // Latte Base
+          'card-background': '#ffffff', // White
+          'card-highlight': '#ccd0da', // Latte Surface0
+          'border-color': '#bcc0cc', // Latte Surface1
+          'primary-color': '#1e66f5', // Latte Blue
+          'primary-hover': '#179299', // Latte Teal
+          'primary-surface': '#dce0e8', // Latte Crust
+          'main-text': '#181825', // Mantle
+          'muted-text': '#4c4f69', // Latte Text
+          'reading-color': '#1e66f5' // Latte Blue
         }
       }
     },
@@ -155,27 +155,27 @@ class ThemeStore {
       },
       colors: {
         dark: {
-          'main-background': '#282828',    // Dark0
-          'card-background': '#3c3836',    // Dark1
-          'card-highlight': '#504945',     // Dark2
-          'border-color': '#504945',       // Dark2
-          'primary-color': '#fe8019',      // Bright Orange
-          'primary-hover': '#d65d0e',      // Neutral Orange
-          'primary-surface': '#533926',    // Darkened Orange Surface
-          'main-text': '#ebdbb2',          // Light1
-          'muted-text': '#a89984',         // Gray
+          'main-background': '#282828', // Dark0
+          'card-background': '#3c3836', // Dark1
+          'card-highlight': '#504945', // Dark2
+          'border-color': '#504945', // Dark2
+          'primary-color': '#fe8019', // Bright Orange
+          'primary-hover': '#d65d0e', // Neutral Orange
+          'primary-surface': '#533926', // Darkened Orange Surface
+          'main-text': '#ebdbb2', // Light1
+          'muted-text': '#a89984', // Gray
           'reading-color': '#fe8019'
         },
         light: {
-          'main-background': '#f2efe1',    // Desaturated Cream (More "Paper" than "Lemon")
-          'card-background': '#e4dec5',    // Desaturated Beige
-          'card-highlight': '#d2cbb2',     // Desaturated Darker Beige
-          'border-color': '#b6af9a',       // Adjusted Border
-          'primary-color': '#af3a03',      // Dark Orange
-          'primary-hover': '#9d3202',      // Deep Rust
-          'primary-surface': '#ebe5cf',    // Desaturated Tinted Surface
-          'main-text': '#1c1917',          // Stone-900
-          'muted-text': '#57534e',         // Stone-600
+          'main-background': '#f2efe1', // Desaturated Cream (More "Paper" than "Lemon")
+          'card-background': '#e4dec5', // Desaturated Beige
+          'card-highlight': '#d2cbb2', // Desaturated Darker Beige
+          'border-color': '#b6af9a', // Adjusted Border
+          'primary-color': '#af3a03', // Dark Orange
+          'primary-hover': '#9d3202', // Deep Rust
+          'primary-surface': '#ebe5cf', // Desaturated Tinted Surface
+          'main-text': '#1c1917', // Stone-900
+          'muted-text': '#57534e', // Stone-600
           'reading-color': '#af3a03'
         }
       }
@@ -234,7 +234,7 @@ class ThemeStore {
             this.isCustomThemeEnabled = true;
             this.customColors = theme.colors;
           } else {
-            const foundTheme = this.themes.find(t => t.id === theme.id);
+            const foundTheme = this.themes.find((t) => t.id === theme.id);
             if (foundTheme) {
               this.currentTheme = foundTheme;
             }
@@ -243,7 +243,6 @@ class ThemeStore {
           console.error('Failed to load saved theme:', e);
         }
       }
-
     }
 
     // Apply initial theme
@@ -357,14 +356,17 @@ class ThemeStore {
       this.isCustomThemeEnabled = true;
       this.applyCustomTheme();
       if (browser) {
-        localStorage.setItem('mokuro_theme', JSON.stringify({
-          id: 'custom',
-          colors: this.customColors
-        }));
+        localStorage.setItem(
+          'mokuro_theme',
+          JSON.stringify({
+            id: 'custom',
+            colors: this.customColors
+          })
+        );
       }
     } else {
       this.isCustomThemeEnabled = false;
-      const theme = this.themes.find(t => t.id === themeId);
+      const theme = this.themes.find((t) => t.id === themeId);
       if (theme) {
         this.currentTheme = theme;
         this.applyTheme(theme);
@@ -383,10 +385,13 @@ class ThemeStore {
     if (this.isCustomThemeEnabled) {
       this.applyCustomTheme();
       if (browser) {
-        localStorage.setItem('mokuro_theme', JSON.stringify({
-          id: 'custom',
-          colors: this.customColors
-        }));
+        localStorage.setItem(
+          'mokuro_theme',
+          JSON.stringify({
+            id: 'custom',
+            colors: this.customColors
+          })
+        );
       }
     }
   }
@@ -428,4 +433,3 @@ class ThemeStore {
 }
 
 export const themeStore = new ThemeStore();
-

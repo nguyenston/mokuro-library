@@ -1,4 +1,5 @@
-export function lockScroll(node: HTMLElement) {
+export function lockScroll(_node: HTMLElement) {
+  void _node;
   // Save the original value to restore later
   const originalOverflow = document.body.style.overflow;
 
