@@ -15,6 +15,7 @@
 
   // --- Types ---
   interface Series {
+    canEdit: boolean;
     id: string;
     title: string | null;
     japaneseTitle?: string | null;
@@ -102,7 +103,9 @@
     return h > 0 ? `${h}h ${m}m` : `${m}m`;
   };
 
+  /** Scrape metadata only for a series the current user can edit. */
   async function handleQuickScrape() {
+    if (!series.canEdit) return;
     // 1. Open Modal Immediately
     isScrapeModalOpen = true;
     isScrapeLoading = true;
@@ -155,7 +158,8 @@
       SeriesActionsMenu,
       {
         onEdit: handleEditClick,
-        onScrape: handleQuickScrape
+        onScrape: handleQuickScrape,
+        canScrape: series.canEdit
       },
       {
         anchorElement: target,

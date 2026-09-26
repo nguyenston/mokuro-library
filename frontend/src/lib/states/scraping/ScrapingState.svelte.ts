@@ -1,5 +1,5 @@
 import { browser } from '$app/environment';
-import { apiFetch } from '$lib/services/api';
+import { apiFetch, HttpError } from '$lib/services/api';
 import { createId } from '@paralleldrive/cuid2';
 import { ReviewSession, type ScrapedPreview } from './ReviewSession.svelte.ts';
 import { SvelteSet } from 'svelte/reactivity';
@@ -101,7 +101,7 @@ class ScrapingState {
    * Creates "scraping" preview items instantly using the known current metadata.
    */
   initSession(seriesList: Series[]) {
-    this.session.reset(seriesList.length);
+    this.session.reset(seriesList.filter(series => series.canEdit === true).length);
 
     for (const s of seriesList) {
       // Create a preview item using the data we already have in memory
@@ -122,7 +122,8 @@ class ScrapingState {
         scraped: {},
         status: 'scraping'
       };
-      this.session.addIncoming(newItem);
+      if (s.canEdit === true) this.session.addIncoming(newItem);
+      else this.session.ineligible.push(newItem);
     }
   }
 
@@ -131,7 +132,7 @@ class ScrapingState {
    * Fetches metadata for scraping items one by one.
    */
   async startScrapingQueue(provider: 'anilist' | 'mal' | 'kitsu') {
-    if (this.isScraping) return;
+    if (this.isScraping || this.session.stats.total === 0) return;
     this.isScraping = true;
 
     // Create new AbortController for this scraping session
@@ -141,7 +142,7 @@ class ScrapingState {
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     // Access the raw array from the Deque to iterate
-    const queue = this.session.upcoming.items;
+    const queue = this.session.upcoming.toArray();
 
     for (const item of queue) {
       // Check if scraping was stopped
@@ -168,6 +169,10 @@ class ScrapingState {
           item.current = { ...item.current, ...current };
         }
       } catch (e) {
+        if (e instanceof HttpError && e.statusCode === 403) {
+          this.session.markIneligible(item);
+          continue;
+        }
         const err = e as unknown;
         // Don't log errors for aborted requests
         if ((err as { name?: string })?.name === 'AbortError') {
@@ -303,7 +308,8 @@ class ScrapingState {
       if ((err as { name?: string })?.name === 'AbortError') {
         throw error;
       }
-      throw new Error(`Failed to scrape: ${String(err)}`);
+      // Preserve HTTP status so the queue can handle changed permissions.
+      throw error;
     }
   }
 

@@ -335,12 +335,17 @@ const metadataRoutes: FastifyPluginAsync = async (
       try {
         // 1. Verify ownership
         const series = await fastify.prisma.series.findFirst({
-          where: { id: seriesId, ownerId: userId },
-          select: { id: true, title: true, japaneseTitle: true, romajiTitle: true, synonyms: true, description: true, coverPath: true, folderName: true }
+          where: { id: seriesId, OR: [{ ownerId: userId }, { ownerId: 'admin' }] },
+          select: { id: true, ownerId: true, title: true, japaneseTitle: true, romajiTitle: true, synonyms: true, description: true, coverPath: true, folderName: true }
         });
 
         if (!series) {
           return reply.status(404).send({ message: 'Series not found' });
+        }
+
+        // Shared series are visible, but only their owner may scrape metadata.
+        if (series.ownerId !== userId) {
+          return reply.status(403).send({ message: 'Only the owner can scrape this series metadata.' });
         }
 
         // 2. Scrape metadata from primary provider
@@ -458,6 +463,5 @@ const metadataRoutes: FastifyPluginAsync = async (
 };
 
 export default metadataRoutes;
-
 
 

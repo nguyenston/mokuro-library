@@ -30,6 +30,7 @@
   const selectedIds = $derived(Array.from(selectionMap.keys()));
   const selectedItems = $derived(Array.from(selectionMap.values()));
   let selectionCount = $derived(selectionMap.size);
+  const eligibleCount = $derived(selectedItems.filter(series => series.canEdit === true).length);
 
   $effect(() => {
     if (typeof document === 'undefined') return;
@@ -185,9 +186,9 @@
 
   <button
     onclick={startScrapeSession}
-    disabled={isProcessing || selectionCount > SCRAPE_LIMIT}
+    disabled={isProcessing || eligibleCount > SCRAPE_LIMIT}
     class="p-2.5 rounded-xl hover:bg-accent/10 text-theme-secondary hover:text-accent transition-colors disabled:opacity-50"
-    title={selectionCount > SCRAPE_LIMIT ? `Limit: ${SCRAPE_LIMIT} items` : 'Scrape Metadata'}
+    title={eligibleCount > SCRAPE_LIMIT ? `Limit: ${SCRAPE_LIMIT} eligible items` : 'Scrape Metadata'}
   >
     <svg
       xmlns="http://www.w3.org/2000/svg"

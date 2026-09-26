@@ -32,6 +32,8 @@ export class ReviewSession {
   upcoming = new Deque<ScrapedPreview>();
   deferred = $state<ScrapedPreview[]>([]);
   history = $state<ScrapedPreview[]>([]);
+  /** Read-only selections remain visible but never enter the processing queue. */
+  ineligible = $state<ScrapedPreview[]>([]);
 
   // --- Stats ---
   stats = $state({
@@ -61,11 +63,23 @@ export class ReviewSession {
     this.upcoming.clear();
     this.deferred = [];
     this.history = [];
+    this.ineligible = [];
     this.stats = { total: totalItemsToScrape, scraped: 0, success: 0, skipped: 0 };
   }
 
   addIncoming(item: ScrapedPreview) {
     this.upcoming.pushBack(item);
+  }
+
+  /** Remove a newly forbidden item from navigation while retaining its explanation. */
+  markIneligible(item: ScrapedPreview) {
+    const index = this.upcoming.items.findIndex(entry => entry.id === item.id);
+    if (index >= 0) this.upcoming.items.splice(index, 1);
+    this.deferred = this.deferred.filter(entry => entry.id !== item.id);
+    if (!this.ineligible.some(entry => entry.id === item.id)) {
+      this.ineligible.push(item);
+      this.stats.total--;
+    }
   }
 
   incrementScrapedCount() {

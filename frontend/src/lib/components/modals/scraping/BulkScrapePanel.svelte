@@ -79,6 +79,9 @@
           <span
             class="px-2 py-1 rounded bg-theme-main border border-theme-border text-theme-secondary"
           >
+            {session.stats.total} eligible / {session.ineligible.length} read-only
+          </span>
+          <span class="px-2 py-1 rounded bg-theme-main border border-theme-border text-theme-secondary">
             Remaining: {session.totalPending}
           </span>
           <span
@@ -153,7 +156,7 @@
     </div>
 
     <div class="flex-1 flex overflow-hidden">
-      <div class="w-64 border-r border-theme-border bg-theme-surface hidden md:flex flex-col">
+      <div class="w-32 md:w-64 shrink-0 border-r border-theme-border bg-theme-surface flex flex-col">
         <div
           class="p-2 text-[10px] font-bold text-theme-secondary uppercase sticky top-0 bg-theme-surface border-b border-theme-border/50"
         >
@@ -184,6 +187,13 @@
               </div>
             </div>
           {/each}
+          {#each session.ineligible as item (item.id)}
+            <button disabled title="Only the owner can update this series metadata."
+              class="w-full text-left px-3 py-2 rounded text-xs text-theme-secondary opacity-40 cursor-not-allowed">
+              <span class="block truncate">{item.seriesTitle}</span>
+              <span class="block">Shared - read-only</span>
+            </button>
+          {/each}
         </div>
 
         <div class="h-1/3 border-t border-theme-border bg-black/20 overflow-y-auto">
@@ -212,7 +222,9 @@
           ? 'p-4'
           : 'p-2'} flex items-center justify-center overflow-hidden"
       >
-        {#if session.current}
+        {#if session.stats.total === 0}
+          <p class="text-theme-secondary text-center">No eligible series to be scraped.</p>
+        {:else if session.current}
           <div class="flex flex-col w-full h-full max-w-3xl">
             <div class="flex justify-between mb-2">
               <button

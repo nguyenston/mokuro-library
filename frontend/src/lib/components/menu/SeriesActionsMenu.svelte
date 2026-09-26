@@ -2,9 +2,10 @@
   import { contextMenu } from '$lib/stores/contextMenuStore';
   import MenuWrapper from '$lib/components/menu/MenuWrapper.svelte';
 
-  let { onEdit, onScrape } = $props<{
+  let { onEdit, onScrape, canScrape = false } = $props<{
     onEdit: () => void;
     onScrape: () => void;
+    canScrape?: boolean;
   }>();
 
   function handleAction(action: () => void) {
@@ -36,8 +37,10 @@
       Edit Metadata
     </button>
     <button
-      onclick={() => handleAction(onScrape)}
-      class="w-full text-left px-4 py-2.5 text-sm text-theme-primary hover:bg-theme-surface-hover/70 hover:text-white rounded-xl transition-colors flex items-center gap-3"
+      onclick={() => canScrape && handleAction(onScrape)}
+      disabled={!canScrape}
+      title={canScrape ? 'Scrape metadata' : 'Only the owner can update this series metadata.'}
+      class="w-full text-left px-4 py-2.5 text-sm text-theme-primary enabled:hover:bg-theme-surface-hover/70 enabled:hover:text-white disabled:opacity-40 disabled:cursor-not-allowed rounded-xl transition-colors flex items-center gap-3"
     >
       <svg
         xmlns="http://www.w3.org/2000/svg"
