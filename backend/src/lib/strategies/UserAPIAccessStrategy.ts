@@ -20,6 +20,8 @@ import { MokuroData } from '../../types/mokuro';
 import { OcrBranch } from '../../generated/prisma/client';
 import { validateAndPlanSubmission } from '../../utils/submissionHelper';
 import { HttpError } from '../../types/error';
+import { RebaseEngine } from '../rebase/RebaseEngine';
+import { RebaseResult, RebaseStateChangedError } from '../../types/rebase';
 
 /**
  * Strategy for standard users.
@@ -436,6 +438,54 @@ export class UserAPIAccessStrategy implements IAPIAccessStrategy {
   }
 
   /**
+   * Start an explicit contributor rebase after enforcing request-level policy.
+   * The displayed branch version binds the request to the state the contributor
+   * confirmed. A pending review requires explicit consent and is cancelled before
+   * control passes to the review-agnostic rebase engine.
+   */
+  async startRebase(volumeId: string, version: number, forced = false): Promise<RebaseResult> {
+    // 1. Authorize the volume and ensure both branches exist.
+    const volume = await this.fastify.prisma.volume.findFirst({
+      where: { id: volumeId, series: { OR: [{ ownerId: this.userId }, { ownerId: 'admin' }] } },
+      select: { mokuroPath: true }
+    });
+    if (!volume) throw new HttpError(404, 'Volume not found or access denied');
+
+    const adminBranch = await ensureAdminBranch(this.fastify, volumeId, volume.mokuroPath);
+    const branch = await ensureUserBranch(this.fastify, volumeId, this.userId, adminBranch);
+
+    // 2. Reject stale UI state and require consent before cancelling a review.
+    if (branch.version !== version) throw new HttpError(409, 'Branch or review changed. Please refresh.');
+    if (branch.reviewHeadPatchId !== null && !forced) {
+      throw new HttpError(409,
+        'Rebase cancels the pending review. Confirm cancellation and resend with forced = true and the same branchVersion.',
+        'REVIEW_CANCELLATION_CONFIRMATION_REQUIRED');
+    }
+
+    // 3. Commit review cancellation first. A failed or aborted rebase does not restore it.
+    let expectedVersion = version;
+    if (branch.reviewHeadPatchId !== null) {
+      const cancelled = await this.fastify.prisma.ocrBranch.updateMany({
+        where: { id: branch.id, version },
+        data: { reviewHeadPatchId: null, reviewRequestedAt: null,
+          rejectionReason: 'Review cancelled because the contributor started an explicit rebase.',
+          version: { increment: 1 } }
+      });
+      if (cancelled.count !== 1) throw new HttpError(409, 'Branch or review changed. Please refresh.');
+      expectedVersion++;
+    }
+
+    // 4. The engine only enforces the resulting branch version; expose stale
+    // engine state as the same retryable HTTP conflict used by this strategy.
+    try {
+      return await new RebaseEngine(this.fastify).start(volumeId, this.userId, expectedVersion);
+    } catch (error) {
+      if (error instanceof RebaseStateChangedError) throw new HttpError(409, error.message);
+      throw error;
+    }
+  }
+
+  /**
    * Discards the user's private history and resets to the Admin Master HEAD.
    * Requires confirmation before cancelling a pending review. Confirmation does
    * not bypass version checks: the reset must apply to the state the caller saw.
@@ -712,10 +762,11 @@ export class UserAPIAccessStrategy implements IAPIAccessStrategy {
             userId: actorId
           }
         },
-        include: { rootPatch: true }
+        include: { rootPatch: true, rebaseSession: { select: { id: true } } }
       });
 
       if (!branch) throw new HttpError(404, 'Branch not found');
+      if (branch.rebaseSession) throw new HttpError(409, 'Cannot submit review during rebase. Finish or abort it first.');
       if (branch.reviewHeadPatchId) throw new HttpError(409, 'A review is already pending.');
       if (!branch.rootPatch) throw new HttpError(400, 'Nothing to submit (No edits made).');
 
@@ -743,7 +794,9 @@ export class UserAPIAccessStrategy implements IAPIAccessStrategy {
       const submitted = await prisma.ocrBranch.updateMany({
         where: {
           id: branch.id,
-          version: branch.version
+          version: branch.version,
+          // Recheck atomically: a session may have started since the branch read.
+          rebaseSession: { is: null }
         },
         data: {
           reviewHeadPatchId: branch.headPatchId,

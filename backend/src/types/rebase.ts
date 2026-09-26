@@ -1,5 +1,13 @@
 import { PatchOperation, CoarseValue, FineValue } from './history';
 
+/** The captured rebase state no longer matches persisted branch/review state. */
+export class RebaseStateChangedError extends Error {
+  constructor() {
+    super('Branch or review changed. Please refresh.');
+    this.name = 'RebaseStateChangedError';
+  }
+}
+
 // --- 0. Extended Patch (Database + Content) ---
 
 export interface ExtendedPatch {

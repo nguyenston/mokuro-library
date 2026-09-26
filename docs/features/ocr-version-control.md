@@ -355,9 +355,10 @@ implicit officialization uses the private root through `reviewHeadPatchId` and
 excludes every later patch. Simulation computes operations without mutating history.
 
 Starting an explicit user rebase while review is pending requires a warning and
-confirmation that the review will be cancelled. The backend clears the matching
-review boundary and request timestamp atomically with starting the rebase, before
-submitted history can be replaced. Aborting that rebase does not restore the review.
+confirmation that the review will be cancelled. The access strategy clears the
+matching review boundary and timestamp and increments the branch version before
+invoking the engine. A failed start or later abort does not restore the review.
+The engine guards rebase with that resulting version, independently of review policy.
 
 Rebase processes admin patches one at a time, updating the user patch list after each step.
 
@@ -522,7 +523,8 @@ volume submission, which transfers files and ownership (see `shared-library.md`)
 1. Creating a review request sets `reviewHeadPatchId = headPatchId`, records
    `reviewRequestedAt` and the optional submission note, and clears an old rejection
    reason. A branch has at most one pending review; creating another must not silently
-   move an existing boundary.
+   move an existing boundary. Review submission is rejected while a rebase session
+   exists for the branch; the contributor must finish or abort it first.
 2. The submitted range is `rootPatchId..reviewHeadPatchId`, inclusive. A request
    requires an active private range containing the submitted head.
 3. The user may continue editing the tail. The review queue and admin preview use
@@ -713,11 +715,25 @@ A patch `P` is eliminated if and only if rebase-style propagation of its inverse
 
 **POST** `/api/library/volume/:id/rebase/start`
 
-* **Body:** `{ }` (empty)
+* **Body:** `{ branchVersion: number, forced?: boolean }` (`forced` defaults to false).
 * **Response:** `{ status: 'complete', newHeadId }` or `{ status: 'paused', rebaseId, conflict }`
+* **Errors:** `400` (invalid body), `404` (missing or inaccessible volume),
+  `405` (admin cannot rebase), `409` (stale branch state or review cancellation needs confirmation).
 
-If review is pending, the client must obtain confirmation before sending this
-request. Starting rebase cancels that pending review as specified in §4.4.1.
+Single and bulk entry points show the shared confirmation dialog before any request,
+warning that pending reviews will be cancelled and abort will not restore them.
+Confirmed requests send `forced: true` with each target's captured `branchVersion`.
+Without `forced`, a pending review returns `409` with
+`REVIEW_CANCELLATION_CONFIRMATION_REQUIRED` without changing review/history state.
+The access strategy checks the displayed version and commits review cancellation
+before invoking the engine. Cancellation remains effective if rebase start fails.
+The engine checks the resulting branch version when starting, creates the session
+and rechecks the version in one transaction, then enforces it transactionally at
+commit. A version change invalidates
+the rebase even if HEAD is unchanged. A stale version is rejected even
+when forced. Existing sessions can be opened without starting again. Sessions from
+before version tracking must be aborted and restarted because their start version
+cannot be established safely.
 
 **POST** `/api/library/volume/:id/rebase/continue`
 

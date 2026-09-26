@@ -2,6 +2,10 @@ import { RebaseSession } from './RebaseSession.svelte';
 import { rebaseApi, type RebaseSessionData } from '$lib/services/rebaseApi';
 import { toastStore } from '$lib/stores/toastStore.svelte';
 import type { RebaseResolution } from '$lib/types';
+import { confirmation } from '$lib/stores/confirmationStore';
+
+/** Displayed branch state captured before confirming a single or bulk rebase. */
+type RebaseTarget = { volumeId: string; volumeTitle: string; seriesTitle: string; branchVersion: number };
 
 // --- Configuration ---
 export const MAX_ACTIVE_SESSIONS = 10;
@@ -33,11 +37,22 @@ class RebaseState {
   }
 
   /**
-   * Opens the Rebase Manager Modal.
-   * @param targetVolumeIds - (Optional) If provided, ensures sessions exist for these volumes
-   * and selects the first one.
+   * Confirm captured targets before starting single/bulk rebase. Opening the manager
+   * without targets only loads existing sessions. Confirmed targets retain their versions.
    */
-  async open(targets?: { volumeId: string; volumeTitle: string; seriesTitle: string }[]) {
+  async open(targets?: RebaseTarget[], confirmed = false) {
+    if (targets?.length && !confirmed) {
+      // Copy values so selection changes cannot change the confirmed targets or versions.
+      const captured = targets.map(target => ({ ...target }));
+      confirmation.open(
+        captured.length === 1 ? `Rebase ${captured[0].volumeTitle || 'volume'}?` : `Rebase ${captured.length} volumes?`,
+        'Rebase updates your private edits onto the admin version. Any pending reviews for these volumes will be cancelled when rebase starts. Aborting rebase will not restore them.',
+        () => this.open(captured, true),
+        'Rebase edits',
+        'Starting rebase...'
+      );
+      return;
+    }
     this.isModalOpen = true;
     this.isLoading = true;
 
@@ -87,7 +102,8 @@ class RebaseState {
     }
   }
 
-  private async ensureSessionsFor(targets: { volumeId: string; volumeTitle: string; seriesTitle: string }[]) {
+  /** Resume existing sessions or start confirmed targets up to the session limit. */
+  private async ensureSessionsFor(targets: RebaseTarget[]) {
     for (const target of targets) {
       const volId = target.volumeId;
       // Check if we already have a session for this volume
@@ -108,10 +124,11 @@ class RebaseState {
     }
   }
 
-  async startSession(target: { volumeId: string; volumeTitle: string; seriesTitle: string }) {
+  /** Start one captured target; bulk failures are reported per volume, not retried. */
+  private async startSession(target: RebaseTarget) {
     try {
       // Backend handles eligibility and may fast-forward/complete immediately.
-      const result = await rebaseApi.start(target.volumeId);
+      const result = await rebaseApi.start(target.volumeId, target.branchVersion, true);
       if (result.status === 'complete') {
         const completed = new RebaseSession({
           sessionId: `completed-${target.volumeId}-${Date.now()}`,

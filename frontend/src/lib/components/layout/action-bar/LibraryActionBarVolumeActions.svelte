@@ -209,11 +209,13 @@
   function handleBatchRebase() {
     if (isPrivateSeries) return;
     if (selectionCount === 0) return;
-    const targets = selectedItems.map((volume) => ({
+    const targets = selectedItems.flatMap((volume) => volume.versionInfo ? [{
       volumeId: volume.id,
       volumeTitle: volume.title ?? '',
-      seriesTitle: seriesTitle ?? ''
-    }));
+      seriesTitle: seriesTitle ?? '',
+      branchVersion: volume.versionInfo.branchVersion
+    }] : []);
+    if (!targets.length) return;
     rebaseState.open(targets);
   }
 

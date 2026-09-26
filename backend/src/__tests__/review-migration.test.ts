@@ -33,6 +33,16 @@ function legacyDatabase() {
 afterEach(() => db?.close());
 
 describe('frozen-review migration', () => {
+  it('marks pre-version-tracking rebase sessions stale without altering branches', () => {
+    const database = legacyDatabase();
+    const branches = database.prepare('SELECT * FROM OcrBranch').all();
+    database.exec(readFileSync(path.resolve('prisma/migrations/20260920000000_add_rebase_expected_version/migration.sql'), 'utf8'));
+    expect(database.prepare('SELECT * FROM RebaseSession').get()).toMatchObject({
+      id: 'session', expectedVersion: -1
+    });
+    expect(database.prepare('SELECT * FROM OcrBranch').all()).toEqual(branches);
+  });
+
   it('applies after the complete existing migration history on an empty database', () => {
     db = new DatabaseSync(':memory:');
     const directory = path.resolve('prisma/migrations');

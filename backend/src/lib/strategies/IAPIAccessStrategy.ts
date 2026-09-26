@@ -9,6 +9,7 @@ import {
 } from '../../types/history';
 import { MokuroData } from '../../types/mokuro';
 import { OcrBranch } from '../../generated/prisma/client';
+import { RebaseResult } from '../../types/rebase';
 
 export interface IAPIAccessStrategy {
 
@@ -33,6 +34,9 @@ export interface IAPIAccessStrategy {
    * Requires the observed branch version; forced confirms pending-review cancellation only.
    */
   reset(volumeId: string, version: number, forced?: boolean): Promise<void>;
+
+  /** User: validate version and review-cancellation consent before explicit rebase. Admin: disabled. */
+  startRebase(volumeId: string, version: number, forced?: boolean): Promise<RebaseResult>;
 
   /**
    * Manual trigger to regenerate the .mokuro cache file.

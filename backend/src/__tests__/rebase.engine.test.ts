@@ -212,7 +212,7 @@ describe('RebaseEngine', () => {
     );
 
     const engine = new RebaseEngine(ctx.app);
-    const result = await engine.start(base.volumeId, userId);
+    const result = await engine.start(base.volumeId, userId, userBranch.version);
     expect(result.status).toBe('complete');
 
     const updatedBranch = await ctx.prisma.ocrBranch.findUnique({
@@ -257,7 +257,7 @@ describe('RebaseEngine', () => {
     );
 
     const engine = new RebaseEngine(ctx.app);
-    const result = await engine.start(base.volumeId, userId);
+    const result = await engine.start(base.volumeId, userId, userBranch.version);
     expect(result.status).toBe('complete');
 
     const updatedBranch = await ctx.prisma.ocrBranch.findUnique({
@@ -318,7 +318,7 @@ describe('RebaseEngine', () => {
     adminHeadId = a2.headId;
 
     const engine = new RebaseEngine(ctx.app);
-    const result = await engine.start(base.volumeId, userId);
+    const result = await engine.start(base.volumeId, userId, userBranch.version);
     expect(result.status).toBe('complete');
 
     const updatedBranch = await ctx.prisma.ocrBranch.findUnique({
@@ -382,7 +382,7 @@ describe('RebaseEngine', () => {
     );
 
     const engine = new RebaseEngine(ctx.app);
-    const start = await engine.start(base.volumeId, userId);
+    const start = await engine.start(base.volumeId, userId, userBranch.version);
     expect(start.status).toBe('paused');
     if (start.status !== 'paused') {
       throw new Error('Expected rebase to pause on conflict');
@@ -447,7 +447,7 @@ describe('RebaseEngine', () => {
     );
 
     const engine = new RebaseEngine(ctx.app);
-    const start = await engine.start(base.volumeId, userId);
+    const start = await engine.start(base.volumeId, userId, userBranch.version);
     expect(start.status).toBe('paused');
     if (start.status !== 'paused') {
       throw new Error('Expected rebase to pause on conflict');
@@ -521,7 +521,7 @@ describe('RebaseEngine', () => {
     );
 
     const engine = new RebaseEngine(ctx.app);
-    const result = await engine.start(base.volumeId, userId);
+    const result = await engine.start(base.volumeId, userId, userBranch.version);
     expect(result.status).toBe('complete');
 
     const updatedBranch = await ctx.prisma.ocrBranch.findUnique({
@@ -582,7 +582,7 @@ describe('RebaseEngine', () => {
     );
 
     const engine = new RebaseEngine(ctx.app);
-    const start = await engine.start(base.volumeId, userId);
+    const start = await engine.start(base.volumeId, userId, userBranch.version);
     expect(start.status).toBe('paused');
     if (start.status !== 'paused') {
       throw new Error('Expected rebase to pause on conflict');
@@ -644,7 +644,7 @@ describe('RebaseEngine', () => {
     );
 
     const engine = new RebaseEngine(ctx.app);
-    const start = await engine.start(base.volumeId, userId);
+    const start = await engine.start(base.volumeId, userId, userBranch.version);
     expect(start.status).toBe('paused');
     if (start.status !== 'paused') {
       throw new Error('Expected rebase to pause on conflict');
@@ -713,7 +713,7 @@ describe('RebaseEngine', () => {
     );
 
     const engine = new RebaseEngine(ctx.app);
-    const start = await engine.start(base.volumeId, userId);
+    const start = await engine.start(base.volumeId, userId, userBranch.version);
     expect(start.status).toBe('paused');
     if (start.status !== 'paused') {
       throw new Error('Expected rebase to pause on conflict');
@@ -777,7 +777,7 @@ describe('RebaseEngine', () => {
     );
 
     const engine = new RebaseEngine(ctx.app);
-    const result = await engine.start(base.volumeId, userId);
+    const result = await engine.start(base.volumeId, userId, userBranch.version);
     expect(result.status).toBe('complete');
 
     const updatedBranch = await ctx.prisma.ocrBranch.findUnique({
@@ -829,7 +829,7 @@ describe('RebaseEngine', () => {
     );
 
     const engine = new RebaseEngine(ctx.app);
-    const result = await engine.start(base.volumeId, userId);
+    const result = await engine.start(base.volumeId, userId, userBranch.version);
     expect(result.status).toBe('complete');
 
     const updatedBranch = await ctx.prisma.ocrBranch.findUnique({
@@ -884,7 +884,7 @@ describe('RebaseEngine', () => {
     });
 
     const engine = new RebaseEngine(ctx.app);
-    const result = await engine.start(base.volumeId, userId);
+    const result = await engine.start(base.volumeId, userId, userBranch.version);
     expect(result.status).toBe('complete');
 
     const updatedBranch = await ctx.prisma.ocrBranch.findUnique({
@@ -935,7 +935,7 @@ describe('RebaseEngine', () => {
     );
 
     const engine = new RebaseEngine(ctx.app);
-    const start = await engine.start(base.volumeId, userId);
+    const start = await engine.start(base.volumeId, userId, userBranch.version);
     expect(start.status).toBe('paused');
     if (start.status !== 'paused') {
       throw new Error('Expected rebase to pause on conflict');
@@ -1006,7 +1006,7 @@ describe('RebaseEngine', () => {
     );
 
     const engine = new RebaseEngine(ctx.app);
-    const start = await engine.start(base.volumeId, userId);
+    const start = await engine.start(base.volumeId, userId, userBranch.version);
     expect(start.status).toBe('paused');
     if (start.status !== 'paused') {
       throw new Error('Expected rebase to pause on conflict');
@@ -1061,7 +1061,7 @@ describe('RebaseEngine', () => {
     );
 
     const engine = new RebaseEngine(ctx.app);
-    const start = await engine.start(base.volumeId, userId);
+    const start = await engine.start(base.volumeId, userId, userBranch.version);
     expect(start.status).toBe('paused');
     if (start.status !== 'paused') {
       throw new Error('Expected rebase to pause on conflict');
@@ -1118,7 +1118,7 @@ describe('RebaseEngine', () => {
     );
 
     const engine = new RebaseEngine(ctx.app);
-    const result = await engine.start(base.volumeId, userId);
+    const result = await engine.start(base.volumeId, userId, userBranch.version);
     expect(result.status).toBe('complete');
 
     const data = await getComputedMokuroState(ctx.app, userId, {
@@ -1169,7 +1169,7 @@ describe('RebaseEngine', () => {
     );
 
     const engine = new RebaseEngine(ctx.app);
-    const result = await engine.start(base.volumeId, userId);
+    const result = await engine.start(base.volumeId, userId, userBranch.version);
     expect(result.status).toBe('complete');
 
     const data = await getComputedMokuroState(ctx.app, userId, {
@@ -1221,7 +1221,7 @@ describe('RebaseEngine', () => {
     );
 
     const engine = new RebaseEngine(ctx.app);
-    const start = await engine.start(base.volumeId, userId);
+    const start = await engine.start(base.volumeId, userId, userBranch.version);
     expect(start.status).toBe('paused');
     if (start.status !== 'paused') {
       throw new Error('Expected rebase to pause on conflict');
@@ -1284,7 +1284,7 @@ describe('RebaseEngine', () => {
     );
 
     const engine = new RebaseEngine(ctx.app);
-    const start = await engine.start(base.volumeId, userId);
+    const start = await engine.start(base.volumeId, userId, userBranch.version);
     expect(start.status).toBe('paused');
     if (start.status !== 'paused') {
       throw new Error('Expected rebase to pause on conflict');
@@ -1340,7 +1340,7 @@ describe('RebaseEngine', () => {
     );
 
     const engine = new RebaseEngine(ctx.app);
-    const start = await engine.start(base.volumeId, userId);
+    const start = await engine.start(base.volumeId, userId, userBranch.version);
     expect(start.status).toBe('paused');
     if (start.status !== 'paused') {
       throw new Error('Expected rebase to pause on conflict');
@@ -1401,7 +1401,7 @@ describe('RebaseEngine', () => {
     );
 
     const engine = new RebaseEngine(ctx.app);
-    const result = await engine.start(base.volumeId, userId);
+    const result = await engine.start(base.volumeId, userId, userBranch.version);
     expect(result.status).toBe('complete');
 
     const updatedBranch = await ctx.prisma.ocrBranch.findUnique({
@@ -1462,7 +1462,7 @@ describe('RebaseEngine', () => {
     );
 
     const engine = new RebaseEngine(ctx.app);
-    const result = await engine.start(base.volumeId, userId);
+    const result = await engine.start(base.volumeId, userId, userBranch.version);
     expect(result.status).toBe('complete');
 
     const updatedBranch = await ctx.prisma.ocrBranch.findUnique({
@@ -1517,7 +1517,7 @@ describe('RebaseEngine', () => {
     );
 
     const engine = new RebaseEngine(ctx.app);
-    const result = await engine.start(base.volumeId, userId);
+    const result = await engine.start(base.volumeId, userId, userBranch.version);
     expect(result.status).toBe('complete');
 
     const updatedBranch = await ctx.prisma.ocrBranch.findUnique({
@@ -1573,7 +1573,7 @@ describe('RebaseEngine', () => {
     );
 
     const engine = new RebaseEngine(ctx.app);
-    const start = await engine.start(base.volumeId, userId);
+    const start = await engine.start(base.volumeId, userId, userBranch.version);
     expect(start.status).toBe('paused');
     if (start.status !== 'paused') {
       throw new Error('Expected rebase to pause on conflict');
@@ -1589,11 +1589,11 @@ describe('RebaseEngine', () => {
     );
     await ctx.prisma.ocrBranch.update({
       where: { id: userBranch.id },
-      data: { headPatchId: extraPatch.headId }
+      data: { headPatchId: extraPatch.headId, version: { increment: 1 } }
     });
 
     await expect(engine.continue(start.rebaseId, 'keep_admin')).rejects.toThrow(
-      'Branch was modified during rebase. Please retry.'
+      'Branch or review changed. Please refresh.'
     );
   });
 
@@ -1639,7 +1639,7 @@ describe('RebaseEngine', () => {
     });
 
     const engine = new RebaseEngine(ctx.app);
-    const result = await engine.start(base.volumeId, userId);
+    const result = await engine.start(base.volumeId, userId, userBranch.version);
     expect(result.status).toBe('complete');
 
     const updatedBranch = await ctx.prisma.ocrBranch.findUnique({
@@ -1695,7 +1695,7 @@ describe('RebaseEngine', () => {
     );
 
     const engine = new RebaseEngine(ctx.app);
-    const result = await engine.start(base.volumeId, userId);
+    const result = await engine.start(base.volumeId, userId, userBranch.version);
     expect(result.status).toBe('complete');
 
     const updatedBranch = await ctx.prisma.ocrBranch.findUnique({
@@ -1758,7 +1758,7 @@ describe('RebaseEngine', () => {
     );
 
     const engine = new RebaseEngine(ctx.app);
-    const result = await engine.start(base.volumeId, userId);
+    const result = await engine.start(base.volumeId, userId, userBranch.version);
     expect(result.status).toBe('complete');
 
     const updatedBranch = await ctx.prisma.ocrBranch.findUnique({
@@ -1821,7 +1821,7 @@ describe('RebaseEngine', () => {
     );
 
     const engine = new RebaseEngine(ctx.app);
-    const result = await engine.start(base.volumeId, userId);
+    const result = await engine.start(base.volumeId, userId, userBranch.version);
     expect(result.status).toBe('complete');
 
     const updatedBranch = await ctx.prisma.ocrBranch.findUnique({
@@ -1884,7 +1884,7 @@ describe('RebaseEngine', () => {
     );
 
     const engine = new RebaseEngine(ctx.app);
-    const result = await engine.start(base.volumeId, userId);
+    const result = await engine.start(base.volumeId, userId, userBranch.version);
     expect(result.status).toBe('complete');
 
     const updatedBranch = await ctx.prisma.ocrBranch.findUnique({
@@ -1956,7 +1956,7 @@ describe('RebaseEngine', () => {
     });
 
     const engine = new RebaseEngine(ctx.app);
-    const firstPause = await engine.start(base.volumeId, userId);
+    const firstPause = await engine.start(base.volumeId, userId, userBranch.version);
     expect(firstPause.status).toBe('paused');
     if (firstPause.status !== 'paused') {
       throw new Error('Expected rebase to pause on conflict');

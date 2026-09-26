@@ -27,12 +27,13 @@ export const rebaseApi = {
   },
 
   /**
-   * Starts a new rebase session for a specific volume.
+   * Starts rebase at the displayed branch version; forced confirms review cancellation.
    */
-  start: async (volumeId: string): Promise<RebaseResult> => {
+  start: async (volumeId: string, branchVersion: number, forced = false): Promise<RebaseResult> => {
     return apiFetch(`/api/library/volume/${volumeId}/rebase/start`, {
       method: 'POST',
-      body: {}
+      body: { branchVersion, forced },
+      showErrorToast: false
     });
   },
 

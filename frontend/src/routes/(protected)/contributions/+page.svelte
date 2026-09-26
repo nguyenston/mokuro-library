@@ -70,7 +70,8 @@
       rebaseQueue.map((task) => ({
         volumeId: task.id,
         volumeTitle: task.title,
-        seriesTitle: task.seriesTitle
+        seriesTitle: task.seriesTitle,
+        branchVersion: task.versionInfo.branchVersion
       }))
     );
   };
@@ -82,7 +83,8 @@
     const targets = Array.from(rebaseSelection.selection.values()).map((task) => ({
       volumeId: task.id,
       volumeTitle: task.title,
-      seriesTitle: task.seriesTitle
+      seriesTitle: task.seriesTitle,
+      branchVersion: task.versionInfo.branchVersion
     }));
     if (targets.length === 0) return;
     rebaseState.open(targets);
@@ -267,7 +269,8 @@
                         {
                           volumeId: task.id,
                           volumeTitle: task.title,
-                          seriesTitle: task.seriesTitle
+                          seriesTitle: task.seriesTitle,
+                          branchVersion: task.versionInfo.branchVersion
                         }
                       ]);
                     }}

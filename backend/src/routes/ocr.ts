@@ -1,6 +1,6 @@
 import { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
-import { ensureAdminBranch, ensureUserBranch } from '../utils/ocrHelpers';
+import { RebaseStateChangedError } from '../types/rebase';
 import { RebaseEngine } from '../lib/rebase/RebaseEngine';
 import { patchOperationSchema } from '../lib/PatchOperationValidator';
 import { HttpError } from '../types/error';
@@ -19,6 +19,12 @@ export const officializeBodySchema = z.object({
 
 /** Reset confirmation never bypasses the caller's optimistic branch version. */
 export const resetBodySchema = z.object({
+  branchVersion: z.number().int().nonnegative(),
+  forced: z.boolean().default(false)
+});
+
+/** Explicit rebase confirmation is bound to the contributor's displayed branch version. */
+export const rebaseStartBodySchema = z.object({
   branchVersion: z.number().int().nonnegative(),
   forced: z.boolean().default(false)
 });
@@ -239,23 +245,17 @@ const ocrRoutes: FastifyPluginAsync = async (fastify, opts): Promise<void> => {
   /**
    * POST /api/library/volumes/:id/rebase/start
    */
-  fastify.post<{ Params: { id: string } }>(
+  fastify.post<{ Params: { id: string }, Body: z.infer<typeof rebaseStartBodySchema> }>(
     '/volume/:id/rebase/start',
     async (request, reply) => {
       const { id } = request.params;
       const userId = request.user.id;
 
+      const parsed = rebaseStartBodySchema.safeParse(request.body);
+      if (!parsed.success) return reply.code(400).send({ message: 'Invalid rebase request', errors: parsed.error });
+
       try {
-        // Rebase eligibility is handled in RebaseEngine.start; non-applicable cases fast-forward
-        // or return complete rather than rejecting the request.
-        const volume = await fastify.prisma.volume.findUnique({ where: { id } });
-        if (!volume) return reply.status(404).send({ message: 'Volume not found' });
-
-        const adminBranch = await ensureAdminBranch(fastify, id, volume.mokuroPath);
-        await ensureUserBranch(fastify, id, userId, adminBranch);
-
-        const engine = new RebaseEngine(fastify);
-        const result = await engine.start(id, userId);
+        const result = await request.accessStrategy.startRebase(id, parsed.data.branchVersion, parsed.data.forced);
 
         if (result.status === 'complete') {
           const updatedBranch = await fastify.prisma.ocrBranch.findUnique({
@@ -270,6 +270,9 @@ const ocrRoutes: FastifyPluginAsync = async (fastify, opts): Promise<void> => {
           return reply.send(result);
         }
       } catch (error: unknown) {
+        if (error instanceof HttpError) {
+          return reply.code(error.statusCode).send({ message: error.message, code: error.code });
+        }
         const message = error instanceof Error ? error.message : 'Failed to start rebase';
         fastify.log.error(error);
         return reply.status(500).send({ message });
@@ -316,6 +319,7 @@ const ocrRoutes: FastifyPluginAsync = async (fastify, opts): Promise<void> => {
         }
       } catch (error: unknown) {
         const message = error instanceof Error ? error.message : 'Failed to continue rebase';
+        if (error instanceof RebaseStateChangedError) return reply.code(409).send({ message });
         fastify.log.error(error);
         return reply.status(500).send({ message });
       }

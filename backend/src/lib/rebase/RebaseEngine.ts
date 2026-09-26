@@ -6,7 +6,8 @@ import {
   ExtendedPatch,
   ResolutionType,
   Effect,
-  TransformResult
+  TransformResult,
+  RebaseStateChangedError
 } from '../../types/rebase';
 import { PatchOperation } from '../../types/history';
 import { PatchTransformer } from './PatchTransformer';
@@ -32,7 +33,7 @@ interface RebaseContext {
 
   resolutions: Map<string, ResolutionType>;  // Key: `${adminPatchId}:${userPatchId}`
   targetHeadId: string;
-  originalBranchHeadId: string;
+  expectedVersion: number;
 }
 
 const sessionCache = new Map<string, RebaseContext>();
@@ -104,7 +105,7 @@ export class RebaseEngine {
     adminChain: ExtendedPatch[];
     userChain: ExtendedPatch[];
     targetHeadId: string;
-    originalBranchHeadId: string;
+    expectedVersion: number;
   }): RebaseContext {
     // 1) Initialize hot state for the simulation loop.
     return {
@@ -120,7 +121,7 @@ export class RebaseEngine {
       currentEffect: { type: 'identity', path: '/' },
       resolutions: new Map(),
       targetHeadId: params.targetHeadId,
-      originalBranchHeadId: params.originalBranchHeadId
+      expectedVersion: params.expectedVersion
     };
   }
 
@@ -159,7 +160,7 @@ export class RebaseEngine {
       adminChain,
       userChain,
       targetHeadId: adminBranch.headPatchId,
-      originalBranchHeadId: branch.headPatchId
+      expectedVersion: branch.version
     });
 
     const result = await this.runSimulation(context);
@@ -171,20 +172,22 @@ export class RebaseEngine {
   }
 
   /**
-   * Starts a new rebase session.
+   * Start rebase at the caller's expected branch version.
+   * Review policy belongs to the access strategy.
    */
-  async start(volumeId: string, userId: string): Promise<RebaseResult> {
+  async start(volumeId: string, userId: string, expectedVersion: number): Promise<RebaseResult> {
     // 1) Load branches and short-circuit clean/up-to-date states.
     const { branch, adminBranch } = await this.loadBranches(volumeId, userId);
+    if (branch.version !== expectedVersion) throw new RebaseStateChangedError();
 
-    // --- Check 1: Clean State ---
-    if (!branch.rootPatchId) {
-      await this.fastForward(branch, adminBranch);
+    // --- Check 1: Already Up to Date ---
+    if (branch.headPatchId === adminBranch.headPatchId) {
       return { status: 'complete' };
     }
 
-    // --- Check 2: Already Up to Date ---
-    if (branch.headPatchId === adminBranch.headPatchId) {
+    // --- Check 2: Clean State ---
+    if (!branch.rootPatchId) {
+      await this.fastForward(branch, adminBranch);
       return { status: 'complete' };
     }
 
@@ -203,14 +206,24 @@ export class RebaseEngine {
       rootPatch.parentId
     );
 
-    const session = await this.prisma.rebaseSession.create({
-      data: {
-        branchId: branch.id,
-        targetHeadPatchId: adminBranch.headPatchId,
-        headPatchIdSnapshot: branch.headPatchId,
-        resolutions: '[]',
-        expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24)
-      }
+    const session = await this.prisma.$transaction(async tx => {
+      // Creating the session is the first write. While this transaction holds
+      // the writer lock, verify that the branch still matches the start request.
+      const created = await tx.rebaseSession.create({
+        data: {
+          branchId: branch.id,
+          targetHeadPatchId: adminBranch.headPatchId,
+          headPatchIdSnapshot: branch.headPatchId,
+          expectedVersion: branch.version,
+          resolutions: '[]',
+          expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24)
+        }
+      });
+      const current = await tx.ocrBranch.findUnique({
+        where: { id: branch.id }, select: { version: true }
+      });
+      if (current?.version !== expectedVersion) throw new RebaseStateChangedError();
+      return created;
     });
 
     const context = this.buildContext({
@@ -220,7 +233,7 @@ export class RebaseEngine {
       adminChain,
       userChain,
       targetHeadId: adminBranch.headPatchId,
-      originalBranchHeadId: branch.headPatchId
+      expectedVersion: branch.version
     });
     sessionCache.set(session.id, context);
 
@@ -406,9 +419,7 @@ export class RebaseEngine {
     const userBranch = await this.prisma.ocrBranch.findUnique({
       where: { id: ctx.branchId },
     });
-    if (!userBranch || userBranch.headPatchId !== ctx.originalBranchHeadId) {
-      throw new Error('Branch was modified during rebase. Please retry.');
-    }
+    if (!userBranch) throw new Error('Branch not found');
     const adminBranch = await this.prisma.ocrBranch.findUnique({
       where: { volumeId_userId: { volumeId: userBranch.volumeId, userId: 'admin' } },
       include: {
@@ -437,6 +448,13 @@ export class RebaseEngine {
 
     // 2) Persist patches + branch updates in a transaction.
     const newUserBranch = await this.prisma.$transaction(async (tx: any) => {
+      // Deleting the completed session is the transaction's write/version guard.
+      // A later failure rolls this deletion back with every other commit write.
+      const deletedSession = await tx.rebaseSession.deleteMany({
+        where: { id: ctx.sessionId, branch: { version: ctx.expectedVersion } }
+      });
+      if (deletedSession.count !== 1) throw new RebaseStateChangedError();
+
       if (newPatchesData.length > 0) {
         await tx.patch.createMany({ data: newPatchesData });
       }
@@ -448,8 +466,6 @@ export class RebaseEngine {
       const newRootId = newPatchesData.length > 0
         ? newPatchesData[0].id
         : null;
-
-      await tx.rebaseSession.delete({ where: { id: ctx.sessionId } });
 
       const updatedBranch = await tx.ocrBranch.update({
         where: { id: ctx.branchId },
@@ -480,21 +496,28 @@ export class RebaseEngine {
     sessionCache.delete(ctx.sessionId);
   }
 
+  /** Move an unchanged branch to the admin head before copying its snapshot. */
   private async fastForward(userBranch: OcrBranchWithTimestamps, adminBranch: OcrBranchWithTimestamps) {
     // 1) Align user branch head to admin head.
-    const newUserBranch = await this.prisma.ocrBranch.update({
-      where: { id: userBranch.id },
-      data: {
-        headPatchId: adminBranch.headPatchId,
-        rootPatchId: null,
-        snapshotPatchId: null,
-        version: { increment: 1 }
-      },
-      include: {
-        headPatch: { select: { id: true, createdAt: true, sequence: true } },
-        rootPatch: { select: { id: true, createdAt: true, sequence: true } },
-        snapshotPatch: { select: { id: true, createdAt: true, sequence: true } }
-      }
+    const newUserBranch = await this.prisma.$transaction(async tx => {
+      const updated = await tx.ocrBranch.updateMany({
+        where: { id: userBranch.id, version: userBranch.version },
+        data: {
+          headPatchId: adminBranch.headPatchId,
+          rootPatchId: null,
+          snapshotPatchId: null,
+          version: { increment: 1 }
+        }
+      });
+      if (updated.count !== 1) throw new RebaseStateChangedError();
+      return tx.ocrBranch.findUniqueOrThrow({
+        where: { id: userBranch.id },
+        include: {
+          headPatch: { select: { id: true, createdAt: true, sequence: true } },
+          rootPatch: { select: { id: true, createdAt: true, sequence: true } },
+          snapshotPatch: { select: { id: true, createdAt: true, sequence: true } }
+        }
+      });
     });
 
     // 2) Copy admin snapshot to user.
@@ -510,6 +533,7 @@ export class RebaseEngine {
     if (!session) throw new Error('Session expired or not found');
 
     const branch = session.branch;
+    if (branch.version !== session.expectedVersion) throw new RebaseStateChangedError();
     const rootPatch = await this.prisma.patch.findUnique({ where: { id: branch.rootPatchId! } });
 
     if (!rootPatch || !rootPatch.parentId) throw new Error('Invalid branch state for restore');
@@ -529,7 +553,7 @@ export class RebaseEngine {
         adminChain,
         userChain,
         targetHeadId: session.targetHeadPatchId,
-        originalBranchHeadId: session.headPatchIdSnapshot
+        expectedVersion: session.expectedVersion
       }),
       resolutions: new Map(JSON.parse(session.resolutions))
     };

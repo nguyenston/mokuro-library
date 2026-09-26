@@ -19,6 +19,7 @@ import {
 import { PatchInverter } from '../PatchInverter';
 import { parseStoredPatchOperation } from '../PatchOperationValidator';
 import { RebaseEngine } from '../rebase/RebaseEngine';
+import { RebaseResult } from '../../types/rebase';
 import fs from 'fs';
 import path from 'path';
 import { ulid } from 'ulid';
@@ -345,6 +346,11 @@ export class AdminAPIAccessStrategy implements IAPIAccessStrategy {
       405,
       'Redo is not available for the Admin timeline. Admin edits are destructive.'
     );
+  }
+
+  /** The admin branch is the rebase target, not a contributor branch to rebase. */
+  async startRebase(volumeId: string, version: number, forced = false): Promise<RebaseResult> {
+    throw new HttpError(405, 'Rebase is not applicable to the Admin. The Admin is the source of truth.');
   }
 
   /** Admin reset is unsupported, including when confirmation is forced. */

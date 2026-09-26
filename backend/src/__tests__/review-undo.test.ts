@@ -21,6 +21,7 @@ import { createPrismaClient, type ExtendedPrismaClient } from '../lib/prisma/pri
 import { UserAPIAccessStrategy } from '../lib/strategies/UserAPIAccessStrategy';
 import { AdminAPIAccessStrategy } from '../lib/strategies/AdminAPIAccessStrategy';
 import * as ocrHelpers from '../utils/ocrHelpers';
+import { RebaseEngine } from '../lib/rebase/RebaseEngine';
 
 let directory: string;
 let prisma: ExtendedPrismaClient;
@@ -85,6 +86,218 @@ afterEach(async () => {
   await prisma?.$disconnect();
   // Remove only the temporary directory created by this fixture.
   if (directory) rmSync(directory, { recursive: true, force: true });
+});
+
+describe('explicit rebase review cancellation', () => {
+  /** Diverge admin and user edits so starting rebase pauses at a real conflict. */
+  beforeEach(async () => {
+    await prisma.patch.create({ data: {
+      id: 'admin-edit', parentId: 'p0', volumeId: 'volume', userId: 'admin', sequence: 1,
+      operation: JSON.stringify({ op: 'replace', path: '/pages/0/blocks/0/lines/0/text',
+        old_value: 'text0', value: 'admin text' })
+    } });
+    await prisma.ocrBranch.update({ where: { id: 'admin-branch' }, data: { headPatchId: 'admin-edit' } });
+  });
+
+  it('requires confirmation without changing history, review, or sessions', async () => {
+    const before = await state();
+    await expect(strategy().startRebase('volume', 3)).rejects.toMatchObject({
+      statusCode: 409, code: 'REVIEW_CANCELLATION_CONFIRMATION_REQUIRED'
+    });
+    expect(await state()).toEqual(before);
+    expect(await prisma.rebaseSession.count()).toBe(0);
+  });
+
+  it('cancels review when starting, and abort does not restore it', async () => {
+    const before = await state();
+    const rebase = new RebaseEngine({ prisma } as FastifyInstance);
+    const result = await strategy().startRebase('volume', 3, true);
+    expect(result.status).toBe('paused');
+    const started = await state();
+    expect(started.branch).toMatchObject({ headPatchId: 'p3', rootPatchId: 'p1',
+      reviewHeadPatchId: null, reviewRequestedAt: null, version: 4,
+      rejectionReason: 'Review cancelled because the contributor started an explicit rebase.' });
+    expect(started.patches).toEqual(before.patches);
+    const session = await prisma.rebaseSession.findFirstOrThrow();
+    await rebase.abort(session.id);
+    expect(await state()).toEqual(started);
+    expect(await prisma.rebaseSession.count()).toBe(0);
+  });
+
+  it('forced does not bypass the displayed version', async () => {
+    const before = await state();
+    await expect(strategy().startRebase('volume', 2, true)).rejects.toMatchObject({ statusCode: 409 });
+    expect(await state()).toEqual(before);
+    expect(await prisma.rebaseSession.count()).toBe(0);
+  });
+
+  it('rejects admin rebase at the access strategy', async () => {
+    const before = await state();
+    const admin = new AdminAPIAccessStrategy({ prisma } as FastifyInstance);
+    await expect(admin.startRebase('volume', 3, true)).rejects.toMatchObject({ statusCode: 405 });
+    expect(await state()).toEqual(before);
+  });
+
+  it('checks volume access before starting rebase', async () => {
+    await prisma.user.create({ data: { id: 'other', username: 'other', password: 'unused', settings: {} } });
+    await prisma.series.update({ where: { id: 'series' }, data: { ownerId: 'other' } });
+    const before = await state();
+    await expect(strategy().startRebase('volume', 3, true)).rejects.toMatchObject({ statusCode: 404 });
+    expect(await state()).toEqual(before);
+    expect(await prisma.rebaseSession.count()).toBe(0);
+  });
+
+  it('keeps review cancelled if creating the session fails', async () => {
+    const before = await state();
+    const client = prisma.$extends({ query: { rebaseSession: {
+      async create() { throw new Error('session creation failed'); }
+    } } });
+    await expect(strategy(client as ExtendedPrismaClient).startRebase('volume', 3, true))
+      .rejects.toThrow('session creation failed');
+    const after = await state();
+    expect(after.branch).toMatchObject({ version: 4, reviewHeadPatchId: null, reviewRequestedAt: null });
+    expect(after.patches).toEqual(before.patches);
+    expect(await prisma.rebaseSession.count()).toBe(0);
+  });
+
+  it('rolls back session creation if a review changes after the initial start check', async () => {
+    let changed: Awaited<ReturnType<typeof state>> | undefined;
+    const client = prisma.$extends({ query: { patch: {
+      async findUnique({ args, query }) {
+        const result = await query(args);
+        // Root lookup follows the engine's initial version check.
+        if (args.where.id === 'p1' && !changed) {
+          await prisma.ocrBranch.update({ where: { id: 'user-branch' }, data: {
+            reviewHeadPatchId: 'p3', version: { increment: 1 }
+          } });
+          changed = await state();
+        }
+        return result;
+      }
+    } } });
+    await expect(strategy(client as ExtendedPrismaClient).startRebase('volume', 3, true))
+      .rejects.toMatchObject({ statusCode: 409 });
+    expect(changed).toBeDefined();
+    expect(await state()).toEqual(changed);
+    expect(await prisma.rebaseSession.count()).toBe(0);
+  });
+
+  it('starts without forced when no review is pending', async () => {
+    await prisma.ocrBranch.update({ where: { id: 'user-branch' }, data: {
+      reviewHeadPatchId: null, reviewRequestedAt: null
+    } });
+    expect((await strategy().startRebase('volume', 3)).status).toBe('paused');
+    expect((await state()).branch.version).toBe(3);
+  });
+
+  it('rejects review submission while a rebase session exists', async () => {
+    await strategy().startRebase('volume', 3, true);
+    const before = await state();
+    await expect(strategy().setReviewStatus('contributor', { volumeId: 'volume', status: true }))
+      .rejects.toMatchObject({ statusCode: 409, message: 'Cannot submit review during rebase. Finish or abort it first.' });
+    expect(await state()).toEqual(before);
+  });
+
+  it('rejects a session created between review eligibility checks and submission', async () => {
+    await prisma.ocrBranch.update({ where: { id: 'admin-branch' }, data: { headPatchId: 'p0' } });
+    await prisma.ocrBranch.update({ where: { id: 'user-branch' }, data: {
+      reviewHeadPatchId: null, reviewRequestedAt: null
+    } });
+    const before = await state();
+    const client = prisma.$extends({ query: { ocrBranch: {
+      async updateMany({ args, query }) {
+        await prisma.rebaseSession.create({ data: { branchId: 'user-branch',
+          targetHeadPatchId: 'p0', headPatchIdSnapshot: 'p3', expectedVersion: 3,
+          expiresAt: new Date(Date.now() + 60000) } });
+        return query(args);
+      }
+    } } });
+    await expect(strategy(client as ExtendedPrismaClient).setReviewStatus('contributor', { volumeId: 'volume', status: true }))
+      .rejects.toMatchObject({ statusCode: 409 });
+    expect(await state()).toEqual(before);
+  });
+
+  it('rejects a stale persisted session after the engine cache is lost', async () => {
+    const result = await strategy().startRebase('volume', 3, true);
+    if (result.status !== 'paused') throw new Error('Expected a conflict');
+    await prisma.ocrBranch.update({ where: { id: 'user-branch' }, data: { version: { increment: 1 } } });
+    const before = await state();
+    // A fresh module has no hot session and must use the persisted expected version.
+    vi.resetModules();
+    const { RebaseEngine: RestoredEngine } = await import('../lib/rebase/RebaseEngine');
+    await expect(new RestoredEngine({ prisma } as FastifyInstance).continue(result.rebaseId, 'keep_admin'))
+      .rejects.toThrow('Branch or review changed. Please refresh.');
+    expect(await state()).toEqual(before);
+  });
+
+  it.each([false, true])('rejects a version-only change at commit (during commit: %s)', async duringCommit => {
+    const result = await strategy().startRebase('volume', 3, true);
+    if (result.status !== 'paused') throw new Error('Expected a conflict');
+    const session = await prisma.rebaseSession.findFirstOrThrow();
+    expect(session.expectedVersion).toBe(4);
+    // Bump only the version, leaving HEAD unchanged to exercise the stronger guard.
+    const bumpVersion = () => prisma.ocrBranch.update({ where: { id: 'user-branch' },
+      data: { version: { increment: 1 } } });
+    let client = prisma;
+    if (duringCommit) {
+      client = prisma.$extends({ query: { ocrBranch: {
+        async findUnique({ args, query }) {
+          const value = await query(args);
+          // Admin lookup follows commit's early contributor-version check.
+          if (args.where.volumeId_userId?.userId === 'admin') await bumpVersion();
+          return value;
+        }
+      } } }) as ExtendedPrismaClient;
+    } else {
+      await bumpVersion();
+    }
+    const patches = (await state()).patches;
+    // Resolve every conflict so the assertion reaches commit rather than the next pause.
+    const finish = async () => {
+      const engine = new RebaseEngine({ prisma: client } as FastifyInstance);
+      for (let i = 0; i < 4; i++) {
+        if ((await engine.continue(result.rebaseId, 'keep_admin')).status === 'complete') return;
+      }
+      throw new Error('Unexpected number of conflicts');
+    };
+    await expect(finish())
+      .rejects.toThrow('Branch or review changed. Please refresh.');
+    expect((await state()).patches).toEqual(patches);
+    expect((await state()).branch).toMatchObject({ headPatchId: 'p3', version: 5 });
+    expect(await prisma.rebaseSession.count()).toBe(1);
+  });
+
+  it.each([null, 'p1'])('skips writes when up to date without a review (root %s)', async rootPatchId => {
+    await prisma.ocrBranch.update({ where: { id: 'admin-branch' }, data: { headPatchId: 'p3' } });
+    await prisma.ocrBranch.update({ where: { id: 'user-branch' }, data: {
+      rootPatchId, reviewHeadPatchId: null, reviewRequestedAt: null
+    } });
+    const before = await state();
+    // Prisma's extended client exposes methods dynamically, so intercept access
+    // rather than spying on a method descriptor that does not exist.
+    const transaction = vi.fn(() => { throw new Error('Unexpected transaction'); });
+    const client = new Proxy(prisma, {
+      get(target, property) {
+        return property === '$transaction' ? transaction : Reflect.get(target, property);
+      }
+    });
+    expect(await strategy(client).startRebase('volume', 3)).toEqual({ status: 'complete' });
+    expect(transaction).not.toHaveBeenCalled();
+    expect(await state()).toEqual(before);
+    expect(await prisma.rebaseSession.count()).toBe(0);
+  });
+
+  it('only cancels the review when already up to date', async () => {
+    await prisma.ocrBranch.update({ where: { id: 'admin-branch' }, data: { headPatchId: 'p3' } });
+    const before = await state();
+    expect(await strategy().startRebase('volume', 3, true)).toEqual({ status: 'complete' });
+    const after = await state();
+    expect(after.branch).toMatchObject({ headPatchId: 'p3', rootPatchId: 'p1', version: 4,
+      reviewHeadPatchId: null, reviewRequestedAt: null,
+      rejectionReason: 'Review cancelled because the contributor started an explicit rebase.' });
+    expect(after.patches).toEqual(before.patches);
+    expect(await prisma.rebaseSession.count()).toBe(0);
+  });
 });
 
 describe('user undo at a frozen review boundary', () => {
