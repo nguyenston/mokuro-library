@@ -594,3 +594,35 @@ describe('patch pruning at a frozen review boundary', () => {
     expect(await state()).toEqual(before);
   });
 });
+
+describe('officialize after admin undo', () => {
+  /** Leave an old admin forward chain beside the contributor's private chain. */
+  async function addAbandonedFuture() {
+    await prisma.patch.create({ data: {
+      id: 'old-admin-patch', parentId: 'p0', volumeId: 'volume', userId: 'admin',
+      sequence: 1, operation: JSON.stringify({ op: 'replace',
+        path: '/pages/0/blocks/0/lines/0/text', old_value: 'text0', value: 'old admin text' })
+    } });
+    await prisma.patch.create({ data: {
+      id: 'old-admin-child', parentId: 'old-admin-patch', volumeId: 'volume',
+      userId: 'admin', sequence: 2, operation: JSON.stringify({ op: 'replace',
+        path: '/pages/0/blocks/0/lines/0/text', old_value: 'old admin text', value: 'older future' })
+    } });
+    await prisma.patch.update({ where: { id: 'p0' }, data: { nextPatchId: 'old-admin-patch' } });
+    await prisma.ocrBranch.update({ where: { id: 'user-branch' },
+      data: { reviewHeadPatchId: 'p3' } });
+  }
+
+  it('prunes the abandoned future when accepting a fast-forward review', async () => {
+    await addAbandonedFuture();
+    const admin = new AdminAPIAccessStrategy({ prisma } as FastifyInstance);
+    await admin.officialize('volume', 'contributor', 'p3');
+
+    expect(await prisma.patch.findMany({ where: { id: { in: ['old-admin-patch', 'old-admin-child'] } } }))
+      .toEqual([]);
+    expect(await prisma.patch.findUniqueOrThrow({ where: { id: 'p0' } }))
+      .toMatchObject({ nextPatchId: 'p1' });
+    expect(await prisma.ocrBranch.findUniqueOrThrow({ where: { id: 'admin-branch' } }))
+      .toMatchObject({ headPatchId: 'p3' });
+  });
+});

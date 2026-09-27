@@ -13,6 +13,7 @@ import {
   ensureUserBranch,
   fetchAncestryChain,
   loadSnapshot,
+  pruneAbandonedFuture,
   saveSnapshot,
   syncSnapshot
 } from '../../utils/ocrHelpers';
@@ -553,6 +554,7 @@ export class AdminAPIAccessStrategy implements IAPIAccessStrategy {
       const newUserRootId =
         userHeadPatch.children.length === 1 ? userHeadPatch.children[0].id : null;
       await this.fastify.prisma.$transaction(async (tx) => {
+        await pruneAbandonedFuture(tx as ExtendedPrismaClient, adminBranch.headPatchId);
         // 1. Link the chain (Doubly Linked List)
         // fetchAncestryChain walks UP from Head to (but excluding) the Admin Head (rootPatch.parentId)
         // Result: [Head, ..., Root]
@@ -654,6 +656,8 @@ export class AdminAPIAccessStrategy implements IAPIAccessStrategy {
           throw new HttpError(409, 'Official branch changed during acceptance. Please retry.');
         }
 
+        await pruneAbandonedFuture(tx as ExtendedPrismaClient, adminBranch.headPatchId);
+
         const userUpdate = await tx.ocrBranch.updateMany({
           where: {
             id: userBranch.id,
@@ -677,6 +681,7 @@ export class AdminAPIAccessStrategy implements IAPIAccessStrategy {
     }
 
     await this.fastify.prisma.$transaction(async (tx) => {
+      await pruneAbandonedFuture(tx as ExtendedPrismaClient, adminBranch.headPatchId);
       const adminHead = await tx.patch.findUnique({
         where: { id: adminBranch.headPatchId }
       });

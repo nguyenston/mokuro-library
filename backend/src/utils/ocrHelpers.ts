@@ -135,6 +135,27 @@ export async function loadSnapshot(
   throw Error(`Snapshot corruption detected for ${branch.id}`);
 }
 
+/** Delete the abandoned forward chain after admin undo. */
+export async function pruneAbandonedFuture(prisma: ExtendedPrismaClient, headId: string): Promise<void> {
+  const head = await prisma.patch.findUnique({
+    where: { id: headId },
+    select: { nextPatchId: true }
+  });
+  if (!head) throw new HttpError(500, 'Admin HEAD patch not found.');
+  if (head.nextPatchId) await prisma.patch.delete({ where: { id: head.nextPatchId } });
+}
+
+/** Finish every successful snapshot path with the same admin-future cleanup. */
+async function finishSnapshotSync(
+  fastify: FastifyInstance,
+  result: { data: MokuroData; branch: OcrBranch }
+): Promise<{ data: MokuroData; branch: OcrBranch }> {
+  if (result.branch.userId === 'admin') {
+    await pruneAbandonedFuture(fastify.prisma, result.branch.headPatchId);
+  }
+  return result;
+}
+
 // --- Helper: Get Synced Snapshot ---
 // Returns up-to-date MokuroData for a branch and up-to-date branch.
 // Loads snapshot, syncs if stale, regenerates if corrupt/missing.
@@ -151,7 +172,7 @@ export async function syncSnapshot(
     data = await loadSnapshot(fastify, branch);
   } catch (e) {
     fastify.log.warn(`Load snapshot for sync failed: ${e}`);
-    return regenerateFromGenesis(fastify, targetPatch.id, branch.id);
+    return finishSnapshotSync(fastify, await regenerateFromGenesis(fastify, targetPatch.id, branch.id));
   }
 
   const startPatchId = branch.snapshotPatchId!;
@@ -159,7 +180,7 @@ export async function syncSnapshot(
 
   // Already up to date
   if (startPatchId === targetPatch.id) {
-    return { data, branch };
+    return finishSnapshotSync(fastify, { data, branch });
   }
 
   const isForward = targetPatch.sequence > startPatchSequence;
@@ -171,7 +192,7 @@ export async function syncSnapshot(
     const last = chain[chain.length - 1];
     if (!last || last.parentId !== startPatchId) {
       fastify.log.warn(`Forward chain broken, regenerating from genesis`);
-      return regenerateFromGenesis(fastify, targetPatch.id, branch.id);
+      return finishSnapshotSync(fastify, await regenerateFromGenesis(fastify, targetPatch.id, branch.id));
     }
 
     // Apply in chronological order (reverse of ancestry)
@@ -190,7 +211,7 @@ export async function syncSnapshot(
     const last = chain[chain.length - 1];
     if (!last || last.parentId !== targetPatch.id) {
       fastify.log.warn(`Backward chain broken, regenerating from genesis`);
-      return regenerateFromGenesis(fastify, targetPatch.id, branch.id);
+      return finishSnapshotSync(fastify, await regenerateFromGenesis(fastify, targetPatch.id, branch.id));
     }
 
     // Invert in reverse chronological order
@@ -207,20 +228,7 @@ export async function syncSnapshot(
   data.patch_id = targetPatch.id;
   branch = await saveSnapshot(fastify, branch.id, data, targetPatch.id);
 
-  // if the branch is admin, that means any dangling patches should not have any more dependencies
-  // this is lazy clean up for undo operations
-  if (branch.userId === 'admin') {
-    const headPatch = await fastify.prisma.patch.findUnique({
-      where: { id: branch.headPatchId },
-      select: { nextPatchId: true }
-    })
-    if (!headPatch) throw new HttpError(500, `CRITICAL: Admin HEAD patch doesn't exists`);
-    if (headPatch.nextPatchId) {
-      await fastify.prisma.patch.delete({ where: { id: headPatch.nextPatchId } });
-    }
-  }
-
-  return { data, branch };
+  return finishSnapshotSync(fastify, { data, branch });
 }
 
 export async function inheritAdminSnapshot(fastify: FastifyInstance, userBranch: OcrBranchWithTimestamps, adminBranch: OcrBranchWithTimestamps) {
