@@ -215,27 +215,18 @@ const sendOptimizedImage = async (
   return reply.type(`image/${targetFormat}`).send(responseStream);
 };
 
-// Helper function
-
-/**
- * Resolves a file path by checking both NFC and NFD normalization forms.
- * This ensures cross-platform compatibility (Linux/Windows/macOS).
- * @param baseDir The root directory (e.g., fastify.projectRoot).
- * @param relativePath The path stored in the database.
- * @returns The verified absolute path in its correct normalization, or null if not found.
- */
-
-// Initialize the cache.
-// max: 1000 entries
-// ttl: 24 hours (paths on disk are unlikely to change frequently)
+// Cache resolved disk paths to avoid repeated existence checks.
 const pathResolutionCache = new LRUCache<string, string>({
   max: 2000,
   ttl: 1000 * 60 * 60 * 24,
 });
 
 /**
- * Resolves a file path by checking both NFC and NFD normalization forms.
- * Results are cached in memory to minimize disk I/O.
+ * Finds an uploaded file using its stored path, with a filename-only NFD fallback.
+ * Older macOS converts filenames from NFC to NFD, but paths inside .mokuro
+ * are unaffected. Only the filename can differ: upload reconstructs the
+ * directory instead of sending it over the network. Try the stored path first,
+ * then retry with only its filename converted to NFD. Cache successful lookups.
  */
 export async function resolveNormalizedPath(
   baseDir: string,
@@ -243,39 +234,28 @@ export async function resolveNormalizedPath(
 ): Promise<string | null> {
   const cacheKey = `${baseDir}:${relativePath}`;
 
-  // 1. Check memory cache first
   const cachedPath = pathResolutionCache.get(cacheKey);
   if (cachedPath) {
     return cachedPath;
   }
 
-  // 2. Generate the primary target (NFC)
-  const absolutePathNFC = path.join(baseDir, relativePath).normalize('NFC');
+  const exactPath = path.join(baseDir, relativePath);
 
   try {
-    // Check if the NFC version exists on disk
-    await fs.promises.access(absolutePathNFC, fs.constants.R_OK);
-
-    // Store in cache before returning
-    pathResolutionCache.set(cacheKey, absolutePathNFC);
-    return absolutePathNFC;
+    await fs.promises.access(exactPath, fs.constants.R_OK);
+    pathResolutionCache.set(cacheKey, exactPath);
+    return exactPath;
   } catch {
-    // 3. Generate the fallback (NFD)
-    const absolutePathNFD = absolutePathNFC.normalize('NFD');
+    const filename = path.basename(relativePath);
+    const decomposedFilename = filename.normalize('NFD');
+    if (filename === decomposedFilename) return null;
 
-    // If the strings are identical, there is no need for a second disk check
-    if (absolutePathNFC === absolutePathNFD) {
-      return null;
-    }
-
+    const fallbackPath = path.join(path.dirname(exactPath), decomposedFilename);
     try {
-      await fs.promises.access(absolutePathNFD, fs.constants.R_OK);
-
-      // Store in cache before returning
-      pathResolutionCache.set(cacheKey, absolutePathNFD);
-      return absolutePathNFD;
+      await fs.promises.access(fallbackPath, fs.constants.R_OK);
+      pathResolutionCache.set(cacheKey, fallbackPath);
+      return fallbackPath;
     } catch {
-      // File does not exist in either form
       return null;
     }
   }

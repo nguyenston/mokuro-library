@@ -1,4 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import fs from 'fs/promises';
+import path from 'path';
+import { resolveNormalizedPath } from '../routes/files';
 import type { TestContext } from './helpers/testContext';
 import { createTestContext, registerAndLogin, seedLibrary } from './helpers/testContext';
 
@@ -51,6 +54,18 @@ describe('files routes', () => {
 
     expect(response.statusCode).toBe(200);
     expect(response.headers['content-type']).toContain('image/');
+  });
+
+  it('preserves directory names while resolving decomposed image filenames', async () => {
+    const relativeDir = path.join('uploads', 'caf\u00e9');
+    const diskName = 'cafe\u0301.png';
+    const requestedName = 'caf\u00e9.png';
+    const diskPath = path.join(ctx.projectRoot, relativeDir, diskName);
+    await fs.mkdir(path.dirname(diskPath), { recursive: true });
+    await fs.writeFile(diskPath, 'image');
+
+    expect(await resolveNormalizedPath(ctx.projectRoot, path.join(relativeDir, diskName))).toBe(diskPath);
+    expect(await resolveNormalizedPath(ctx.projectRoot, path.join(relativeDir, requestedName))).toBe(diskPath);
   });
 
   it('returns 404 for missing volume images', async () => {
