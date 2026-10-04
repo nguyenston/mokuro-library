@@ -172,16 +172,20 @@ export class UserAPIAccessStrategy implements IAPIAccessStrategy {
 
     // 4. Transactional Write
     const result = await this.fastify.prisma.$transaction(async (tx) => {
-      // userBranch was loaded before this transaction, possibly before snapshot sync.
-      // Another request may have changed edits or review state since then. Recheck
-      // its version here before deleting history based on the captured HEAD/root.
+      // Claim the captured version with the transaction's first write. This
+      // serializes competing writers before any redo history can be pruned.
+      const claimed = await tx.ocrBranch.updateMany({
+        where: { id: userBranch.id, version },
+        data: { version: { increment: 1 } }
+      });
+      if (claimed.count !== 1) throw new HttpError(409, 'Branch or review changed. Please refresh.');
+
       const currentBranch = await tx.ocrBranch.findUnique({
         where: { id: userBranch.id },
-        select: { version: true, reviewHeadPatch: { select: { sequence: true, volumeId: true } } }
+        select: { reviewHeadPatch: { select: { sequence: true, volumeId: true } } }
       });
-      if (!currentBranch || currentBranch.version !== version) {
-        throw new HttpError(409, 'Branch or review changed. Please refresh.');
-      }
+      // A successful version update guarantees this branch exists in the transaction.
+      if (!currentBranch) throw new HttpError(500, 'Invalid server branch state: branch is missing after its version update.');
       // Undo prevents HEAD moving behind a pending review. A stored review must
       // therefore lie between the private root and HEAD in this volume; violating
       // that invariant is a server bug (500), not a retryable version conflict (409).
@@ -234,8 +238,7 @@ export class UserAPIAccessStrategy implements IAPIAccessStrategy {
         where: { id: userBranch.id },
         data: {
           headPatchId: newPatch.id,
-          rootPatchId: finalRootId,
-          version: { increment: 1 }
+          rootPatchId: finalRootId
         }
       });
 

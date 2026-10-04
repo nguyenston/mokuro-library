@@ -10,6 +10,8 @@
  * Pruning checks distinguish valid tail replacement from impossible server state.
  * Redo checks cover forward movement, invalid boundaries, and both version guards.
  * Reset checks use real DB transactions but stub post-commit snapshot file copying.
+ * Competing-writer checks change branch versions just before each transaction's
+ * first write and verify that stale edits leave the patch tree untouched.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DatabaseSync } from 'node:sqlite';
@@ -595,6 +597,90 @@ describe('patch pruning at a frozen review boundary', () => {
   });
 });
 
+describe('competing OCR writers', () => {
+  const edit = { op: 'replace' as const, path: '/pages/0/blocks/0/lines/0/text',
+    old_value: 'text3', value: 'replacement' };
+
+  it('rejects a contributor edit whose branch changes before its first write', async () => {
+    const patches = (await state()).patches;
+    let bumped = false;
+    const client = prisma.$extends({ query: { ocrBranch: {
+      async findUnique({ args, query }) {
+        const result = await query(args);
+        if (args.where.volumeId_userId?.userId === 'contributor' && !bumped) {
+          bumped = true;
+          await prisma.ocrBranch.update({ where: { id: 'user-branch' },
+            data: { version: { increment: 1 } } });
+        }
+        return result;
+      }
+    } } });
+    await expect(strategy(client as ExtendedPrismaClient).applyPatch('volume', edit, 3))
+      .rejects.toMatchObject({ statusCode: 409 });
+    expect(bumped).toBe(true);
+    expect((await state()).branch).toMatchObject({ headPatchId: 'p3', version: 4 });
+    expect((await state()).patches).toEqual(patches);
+  });
+
+  it('rejects an admin edit whose branch changes before pruning', async () => {
+    const patches = (await state()).patches;
+    let bumped = false;
+    const client = prisma.$extends({ query: { patch: {
+      async findUnique({ args, query }) {
+        const result = await query(args);
+        if (args.where.id === 'p0' && !bumped) {
+          bumped = true;
+          await prisma.ocrBranch.update({ where: { id: 'admin-branch' },
+            data: { version: { increment: 1 } } });
+        }
+        return result;
+      }
+    } } });
+    const admin = new AdminAPIAccessStrategy({ prisma: client } as FastifyInstance);
+    await expect(admin.applyPatch('volume', edit, 0)).rejects.toMatchObject({ statusCode: 409 });
+    expect(bumped).toBe(true);
+    expect(await prisma.ocrBranch.findUniqueOrThrow({ where: { id: 'admin-branch' } }))
+      .toMatchObject({ headPatchId: 'p0', version: 1 });
+    expect((await state()).patches).toEqual(patches);
+  });
+
+  it('increments the contributor version when admin undo drags its clean HEAD', async () => {
+    await prisma.patch.create({ data: { id: 'admin-edit', parentId: 'p0', volumeId: 'volume',
+      userId: 'admin', sequence: 1, operation: JSON.stringify(edit) } });
+    await prisma.ocrBranch.update({ where: { id: 'admin-branch' },
+      data: { headPatchId: 'admin-edit', version: 1 } });
+    await prisma.ocrBranch.update({ where: { id: 'user-branch' },
+      data: { headPatchId: 'admin-edit', rootPatchId: null,
+        reviewHeadPatchId: null, reviewRequestedAt: null } });
+
+    const admin = new AdminAPIAccessStrategy({ prisma } as FastifyInstance);
+    expect(await admin.undo('volume', 1)).toMatchObject({ newHeadId: 'p0', newVersion: 2 });
+    const branch = (await state()).branch;
+    expect(branch).toMatchObject({ version: 4, rootPatchId: branch.headPatchId });
+    expect(branch.headPatchId).not.toBe('admin-edit');
+  });
+
+  it('increments the contributor version when admin undo reparents its private root', async () => {
+    await prisma.patch.create({ data: { id: 'admin-edit', parentId: 'p0', volumeId: 'volume',
+      userId: 'admin', sequence: 1, operation: JSON.stringify(edit) } });
+    await prisma.patch.update({ where: { id: 'p1' }, data: { parentId: 'admin-edit' } });
+    for (let index = 1; index <= 3; index++) {
+      await prisma.patch.update({ where: { id: `p${index}` }, data: { sequence: index + 1 } });
+    }
+    await prisma.ocrBranch.update({ where: { id: 'admin-branch' },
+      data: { headPatchId: 'admin-edit', version: 1 } });
+
+    const admin = new AdminAPIAccessStrategy({ prisma } as FastifyInstance);
+    expect(await admin.undo('volume', 1)).toMatchObject({ newHeadId: 'p0', newVersion: 2 });
+    const branch = (await state()).branch;
+    const root = await prisma.patch.findUniqueOrThrow({ where: { id: 'p1' } });
+    expect(branch).toMatchObject({ version: 4, headPatchId: 'p3', rootPatchId: root.parentId });
+    expect(root.parentId).not.toBe('admin-edit');
+    expect(await prisma.patch.findUniqueOrThrow({ where: { id: root.parentId! } }))
+      .toMatchObject({ parentId: 'p0', operation: JSON.stringify(edit) });
+  });
+});
+
 describe('officialize after admin undo', () => {
   /** Leave an old admin forward chain beside the contributor's private chain. */
   async function addAbandonedFuture() {
@@ -624,5 +710,31 @@ describe('officialize after admin undo', () => {
       .toMatchObject({ nextPatchId: 'p1' });
     expect(await prisma.ocrBranch.findUniqueOrThrow({ where: { id: 'admin-branch' } }))
       .toMatchObject({ headPatchId: 'p3' });
+  });
+
+  it('prunes the abandoned future before a replacement admin edit reuses its sequence', async () => {
+    await addAbandonedFuture();
+    await prisma.ocrBranch.update({ where: { id: 'admin-branch' },
+      data: { headPatchId: 'old-admin-patch', version: 1 } });
+
+    const admin = new AdminAPIAccessStrategy({ prisma } as FastifyInstance);
+    expect(await admin.undo('volume', 1)).toMatchObject({ newHeadId: 'p0', newVersion: 2 });
+    // Undo may leave a forward patch stored while admin HEAD has a lower sequence.
+    expect(await prisma.patch.findUnique({ where: { id: 'old-admin-patch' } })).not.toBeNull();
+
+    await admin.applyPatch('volume', {
+      op: 'replace', path: '/pages/0/blocks/0/lines/0/text',
+      old_value: 'text0', value: 'replacement admin text'
+    }, 2);
+
+    const newAdmin = await prisma.ocrBranch.findUniqueOrThrow({ where: { id: 'admin-branch' },
+      include: { headPatch: true } });
+    expect(newAdmin.headPatch.sequence).toBe(1);
+    expect(newAdmin.headPatch.parentId).toBe('p0');
+    expect(await prisma.patch.findMany({ where: {
+      id: { in: ['old-admin-patch', 'old-admin-child'] }
+    } })).toEqual([]);
+    expect(await prisma.patch.findUniqueOrThrow({ where: { id: 'p0' } }))
+      .toMatchObject({ nextPatchId: newAdmin.headPatchId });
   });
 });

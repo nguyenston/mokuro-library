@@ -299,21 +299,14 @@ export class RebaseEngine {
     return result;
   }
 
-  /**
-   * Deletes hot and db sessions
-   */
+  /** Delete the persisted session before evicting its hot state. */
   async abort(rebaseId: string): Promise<void> {
-    // 1) Drop in-memory cache, then remove DB session.
-    const deleted = sessionCache.delete(rebaseId);
-
-    try {
-      await this.prisma.rebaseSession.delete({ where: { id: rebaseId } });
-    } catch (e) {
-      // Only throw if it wasn't in memory cache either
-      if (!deleted) {
-        throw new Error('Rebase session not found');
-      }
-      // Was in memory but not DB — possible expiry, log but don't throw
+    // A failed database write must leave the cached session available to retry.
+    const deleted = await this.prisma.rebaseSession.deleteMany({ where: { id: rebaseId } });
+    const wasCached = sessionCache.delete(rebaseId);
+    if (deleted.count === 0) {
+      if (!wasCached) throw new Error('Rebase session not found');
+      // A hot session can outlive its persisted row after expiry or cascade deletion.
       this.fastify.log.warn(`Rebase session ${rebaseId} not found in DB (may have expired)`);
     }
   }

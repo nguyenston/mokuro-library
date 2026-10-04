@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { FastifyInstance } from 'fastify';
 import fs from 'fs';
 import path from 'path';
 import type { TestContext } from './helpers/testContext';
@@ -1076,6 +1077,28 @@ describe('RebaseEngine', () => {
     await expect(engine.continue(start.rebaseId, 'keep_admin')).rejects.toThrow(
       'Session expired or not found'
     );
+
+    const retry = await engine.start(base.volumeId, userId, userBranch.version);
+    if (retry.status !== 'paused') throw new Error('Expected rebase to pause on conflict');
+    let failDelete = true;
+    const client = ctx.prisma.$extends({ query: { rebaseSession: {
+      async deleteMany({ args, query }) {
+        if (failDelete) {
+          failDelete = false;
+          throw new Error('Injected session deletion failure');
+        }
+        return query(args);
+      }
+    } } });
+    const aborter = new RebaseEngine({ prisma: client, log: ctx.app.log } as FastifyInstance);
+    await expect(aborter.abort(retry.rebaseId)).rejects.toThrow('Injected session deletion failure');
+    expect(await ctx.prisma.rebaseSession.findUnique({ where: { id: retry.rebaseId } })).not.toBeNull();
+
+    // Expiry may remove the DB row before retry; the failed delete must have kept hot state.
+    await ctx.prisma.rebaseSession.delete({ where: { id: retry.rebaseId } });
+    await expect(aborter.abort(retry.rebaseId)).resolves.toBeUndefined();
+    await expect(engine.continue(retry.rebaseId, 'keep_admin'))
+      .rejects.toThrow('Session expired or not found');
   });
 
   it('effect_shift resolves when user add shifts admin effect', async () => {

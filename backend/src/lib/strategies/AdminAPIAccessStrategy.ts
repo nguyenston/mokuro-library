@@ -157,6 +157,13 @@ export class AdminAPIAccessStrategy implements IAPIAccessStrategy {
 
     // 4. Transactional Write
     const result = await this.fastify.prisma.$transaction(async (tx) => {
+      // Claim the version before deleting an abandoned forward chain.
+      const claimed = await tx.ocrBranch.updateMany({
+        where: { id: adminBranch.id, version },
+        data: { version: { increment: 1 } }
+      });
+      if (claimed.count !== 1) throw new HttpError(409, 'Version mismatch. Please refresh.');
+
       // Cascade delete will remove all subsequent history
       // We delete nextPatch, not children
       if (patch.nextPatchId) await tx.patch.delete({ where: { id: patch.nextPatchId } });
@@ -182,9 +189,8 @@ export class AdminAPIAccessStrategy implements IAPIAccessStrategy {
       const updatedBranch = await tx.ocrBranch.update({
         where: { id: adminBranch.id },
         data: {
-          headPatchId: newPatch.id,
-          // Root never changes for Admin (it's always Genesis)
-          version: { increment: 1 }
+          // Root remains at Genesis.
+          headPatchId: newPatch.id
         }
       });
 
@@ -222,15 +228,7 @@ export class AdminAPIAccessStrategy implements IAPIAccessStrategy {
 
     const currentHeadId = adminBranch.headPatchId;
     const currentPatch = await this.fastify.prisma.patch.findUnique({
-      where: { id: currentHeadId },
-      include: {
-        children: {
-          select: {
-            id: true,
-            asRootOf: { select: { id: true } }
-          }
-        }
-      }
+      where: { id: currentHeadId }
     });
 
     if (!currentPatch) throw new HttpError(500, 'HEAD patch not found.');
@@ -240,48 +238,38 @@ export class AdminAPIAccessStrategy implements IAPIAccessStrategy {
     const operation = parseStoredPatchOperation(currentPatch.operation, `patch ${currentPatch.id}`);
     const inversePatch = PatchInverter.invert(operation);
 
-    // 3. Dependency Check ("In the Way")
-    // Check for direct Head dependents or Root dependents (forks)
-    const rootDependents = currentPatch.children
-      .map((p) => (p.asRootOf[0] ? { ...p.asRootOf[0], rootId: p.id } : undefined))
-      .filter((p) => p !== undefined);
-    const headDependents = await this.fastify.prisma.ocrBranch.findMany({
-      where: {
-        headPatchId: currentHeadId,
-        rootPatchId: null,
-        userId: { not: 'admin' }
-      },
-      select: { id: true }
-    });
-
-    let dependentBranchId: string | undefined;
-    let dependentPatchId: string | undefined;
-    if (headDependents.length + rootDependents.length > 1) {
-      throw new HttpError(409, 'Cannot undo: too many dependents, history solidified.');
-    }
-    if (headDependents.length === 1) {
-      dependentBranchId = headDependents[0].id;
-      dependentPatchId = currentHeadId;
-    }
-    if (rootDependents.length === 1) {
-      dependentBranchId = rootDependents[0].id;
-      dependentPatchId = rootDependents[0].rootId;
-    }
-
-    // 4. Transactional Updates (Database Only)
+    // 3. Transactional Updates (Database Only)
     const { patchClone, newUserBranch } = await this.fastify.prisma.$transaction(async (tx) => {
-      // Move Admin Pointer Back
-      await tx.ocrBranch.update({
-        where: { id: adminBranch.id },
+      // Claim the captured HEAD and version before inspecting dependent branches.
+      const moved = await tx.ocrBranch.updateMany({
+        where: { id: adminBranch.id, version, headPatchId: currentHeadId },
         data: {
           headPatchId: newHeadId,
           version: { increment: 1 }
         }
       });
+      if (moved.count !== 1) throw new HttpError(409, 'Version mismatch. Please refresh.');
+
+      // Direct HEAD dependents and forks must be inspected under the write lock.
+      const children = await tx.patch.findMany({
+        where: { parentId: currentHeadId },
+        select: { id: true, asRootOf: { select: { id: true, version: true } } }
+      });
+      const rootDependents = children
+        .map((p) => (p.asRootOf[0] ? { ...p.asRootOf[0], rootId: p.id } : undefined))
+        .filter((p) => p !== undefined);
+      const headDependents = await tx.ocrBranch.findMany({
+        where: { headPatchId: currentHeadId, rootPatchId: null, userId: { not: 'admin' } },
+        select: { id: true, version: true }
+      });
+      if (headDependents.length + rootDependents.length > 1) {
+        throw new HttpError(409, 'Cannot undo: too many dependents, history solidified.');
+      }
+      const dependent = headDependents[0] ?? rootDependents[0];
 
       let patchClone;
       let newUserBranch;
-      if (dependentBranchId) {
+      if (dependent) {
         patchClone = await tx.patch.create({
           data: {
             volumeId,
@@ -295,29 +283,34 @@ export class AdminAPIAccessStrategy implements IAPIAccessStrategy {
 
         if (headDependents.length === 1) {
           // let the user branch claim the clone patch
-          newUserBranch = await tx.ocrBranch.update({
-            where: { id: dependentBranchId },
+          const dragged = await tx.ocrBranch.updateMany({
+            where: { id: dependent.id, version: dependent.version },
             data: {
               headPatchId: patchClone.id,
-              rootPatchId: patchClone.id
+              rootPatchId: patchClone.id,
+              version: { increment: 1 }
             }
           });
+          if (dragged.count !== 1) throw new HttpError(409, 'Dependent branch changed. Please refresh.');
         }
 
         if (rootDependents.length === 1) {
-          newUserBranch = await tx.ocrBranch.update({
-            where: { id: dependentBranchId },
+          const dragged = await tx.ocrBranch.updateMany({
+            where: { id: dependent.id, version: dependent.version },
             data: {
-              rootPatchId: patchClone.id
+              rootPatchId: patchClone.id,
+              version: { increment: 1 }
             }
           });
+          if (dragged.count !== 1) throw new HttpError(409, 'Dependent branch changed. Please refresh.');
           await tx.patch.update({
-            where: { id: dependentPatchId },
+            where: { id: rootDependents[0].rootId },
             data: {
               parentId: patchClone.id
             }
           });
         }
+        newUserBranch = await tx.ocrBranch.findUniqueOrThrow({ where: { id: dependent.id } });
       }
 
       return { patchClone, newUserBranch };

@@ -323,14 +323,43 @@ Any patch duplication required to support this behavior is an implementation det
 
 ---
 
-### 4.3.5 Admin Chain Invariant
+#### 4.3.5 Admin Forward-History Pruning
 
-After a successful admin undo, the new admin HEAD MUST NOT retain any forward
-(`nextPatchId`) links.
+After admin undo, the suffix beyond the new HEAD is abandoned, not active admin
+history. The new HEAD MAY retain a `nextPatchId` link to that suffix solely for
+later cleanup; the link does not make the suffix active. Before advancing HEAD
+along a replacement path, an admin write MUST delete the abandoned suffix and its
+descendants, not merely replace the forward link. Snapshot synchronization MAY
+prune the suffix earlier. Every pruning path MUST apply the session-cancellation
+rule in §4.3.6 before deleting a rebase target; foreign-key cascade alone does
+not provide the required warning.
 
 Admin history may be rewritten only while the dependent user branch can be uniquely identified and dragged backward.
 
-Admin history is always a single forward chain with no redo capability.
+The active admin history is the single parent chain ending at admin HEAD.
+
+#### 4.3.6 Rebase Sessions Affected by Admin Undo
+
+Each active rebase session records the admin patch at the end of the segment it
+has already simulated (`targetHeadPatchId`). Before undoing admin HEAD `P`, find
+sessions targeting `P`: moving HEAD to `P.parent` would remove their target from
+the active admin chain. A session targeting an earlier ancestor remains valid.
+
+If any sessions would be invalidated, undo MUST first return a confirmation-required
+response identifying the affected sessions; the admin UI warns that proceeding
+cancels those contributors' rebases. Confirmation does not bypass the admin branch
+version check or the branch-drag dependency rules. The confirmed request must
+identify the sessions the admin agreed to cancel. If that set changes before undo,
+require a fresh confirmation rather than silently cancelling a new session.
+
+On confirmation, cancel the affected sessions before attempting undo. Database
+session deletion precedes eviction of each in-memory session; a failed deletion
+must not evict a usable cache entry. Recheck for newly created affected sessions
+before moving HEAD. Cancellation and undo are intentionally separate operations:
+if undo subsequently fails, the already cancelled sessions are not restored. The
+warning must say so. Admin edits that delete an undone forward chain apply the
+same warning and cancellation rule to any sessions targeting patches to be pruned;
+foreign-key cascade is not a substitute for explicit cancellation.
 
 
 ### 4.4 Rebase (Effect Propagation Model)
@@ -361,6 +390,27 @@ invoking the engine. A failed start or later abort does not restore the review.
 The engine guards rebase with that resulting version, independently of review policy.
 
 Rebase processes admin patches one at a time, updating the user patch list after each step.
+
+An ordinary rebase captures a finite admin segment from the fork point through
+its target patch, not a requirement that the target remain the live admin HEAD.
+At commit, require the session and its target patch to still exist, and require
+`adminHead.sequence >= targetPatch.sequence`. These conditions establish target
+validity under the admin-write invariant in §4.3.5: undo below the target lowers
+the live HEAD sequence, while any later write that reaches the target's sequence on a
+different path first deletes the abandoned suffix and its target (which also
+deletes the session). Admin appends beyond the intact target preserve it and may
+increase the live HEAD sequence without invalidating the rebase. Therefore do not
+compare the admin version or demand that live HEAD still equal the target. Keep
+the existence and sequence checks inside the commit transaction, before creating
+replacement patches; the contributor branch version remains guarded because its
+private history is being replaced. Every admin writer MUST preserve the pruning
+invariant; otherwise sequence comparison cannot establish target validity.
+
+When admin has advanced beyond the captured target, the transformed user patches
+are committed on that target. The user branch may then be behind the live admin
+HEAD and can rebase again over the later admin segment. Snapshot inheritance must
+materialize the captured target's document state, not copy the later live admin
+snapshot; clean-branch fast-forward must likewise validate the target it adopts.
 
 ---
 
@@ -701,9 +751,15 @@ A patch `P` is eliminated if and only if rebase-style propagation of its inverse
 
 **POST** `/api/library/volume/:id/undo`
 
-* **Body:** `{ branchVersion: number }`
+* **Body:** `{ branchVersion: number, forced?: boolean, cancellingRebaseIds?: string[] }`
 * **Response:** `{ success, newHeadId, newVersion, patch }` (patch is inverse)
-* **Errors:** `400` (at genesis), `404`, `409` (version mismatch or pending review boundary)
+* **Errors:** `400` (at genesis), `404`, `409` (version mismatch, pending review
+  boundary, or admin rebase-cancellation confirmation required)
+
+For admin undo, `forced` confirms cancellation only of the affected session IDs
+returned by the confirmation-required response. A changed affected set requires
+another warning. Contributor undo ignores these admin-only fields. Cancellation
+may remain in effect if the subsequent admin undo fails (§4.3.6).
 
 **POST** `/api/library/volume/:id/redo`
 
