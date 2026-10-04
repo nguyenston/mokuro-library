@@ -223,6 +223,14 @@ export class RebaseEngine {
         where: { id: branch.id }, select: { version: true }
       });
       if (current?.version !== expectedVersion) throw new RebaseStateChangedError();
+      // Undo can finish after chains were read but before this session's first write.
+      // Appends preserve the target; moving below its sequence makes this start stale.
+      const currentAdmin = await tx.ocrBranch.findUnique({
+        where: { id: adminBranch.id }, select: { headPatch: { select: { sequence: true } } }
+      });
+      if (!currentAdmin || currentAdmin.headPatch.sequence < adminBranch.headPatch.sequence) {
+        throw new RebaseStateChangedError();
+      }
       return created;
     });
 

@@ -210,7 +210,8 @@ export class AdminAPIAccessStrategy implements IAPIAccessStrategy {
    * Divergence: Implements "Branch Drag".
    * 1. Checks if any User branches depend on the current Admin HEAD.
    * 2. If Yes: "Drags" the patch into their private history (sets their root to this patch).
-   * 3. If No: Hard deletes the patch (rewriting history).
+   * Retains the abandoned original until forward-history cleanup.
+   * An active rebase targeting HEAD must finish or be explicitly cancelled before undo.
    */
   async undo(volumeId: string, version: number): Promise<UndoResponse> {
     // 1. Authorization & Setup
@@ -249,6 +250,12 @@ export class AdminAPIAccessStrategy implements IAPIAccessStrategy {
         }
       });
       if (moved.count !== 1) throw new HttpError(409, 'Version mismatch. Please refresh.');
+
+      // Under the write lock, reject crossing an active rebase target. A rejection
+      // rolls back the HEAD/version claim; sessions targeting ancestors remain valid.
+      if (await tx.rebaseSession.findFirst({ where: { targetHeadPatchId: currentHeadId }, select: { id: true } })) {
+        throw new HttpError(409, 'Cannot undo this patch while it is an active rebase target. Finish or explicitly cancel the rebase first.');
+      }
 
       // Direct HEAD dependents and forks must be inspected under the write lock.
       const children = await tx.patch.findMany({

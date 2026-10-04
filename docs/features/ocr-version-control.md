@@ -330,9 +330,8 @@ history. The new HEAD MAY retain a `nextPatchId` link to that suffix solely for
 later cleanup; the link does not make the suffix active. Before advancing HEAD
 along a replacement path, an admin write MUST delete the abandoned suffix and its
 descendants, not merely replace the forward link. Snapshot synchronization MAY
-prune the suffix earlier. Every pruning path MUST apply the session-cancellation
-rule in §4.3.6 before deleting a rebase target; foreign-key cascade alone does
-not provide the required warning.
+prune the suffix earlier. Every pruning path MUST preserve active rebase targets
+under §4.3.6; foreign-key cascade MUST NOT silently cancel a session.
 
 Admin history may be rewritten only while the dependent user branch can be uniquely identified and dragged backward.
 
@@ -345,21 +344,28 @@ has already simulated (`targetHeadPatchId`). Before undoing admin HEAD `P`, find
 sessions targeting `P`: moving HEAD to `P.parent` would remove their target from
 the active admin chain. A session targeting an earlier ancestor remains valid.
 
-If any sessions would be invalidated, undo MUST first return a confirmation-required
-response identifying the affected sessions; the admin UI warns that proceeding
-cancels those contributors' rebases. Confirmation does not bypass the admin branch
-version check or the branch-drag dependency rules. The confirmed request must
-identify the sessions the admin agreed to cancel. If that set changes before undo,
-require a fresh confirmation rather than silently cancelling a new session.
+If any active session targets `P`, undo MUST return `409` without changing
+branches, patches, or sessions. The rebase must finish or be explicitly cancelled
+before undo is retried. Undo MUST NOT implicitly cancel a session or expose a
+forced-cancellation option.
 
-On confirmation, cancel the affected sessions before attempting undo. Database
-session deletion precedes eviction of each in-memory session; a failed deletion
-must not evict a usable cache entry. Recheck for newly created affected sessions
-before moving HEAD. Cancellation and undo are intentionally separate operations:
-if undo subsequently fails, the already cancelled sessions are not restored. The
-warning must say so. Admin edits that delete an undone forward chain apply the
-same warning and cancellation rule to any sessions targeting patches to be pruned;
-foreign-key cascade is not a substitute for explicit cancellation.
+Check for affected sessions inside the undo transaction after acquiring its write
+lock through the conditional admin HEAD/version update. If a session exists,
+roll back the entire transaction, including that update. Session creation and
+undo therefore cannot cross an active target unnoticed. The normal admin version
+check and branch-drag dependency rules still apply.
+
+Explicit session cancellation deletes the database row before evicting its
+in-memory state; a failed deletion MUST NOT evict a usable cache entry. Admin
+edits and snapshot synchronization that prune an abandoned forward chain MUST
+likewise preserve active rebase targets: finish or explicitly cancel affected
+sessions before deleting those patches. Foreign-key cascade is not a substitute
+for explicit cancellation.
+
+Session creation MUST also check its captured admin target under the transaction's
+write lock. If undo lowered the live admin HEAD sequence below the target sequence
+before the session was persisted, reject the start and roll back session creation.
+An append beyond an intact target does not invalidate the start.
 
 
 ### 4.4 Rebase (Effect Propagation Model)
@@ -751,15 +757,13 @@ A patch `P` is eliminated if and only if rebase-style propagation of its inverse
 
 **POST** `/api/library/volume/:id/undo`
 
-* **Body:** `{ branchVersion: number, forced?: boolean, cancellingRebaseIds?: string[] }`
+* **Body:** `{ branchVersion: number }`
 * **Response:** `{ success, newHeadId, newVersion, patch }` (patch is inverse)
 * **Errors:** `400` (at genesis), `404`, `409` (version mismatch, pending review
-  boundary, or admin rebase-cancellation confirmation required)
+  boundary, or admin HEAD is an active rebase target)
 
-For admin undo, `forced` confirms cancellation only of the affected session IDs
-returned by the confirmation-required response. A changed affected set requires
-another warning. Contributor undo ignores these admin-only fields. Cancellation
-may remain in effect if the subsequent admin undo fails (§4.3.6).
+Admin undo cannot cross an active rebase target. Finish or explicitly cancel the
+affected rebase before retrying; undo itself never cancels sessions (§4.3.6).
 
 **POST** `/api/library/volume/:id/redo`
 
