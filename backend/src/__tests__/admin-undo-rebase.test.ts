@@ -1,12 +1,13 @@
 /**
  * Admin undo must not cross an active rebase target or cancel sessions implicitly.
  * Real SQLite transactions verify unchanged state on rejection, explicit abort
- * followed by undo, and both orderings of the session-start/undo race.
+ * followed by undo, both orderings of the session-start/undo race, and pruning
+ * cleanup, including snapshot cleanup racing with a concurrent admin append.
  */
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import Fastify, { type FastifyInstance, type FastifyRequest } from 'fastify';
 import { DatabaseSync } from 'node:sqlite';
-import { mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { createPrismaClient, type ExtendedPrismaClient } from '../lib/prisma/prisma';
@@ -14,6 +15,7 @@ import { AdminAPIAccessStrategy } from '../lib/strategies/AdminAPIAccessStrategy
 import { UserAPIAccessStrategy } from '../lib/strategies/UserAPIAccessStrategy';
 import { RebaseEngine } from '../lib/rebase/RebaseEngine';
 import ocrRoutes from '../routes/ocr';
+import { pruneAbandonedFuture, syncSnapshot } from '../utils/ocrHelpers';
 
 let directory: string;
 let prisma: ExtendedPrismaClient;
@@ -215,5 +217,62 @@ describe('admin undo of a rebase target', () => {
     expect(await prisma.rebaseSession.findUniqueOrThrow({ where: { id: result.rebaseId } }))
       .toMatchObject({ targetHeadPatchId: 'a2' });
     await engine.abort(result.rebaseId);
+  });
+});
+
+/** Leave an abandoned suffix through ordinary undo, then make its snapshot current. */
+async function abandonedFuture() {
+  await admin().undo('v', 2);
+  await prisma.ocrBranch.update({ where: { id: 'admin-branch' },
+    data: { snapshotPatchId: 'a1' } });
+}
+
+/** Add a descendant outside the admin forward-link chain to exercise parent cascades. */
+async function descendant() {
+  await prisma.patch.create({ data: { id: 'descendant', parentId: 'a2', sequence: 3,
+    volumeId: 'v', userId: 'user', operation: JSON.stringify({ op: 'replace',
+      path: '/pages/0/blocks/0/lines/0/text', old_value: 'admin2', value: 'descendant' }) } });
+}
+
+/** Use the existing valid snapshot path so cleanup is isolated from regeneration. */
+async function snapshotFixture() {
+  const branch = await prisma.ocrBranch.findUniqueOrThrow({ where: { id: 'admin-branch' },
+    include: { headPatch: true, rootPatch: true, snapshotPatch: true } });
+  const cache = path.join(directory, 'uploads', 'cache', 'snapshots');
+  mkdirSync(cache, { recursive: true });
+  writeFileSync(path.join(cache, `${branch.id}.json`), JSON.stringify({ patch_id: branch.snapshotPatchId }));
+  return { branch, fastify: { prisma, projectRoot: directory, log: app.log } as FastifyInstance };
+}
+
+describe('abandoned-future cleanup', () => {
+  it('prunes abandoned descendants and preserves ancestor-target sessions', async () => {
+    await abandonedFuture();
+    await descendant();
+    await session('ancestor', 'a1');
+    await prisma.$transaction(tx => pruneAbandonedFuture(tx as ExtendedPrismaClient, 'a1'));
+    expect(await prisma.patch.findUnique({ where: { id: 'a2' } })).toBeNull();
+    expect(await prisma.patch.findUnique({ where: { id: 'descendant' } })).toBeNull();
+    expect(await prisma.patch.findUniqueOrThrow({ where: { id: 'a1' } })).toMatchObject({ nextPatchId: null });
+    expect(await prisma.rebaseSession.findUnique({ where: { id: 'ancestor' } })).not.toBeNull();
+  });
+
+  it('prunes after snapshot sync without advancing the edit version', async () => {
+    await abandonedFuture();
+    const { fastify, branch } = await snapshotFixture();
+    await syncSnapshot(fastify, branch);
+    expect(await prisma.patch.findUnique({ where: { id: 'a2' } })).toBeNull();
+    expect(await prisma.ocrBranch.findUniqueOrThrow({ where: { id: 'admin-branch' } }))
+      .toMatchObject({ headPatchId: 'a1', version: 3 });
+  });
+
+  it('does not mistake a concurrent admin append for abandoned history', async () => {
+    await prisma.ocrBranch.update({ where: { id: 'admin-branch' }, data: { snapshotPatchId: 'a2' } });
+    const { fastify, branch } = await snapshotFixture();
+    // Snapshot sync still holds the captured a2 branch after another tab appends.
+    await admin().applyPatch('v', { op: 'replace',
+      path: '/pages/0/blocks/0/lines/0/text', old_value: 'admin2', value: 'admin3' }, 2);
+    const before = await state();
+    await syncSnapshot(fastify, branch);
+    expect(await state()).toEqual(before);
   });
 });

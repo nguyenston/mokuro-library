@@ -330,8 +330,14 @@ history. The new HEAD MAY retain a `nextPatchId` link to that suffix solely for
 later cleanup; the link does not make the suffix active. Before advancing HEAD
 along a replacement path, an admin write MUST delete the abandoned suffix and its
 descendants, not merely replace the forward link. Snapshot synchronization MAY
-prune the suffix earlier. Every pruning path MUST preserve active rebase targets
-under §4.3.6; foreign-key cascade MUST NOT silently cancel a session.
+prune the suffix earlier. The undo and session-start rules in §4.3.6 ensure that
+no valid active rebase target lies in this abandoned suffix. Pruning is deferred
+deletion of already-abandoned history; it does not require another session scan.
+
+Snapshot cleanup MUST validate that its captured admin HEAD is still current
+under the same transaction's write lock before pruning. If HEAD changed, skip
+cleanup: the captured HEAD's successor may now be active history. Cleanup does
+not advance the edit version.
 
 Admin history may be rewritten only while the dependent user branch can be uniquely identified and dragged backward.
 
@@ -356,11 +362,9 @@ undo therefore cannot cross an active target unnoticed. The normal admin version
 check and branch-drag dependency rules still apply.
 
 Explicit session cancellation deletes the database row before evicting its
-in-memory state; a failed deletion MUST NOT evict a usable cache entry. Admin
-edits and snapshot synchronization that prune an abandoned forward chain MUST
-likewise preserve active rebase targets: finish or explicitly cancel affected
-sessions before deleting those patches. Foreign-key cascade is not a substitute
-for explicit cancellation.
+in-memory state; a failed deletion MUST NOT evict a usable cache entry. Lazy
+cleanup of the abandoned suffix relies on the undo/session-start invariant,
+rather than repeating cancellation checks when the patches are finally deleted.
 
 Session creation MUST also check its captured admin target under the transaction's
 write lock. If undo lowered the live admin HEAD sequence below the target sequence

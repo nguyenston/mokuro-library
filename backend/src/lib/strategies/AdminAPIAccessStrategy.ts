@@ -139,12 +139,6 @@ export class AdminAPIAccessStrategy implements IAPIAccessStrategy {
     const headPatch = adminBranch.headPatch;
     const snapshotPatch = adminBranch.snapshotPatch; // Non-nullable per schema
 
-    const patch = await this.fastify.prisma.patch.findUnique({
-      where: { id: headPatch.id },
-      select: { nextPatchId: true }
-    });
-    if (!patch) throw new HttpError(500, 'Branch HEAD patch not found.');
-
     // 3. Snapshot Integrity Check
     // If the snapshot is chronologically ahead of the current HEAD (due to previous undos),
     // we must sync the file back to the current HEAD state before writing new changes.
@@ -152,7 +146,6 @@ export class AdminAPIAccessStrategy implements IAPIAccessStrategy {
     if (isSnapshotAhead) {
       this.fastify.log.info(`[AdminStrategy] Snapshot ahead of HEAD. Syncing back before write.`);
       await syncSnapshot(this.fastify, adminBranch);
-      patch.nextPatchId = null; // sync snapshot deletes next patch
     }
 
     // 4. Transactional Write
@@ -164,9 +157,8 @@ export class AdminAPIAccessStrategy implements IAPIAccessStrategy {
       });
       if (claimed.count !== 1) throw new HttpError(409, 'Version mismatch. Please refresh.');
 
-      // Cascade delete will remove all subsequent history
-      // We delete nextPatch, not children
-      if (patch.nextPatchId) await tx.patch.delete({ where: { id: patch.nextPatchId } });
+      // Use the current forward link under the write lock and preserve rebase dependencies.
+      await pruneAbandonedFuture(tx as ExtendedPrismaClient, headPatch.id);
 
       // Create the New Patch
       const newPatch = await tx.patch.create({

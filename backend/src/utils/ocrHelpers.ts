@@ -135,7 +135,12 @@ export async function loadSnapshot(
   throw Error(`Snapshot corruption detected for ${branch.id}`);
 }
 
-/** Delete the abandoned forward chain after admin undo. */
+/**
+ * Lazily delete the forward history abandoned by admin undo, including descendants.
+ * Undo/session-start invariants keep valid rebase targets out of this suffix;
+ * cleanup therefore does not scan sessions again. The caller must ensure headId
+ * is still admin HEAD inside the deletion transaction; this helper does not check it.
+ */
 export async function pruneAbandonedFuture(prisma: ExtendedPrismaClient, headId: string): Promise<void> {
   const head = await prisma.patch.findUnique({
     where: { id: headId },
@@ -145,13 +150,23 @@ export async function pruneAbandonedFuture(prisma: ExtendedPrismaClient, headId:
   if (head.nextPatchId) await prisma.patch.delete({ where: { id: head.nextPatchId } });
 }
 
-/** Finish every successful snapshot path with the same admin-future cleanup. */
+/** Clean admin future history only while the snapshot result's HEAD remains current. */
 async function finishSnapshotSync(
   fastify: FastifyInstance,
   result: { data: MokuroData; branch: OcrBranch }
 ): Promise<{ data: MokuroData; branch: OcrBranch }> {
   if (result.branch.userId === 'admin') {
-    await pruneAbandonedFuture(fastify.prisma, result.branch.headPatchId);
+    await fastify.prisma.$transaction(async tx => {
+      // Acquire the writer lock without advancing the edit version. A stale
+      // snapshot result must not mistake a concurrent append for abandoned history.
+      const current = await tx.ocrBranch.updateMany({
+        where: { id: result.branch.id, userId: 'admin', headPatchId: result.branch.headPatchId },
+        data: { headPatchId: result.branch.headPatchId }
+      });
+      if (current.count === 1) {
+        await pruneAbandonedFuture(tx as ExtendedPrismaClient, result.branch.headPatchId);
+      }
+    });
   }
   return result;
 }

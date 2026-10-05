@@ -27,7 +27,8 @@ function fixture() {
       delete: patchDelete
     },
     ocrBranch: {
-      update: vi.fn().mockResolvedValue(branch)
+      update: vi.fn().mockResolvedValue(branch),
+      updateMany: vi.fn().mockResolvedValue({ count: 1 })
     },
     $queryRaw: vi.fn().mockResolvedValue([{
       id: 'head', operation: JSON.stringify({ op: 'genesis', path: 'base.mokuro' })

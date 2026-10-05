@@ -625,10 +625,11 @@ describe('competing OCR writers', () => {
   it('rejects an admin edit whose branch changes before pruning', async () => {
     const patches = (await state()).patches;
     let bumped = false;
-    const client = prisma.$extends({ query: { patch: {
+    const client = prisma.$extends({ query: { ocrBranch: {
       async findUnique({ args, query }) {
         const result = await query(args);
-        if (args.where.id === 'p0' && !bumped) {
+        // Capture the initial branch read, before the edit claims its version.
+        if (args.where.volumeId_userId?.userId === 'admin' && !bumped) {
           bumped = true;
           await prisma.ocrBranch.update({ where: { id: 'admin-branch' },
             data: { version: { increment: 1 } } });
